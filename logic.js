@@ -136,6 +136,11 @@ db.ref(".info/connected").on("value", (snap) => {
     }
 });
 
+let serverTimeOffset = 0;
+db.ref(".info/serverTimeOffset").on("value", (snap) => {
+    serverTimeOffset = snap.val();
+});
+
 let currentUser = null;
 let msgToDeleteId = null;
 let selectedMsgId = null;
@@ -370,12 +375,28 @@ function setupFirebaseListeners() {
     // 4. Status Listener (Other User)
     const otherUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
     const otherRole = currentUser === 'Raushan_143' ? 'Beta' : 'Alpha';
+    
+    let otherUserHeartbeat = 0;
+    let otherUserLastSeen = null;
+
     db.ref('status').on('value', snapshot => {
         const data = snapshot.val() || {};
-        const isOnline = data[`${otherRole} Online`];
-        const lastSeen = data[`${otherRole} Last Seen`];
-        updateStatusUI(isOnline, lastSeen);
+        otherUserHeartbeat = data[`${otherRole} Heartbeat`] || 0;
+        otherUserLastSeen = data[`${otherRole} Last Seen`];
     });
+
+    if (statusCheckInterval) clearInterval(statusCheckInterval);
+    statusCheckInterval = setInterval(() => {
+        const estimatedServerTime = Date.now() + serverTimeOffset;
+        const isOnline = (estimatedServerTime - otherUserHeartbeat) < 2000; // Online if heartbeat within 2 sec
+        
+        let displayLastSeen = otherUserLastSeen;
+        // If timed out but DB still says "Active", use the last heartbeat time
+        if (!isOnline && displayLastSeen === "Active") {
+            displayLastSeen = otherUserHeartbeat;
+        }
+        updateStatusUI(isOnline, displayLastSeen);
+    }, 500);
 
     // 5. Typing Listener (Other User)
     db.ref(`typing/${otherUser}`).on('value', snapshot => {
@@ -589,12 +610,18 @@ function startHeartbeat() {
     const userRole = currentUser === 'Raushan_143' ? 'Alpha' : 'Beta';
     const onlineRef = db.ref(`status/${userRole} Online`);
     const lastSeenRef = db.ref(`status/${userRole} Last Seen`);
+    const heartbeatRef = db.ref(`status/${userRole} Heartbeat`);
 
     onlineRef.set(true);
     lastSeenRef.set("Active");
 
     onlineRef.onDisconnect().set(false);
     lastSeenRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => {
+        heartbeatRef.set(firebase.database.ServerValue.TIMESTAMP);
+    }, 500);
 }
 
 function updateStatusUI(isOnline, lastSeen) {
@@ -1078,43 +1105,6 @@ async function startCall(video, isIncoming = false) {
         return false;
     }
 }
-
-// Function to update the current user's "Last Seen" and check other users
-function heartbeat() {
-    fetch('/api/update-status', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            // Add your CSRF token header here if using a framework like Laravel/Django
-        },
-        body: JSON.stringify({
-            userId: currentUserId // Ensure this variable exists in your code
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        // 'data' should contain the status of the user you are chatting with
-        updateStatusUI(data.isOnline, data.lastSeen);
-    })
-    .catch(error => console.error('Error updating status:', error));
-}
-
-// Function to update the HTML UI
-function updateStatusUI(isOnline, lastSeen) {
-    const statusElement = document.getElementById('user-status-indicator');
-    const textElement = document.getElementById('user-status-text');
-
-    if (isOnline) {
-        statusElement.style.backgroundColor = 'green';
-        textElement.innerText = 'Online';
-    } else {
-        statusElement.style.backgroundColor = 'gray';
-        textElement.innerText = 'Last seen: ' + lastSeen;
-    }
-}
-
-// Run this check every 0.5 seconds (500ms)
-setInterval(heartbeat, 500);
 
 
 function createPeerConnection(isInitiator) {
