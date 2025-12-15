@@ -981,11 +981,13 @@ async function startCall(video, isIncoming = false) {
             // Initiator: Create Offer
             createPeerConnection(true);
         }
+        return true; // Call started successfully
 
     } catch (err) {
         console.error(err);
         alert("Could not start call. Check permissions.");
         endCall();
+        return false; // Call failed to start
     }
 }
 
@@ -1055,13 +1057,15 @@ function handleIncomingSignal(signal) {
         mainContent.classList.add('blur-content');
     } else if (signal.type === 'answer') {
         if (peerConnection) {
-            peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data));
+            peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data))
+                .catch(e => console.error("Error setting remote description:", e));
             callStatusText.innerText = "Connected";
             startCallTimer();
         }
     } else if (signal.type === 'candidate') {
         if (peerConnection) {
-            peerConnection.addIceCandidate(new RTCIceCandidate(signal.data));
+            peerConnection.addIceCandidate(new RTCIceCandidate(signal.data))
+                .catch(e => console.error("Error adding ice candidate:", e));
         }
     } else if (signal.type === 'reject') {
         alert("Call Rejected");
@@ -1076,16 +1080,20 @@ acceptCallBtn.addEventListener('click', () => {
     mainContent.classList.remove('blur-content');
     
     if (incomingSignalData) {
-        startCall(incomingSignalData.isVideo, true).then(() => {
+        startCall(incomingSignalData.isVideo, true).then((success) => {
+            if (!success) return; // Don't proceed if camera/mic failed
+
             createPeerConnection(false);
-            peerConnection.setRemoteDescription(new RTCSessionDescription(incomingSignalData.data));
-            peerConnection.createAnswer()
+            // Wait for setRemoteDescription before creating answer
+            peerConnection.setRemoteDescription(new RTCSessionDescription(incomingSignalData.data))
+                .then(() => peerConnection.createAnswer())
                 .then(answer => peerConnection.setLocalDescription(answer))
                 .then(() => {
                     sendSignal('answer', peerConnection.localDescription);
                     callStatusText.innerText = "Connected";
                     startCallTimer();
-                });
+                })
+                .catch(e => console.error("Error accepting call:", e));
         });
     }
 });
