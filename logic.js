@@ -308,43 +308,37 @@ function setupFirebaseListeners() {
 
     // 3. Signaling Listeners (New Structure)
     const myRole = getUserRole(currentUser);
-    const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
-    const targetRole = getUserRole(targetUser);
 
-    // Listen for Incoming Calls (Offer)
+    // Listen for Incoming Signals (Offer, Answer)
     ['Audio', 'Video'].forEach(cType => {
         db.ref(`signals/${myRole}_incoming_${cType}`).on('value', snapshot => {
             const data = snapshot.val();
-            if (data && data.status === 'ringing' && data.sender !== currentUser) {
+            
+            // If data is null, the call was ended remotely
+            if (!data) {
+                if ((callStream || incomingSignalData) && isVideoCall === (cType === 'Video')) {
+                    endCall(true);
+                }
+                return;
+            }
+
+            // Handle Offer (Incoming Call)
+            if (data.type === 'offer' && data.sender !== currentUser) {
                 handleIncomingSignal({
                     type: 'offer',
                     sender: data.sender,
                     data: data.sdp,
-                    isVideo: cType === 'Video',
-                    timestamp: data.timestamp
+                    isVideo: cType === 'Video'
                 });
-            } else if (!data && (callStream || incomingSignalData)) {
-                // Call ended remotely (node removed)
-                if (isVideoCall === (cType === 'Video')) endCall(true);
             }
-        });
-    });
-
-    // Listen for Call Acceptance (Answer)
-    ['Audio', 'Video'].forEach(cType => {
-        db.ref(`signals/${targetRole}_incoming_${cType}`).on('value', snapshot => {
-            const data = snapshot.val();
-            if (data && data.status === 'Accepted' && data.answerSdp && data.sender === currentUser) {
+            // Handle Answer (Call Accepted)
+            else if (data.type === 'answer' && data.sender !== currentUser) {
                 handleIncomingSignal({
                     type: 'answer',
-                    sender: targetUser,
-                    data: data.answerSdp,
-                    isVideo: cType === 'Video',
-                    timestamp: data.timestamp
+                    sender: data.sender,
+                    data: data.sdp,
+                    isVideo: cType === 'Video'
                 });
-            } else if (!data && (callStream || incomingSignalData) && !incomingSignalData) {
-                 // Call ended remotely (node removed)
-                 if (isVideoCall === (cType === 'Video')) endCall(true);
             }
         });
     });
@@ -375,6 +369,15 @@ function setupFirebaseListeners() {
     db.ref(`typing/${otherUser}`).on('value', snapshot => {
         const isTyping = snapshot.val();
         headerTypingIndicator.style.display = isTyping ? 'block' : 'none';
+    });
+
+    // 6. Profile Picture Listener (Load saved photo)
+    const userRole = getUserRole(currentUser);
+    db.ref(`profile picture/${userRole}_Profile_Picture`).on('value', snapshot => {
+        const photo = snapshot.val();
+        if (photo) {
+            profileImageDisplay.src = photo;
+        }
     });
 }
 
@@ -697,16 +700,17 @@ function renderPinnedMessage(pinnedMsg) {
 // --- Delete Message Logic ---
 confirmDeleteMsg.addEventListener('click', () => {
     if (msgToDeleteId) {
-        const msg = currentChatHistory.find(m => m.id === msgToDeleteId);
+        const idToDelete = msgToDeleteId;
+        const msg = currentChatHistory.find(m => m.id === idToDelete);
         if (msg) {
             const table = getMessageTable(msg.sender);
-            db.ref(`messages/${table}/${msgToDeleteId}`).remove();
+            db.ref(`messages/${table}/${idToDelete}`).remove();
         }
         
         // Check if deleted message was pinned
         db.ref('pinned_message').once('value').then(snapshot => {
             const pinnedMsg = snapshot.val();
-            if (pinnedMsg && pinnedMsg.id === msgToDeleteId) {
+            if (pinnedMsg && pinnedMsg.id === idToDelete) {
                 db.ref('pinned_message').remove();
             }
         });
@@ -785,8 +789,16 @@ profileFileInput.addEventListener('change', function() {
     if (this.files && this.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
+            const base64 = e.target.result;
             // Update the image source with the uploaded file data
-            profileImageDisplay.src = e.target.result;
+            profileImageDisplay.src = base64;
+
+            // Upload to Firebase for persistence
+            if (currentUser && db) {
+                const userRole = getUserRole(currentUser);
+                db.ref(`profile picture/${userRole}_Profile_Picture`).set(base64)
+                    .catch(err => console.error("Error uploading profile pic:", err));
+            }
         }
         reader.readAsDataURL(this.files[0]);
     }
@@ -987,57 +999,292 @@ videoCallBtn.addEventListener('click', () => startCall(true));
 async function startCall(video, isIncoming = false) {
     menuOptions.style.display = 'none';
     isVideoCall = video;
+    
+    // 1. UI Setup
     callOverlay.style.display = 'flex';
+    callOverlay.classList.remove('pip-mode'); // Reset PiP
+    
+    // Reset Media Elements
+    callRemoteAudio.srcObject = null;
+    callRemoteVideo.srcObject = null;
+    callLocalVideo.srcObject = null;
+    
+    // Reset Buttons
     isCallMuted = false;
     isVideoMuted = false;
-    callTimer.innerText = "00:00";
-    callStatusText.innerText = isIncoming ? "Connecting..." : "Calling...";
     callMuteBtn.innerText = '🎤';
     callMuteBtn.style.background = 'rgba(255,255,255,0.2)';
     callVideoMuteBtn.innerText = '📷';
     callVideoMuteBtn.style.background = 'rgba(255,255,255,0.2)';
     
+    // Configure UI based on call type
     if (video) {
-        callRemoteAudio.srcObject = null; // Ensure audio element is clear for video call
-        callRemoteVideo.style.display = 'block';
         callVideoContainer.style.display = 'block';
         callAudioContainer.style.display = 'none';
+        callRemoteVideo.style.display = 'block';
         callFlipBtn.style.display = 'flex';
         callVideoMuteBtn.style.display = 'flex';
         callFacingMode = 'user';
     } else {
-        callRemoteVideo.srcObject = null; // Ensure video element is clear for audio call
         callVideoContainer.style.display = 'none';
         callAudioContainer.style.display = 'flex';
         callFlipBtn.style.display = 'none';
         callVideoMuteBtn.style.display = 'none';
     }
 
+    callStatusText.innerText = isIncoming ? "Connecting..." : "Ringing...";
+    callTimer.innerText = "00:00";
+
+    // 2. Get Local Media
     try {
         const constraints = {
             audio: true,
             video: video ? { facingMode: callFacingMode } : false
         };
+        
         callStream = await navigator.mediaDevices.getUserMedia(constraints);
         
+        // Force enable tracks
+        callStream.getAudioTracks().forEach(t => t.enabled = true);
+        
         if (video) {
+            callStream.getVideoTracks().forEach(t => t.enabled = true);
             callLocalVideo.srcObject = callStream;
-            // Mirror front camera
-            callLocalVideo.style.transform = callFacingMode === 'user' ? 'scaleX(-1)' : 'none';
+            callLocalVideo.style.transform = 'scaleX(-1)'; // Mirror local
         }
 
+        // 3. Initiate Connection if Caller
         if (!isIncoming) {
-            // Initiator: Create Offer
             createPeerConnection(true);
         }
-        return true; // Call started successfully
-
+        
+        return true;
     } catch (err) {
-        console.error(err);
-        alert("Could not start call. Check permissions.");
+        console.error("Media Error:", err);
+        alert("Could not access Camera/Microphone. Please check permissions.");
         endCall();
-        return false; // Call failed to start
+        return false;
     }
+}
+
+function createPeerConnection(isInitiator) {
+    peerConnection = new RTCPeerConnection(rtcConfig);
+
+    // ICE Candidates
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            sendSignal('candidate', event.candidate);
+        }
+    };
+
+    // Remote Stream Handling
+    peerConnection.ontrack = (event) => {
+        const stream = event.streams[0] || new MediaStream([event.track]);
+        
+        const mediaElement = isVideoCall ? callRemoteVideo : callRemoteAudio;
+        
+        // Only set if different to avoid resets
+        if (mediaElement.srcObject !== stream) {
+            mediaElement.srcObject = stream;
+            console.log("Remote stream attached to", isVideoCall ? "Video" : "Audio");
+        }
+        
+        // Robust Playback
+        mediaElement.autoplay = true;
+        mediaElement.playsInline = true;
+        mediaElement.muted = false;
+        mediaElement.volume = 1.0;
+        
+        const playPromise = mediaElement.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.error("Auto-play failed:", error);
+                // Fallback: Play on interaction
+                document.body.addEventListener('click', () => mediaElement.play(), { once: true });
+            });
+        }
+    };
+
+    // Add Local Tracks
+    if (callStream) {
+        callStream.getTracks().forEach(track => peerConnection.addTrack(track, callStream));
+    }
+
+    // Offer Logic
+    if (isInitiator) {
+        peerConnection.createOffer()
+            .then(offer => peerConnection.setLocalDescription(offer))
+            .then(() => {
+                sendSignal('offer', peerConnection.localDescription);
+            })
+            .catch(e => console.error("Offer Error:", e));
+    }
+}
+
+function sendSignal(type, data) {
+    const myRole = getUserRole(currentUser);
+    const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+    const targetRole = getUserRole(targetUser);
+    const callType = isVideoCall ? 'Video' : 'Audio';
+    
+    // Paths
+    const incomingPath = `signals/${targetRole}_incoming_${callType}`; // Where I write offers
+    const myIncomingPath = `signals/${myRole}_incoming_${callType}`; // Where I write answers (if I am receiver)
+    const candidatePath = `signals/${targetRole}_candidates`;
+
+    if (type === 'offer') {
+        db.ref(incomingPath).set({
+            type: 'offer',
+            sender: currentUser,
+            sdp: JSON.parse(JSON.stringify(data)),
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+    } else if (type === 'answer') {
+        // Send answer to the caller's inbox so they receive it
+        db.ref(incomingPath).set({
+            type: 'answer',
+            sender: currentUser,
+            sdp: JSON.parse(JSON.stringify(data)),
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+    } else if (type === 'candidate') {
+        db.ref(candidatePath).push({
+            candidate: JSON.parse(JSON.stringify(data)),
+            sender: currentUser
+        });
+    } else if (type === 'end') {
+        // Remove all signal nodes for this call type
+        db.ref(`signals/${myRole}_incoming_${callType}`).remove();
+        db.ref(`signals/${targetRole}_incoming_${callType}`).remove();
+        db.ref(`signals/${myRole}_candidates`).remove();
+        db.ref(`signals/${targetRole}_candidates`).remove();
+    }
+}
+
+function handleIncomingSignal(signal) {
+    // 1. Offer (Incoming Call)
+    if (signal.type === 'offer') {
+        incomingSignalData = signal;
+        incomingCallTitle.innerText = `Incoming Call from ${signal.sender}`;
+        incomingCallType.innerText = signal.isVideo ? "Video Call" : "Audio Call";
+        incomingCallModal.style.display = 'flex';
+        mainContent.classList.add('blur-content');
+    } 
+    // 2. Answer (Call Accepted)
+    else if (signal.type === 'answer') {
+        if (peerConnection && peerConnection.signalingState !== 'stable') {
+            const desc = new RTCSessionDescription(signal.data);
+            peerConnection.setRemoteDescription(desc)
+                .then(() => {
+                    console.log("Remote Description Set (Answer)");
+                    callStatusText.innerText = "Connected";
+                    startCallTimer();
+                    processCandidateQueue();
+                })
+                .catch(e => console.error("Set Remote Desc Error:", e));
+        }
+    } 
+    // 3. Candidate
+    else if (signal.type === 'candidate') {
+        const candidate = new RTCIceCandidate(signal.data);
+        if (peerConnection && peerConnection.remoteDescription) {
+            peerConnection.addIceCandidate(candidate).catch(e => console.error("Add ICE Error:", e));
+        } else {
+            candidateQueue.push(candidate);
+        }
+    }
+}
+
+function processCandidateQueue() {
+    if (peerConnection && peerConnection.remoteDescription) {
+        while (candidateQueue.length > 0) {
+            const cand = candidateQueue.shift();
+            peerConnection.addIceCandidate(cand).catch(e => console.error("Queue ICE Error:", e));
+        }
+    }
+}
+
+acceptCallBtn.addEventListener('click', () => {
+    incomingCallModal.style.display = 'none';
+    mainContent.classList.remove('blur-content');
+    
+    if (incomingSignalData) {
+        // Start call as receiver
+        startCall(incomingSignalData.isVideo, true).then(success => {
+            if (success) {
+                createPeerConnection(false); // Not initiator
+                
+                const desc = new RTCSessionDescription(incomingSignalData.data);
+                peerConnection.setRemoteDescription(desc)
+                    .then(() => peerConnection.createAnswer())
+                    .then(answer => peerConnection.setLocalDescription(answer))
+                    .then(() => {
+                        sendSignal('answer', peerConnection.localDescription);
+                        callStatusText.innerText = "Connected";
+                        startCallTimer();
+                        processCandidateQueue();
+                    })
+                    .catch(e => console.error("Answer Error:", e));
+            }
+        });
+    }
+});
+
+rejectCallBtn.addEventListener('click', () => {
+    incomingCallModal.style.display = 'none';
+    mainContent.classList.remove('blur-content');
+    // If we have data, we know the type to clean up
+    if (incomingSignalData) {
+        const myRole = getUserRole(currentUser);
+        const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+        const targetRole = getUserRole(targetUser);
+        const type = incomingSignalData.isVideo ? 'Video' : 'Audio';
+        
+        // Remove ALL signal nodes so the caller detects the rejection immediately
+        db.ref(`signals/${myRole}_incoming_${type}`).remove();
+        db.ref(`signals/${targetRole}_incoming_${type}`).remove();
+        db.ref(`signals/${myRole}_candidates`).remove();
+        db.ref(`signals/${targetRole}_candidates`).remove();
+    }
+    incomingSignalData = null;
+});
+
+callEndBtn.addEventListener('click', () => endCall(false));
+
+function endCall(remoteEnded = false) {
+    // 1. Stop Timer
+    if (callInterval) clearInterval(callInterval);
+    
+    // 2. Send End Signal (if local)
+    if (!remoteEnded) {
+        sendSignal('end');
+    }
+    
+    // 3. Stop Tracks
+    if (callStream) {
+        callStream.getTracks().forEach(track => track.stop());
+        callStream = null;
+    }
+    
+    // 4. Close Peer Connection
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    
+    // 5. Reset UI
+    callOverlay.style.display = 'none';
+    callOverlay.classList.remove('pip-mode');
+    incomingCallModal.style.display = 'none';
+    mainContent.classList.remove('blur-content');
+    
+    // 6. Clear Media Elements
+    callRemoteVideo.srcObject = null;
+    callRemoteAudio.srcObject = null;
+    callLocalVideo.srcObject = null;
+    
+    candidateQueue = [];
+    incomingSignalData = null;
 }
 
 function startCallTimer() {
@@ -1052,186 +1299,14 @@ function startCallTimer() {
     }, 1000);
 }
 
-function createPeerConnection(isInitiator) {
-    peerConnection = new RTCPeerConnection(rtcConfig);
-
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            sendSignal('candidate', event.candidate);
-        }
-    };
-
-    peerConnection.ontrack = (event) => {
-        const stream = event.streams[0] || new MediaStream([event.track]);
-        if (isVideoCall) {
-            callRemoteVideo.srcObject = stream;
-        } else {
-            callRemoteAudio.srcObject = stream;
-            callRemoteAudio.play().catch(e => console.error("Error playing audio:", e));
-        }
-    };
-
-    if (callStream) {
-        callStream.getTracks().forEach(track => peerConnection.addTrack(track, callStream));
-    }
-
-    if (isInitiator) {
-        peerConnection.createOffer()
-            .then(offer => peerConnection.setLocalDescription(offer))
-            .then(() => {
-                sendSignal('offer', peerConnection.localDescription);
-            })
-            .catch(e => console.error(e));
-    }
-}
-
-function sendSignal(type, data) {
-    const myRole = getUserRole(currentUser);
-    const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
-    const targetRole = getUserRole(targetUser);
-    const callType = isVideoCall ? 'Video' : 'Audio';
-
-    if (type === 'offer') {
-        const path = `signals/${targetRole}_incoming_${callType}`;
-        db.ref(path).set({
-            sender: currentUser,
-            sdp: data,
-            status: 'ringing',
-            timestamp: Date.now()
-        });
-    } else if (type === 'answer') {
-        const path = `signals/${myRole}_incoming_${callType}`;
-        db.ref(path).update({
-            status: 'Accepted',
-            answerSdp: data,
-            timestamp: Date.now()
-        });
-    } else if (type === 'candidate') {
-        const path = `signals/${targetRole}_candidates`;
-        db.ref(path).push({
-            candidate: data,
-            sender: currentUser
-        });
-    } else if (type === 'end' || type === 'reject') {
-        db.ref(`signals/${myRole}_incoming_${callType}`).remove();
-        db.ref(`signals/${targetRole}_incoming_${callType}`).remove();
-        db.ref(`signals/${myRole}_candidates`).remove();
-        db.ref(`signals/${targetRole}_candidates`).remove();
-    }
-}
-
-function processCandidateQueue() {
-    if (peerConnection) {
-        candidateQueue.forEach(candidate => {
-            peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
-                .catch(e => console.error("Error adding queued candidate:", e));
-        });
-        candidateQueue = [];
-    }
-}
-
-function handleIncomingSignal(signal) {
-    // Receiver check handled by listener path
-    
-    // Ignore old signals (> 10 seconds)
-    if (Date.now() - signal.timestamp > 10000) return;
-
-    if (signal.type === 'offer') {
-        incomingSignalData = signal;
-        incomingCallTitle.innerText = `Incoming Call from ${signal.sender}`;
-        incomingCallType.innerText = signal.isVideo ? "Video Call" : "Audio Call";
-        incomingCallModal.style.display = 'flex';
-        mainContent.classList.add('blur-content');
-    } else if (signal.type === 'answer') {
-        if (peerConnection) {
-            peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data))
-                .then(() => {
-                    callStatusText.innerText = "Accepted";
-                    startCallTimer();
-                    processCandidateQueue();
-                })
-                .catch(e => console.error("Error setting remote description:", e));
-        }
-    } else if (signal.type === 'candidate') {
-        if (peerConnection && peerConnection.remoteDescription) {
-            peerConnection.addIceCandidate(new RTCIceCandidate(signal.data))
-                .catch(e => console.error("Error adding ice candidate:", e));
-        } else {
-            candidateQueue.push(signal.data);
-        }
-    }
-    // Reject/End handled by node removal listener
-}
-
-acceptCallBtn.addEventListener('click', () => {
-    incomingCallModal.style.display = 'none';
-    mainContent.classList.remove('blur-content');
-    
-    if (incomingSignalData) {
-        startCall(incomingSignalData.isVideo, true).then((success) => {
-            if (!success) return; // Don't proceed if camera/mic failed
-
-            createPeerConnection(false);
-            // Wait for setRemoteDescription before creating answer
-            peerConnection.setRemoteDescription(new RTCSessionDescription(incomingSignalData.data))
-                .then(() => peerConnection.createAnswer())
-                .then(answer => peerConnection.setLocalDescription(answer))
-                .then(() => {
-                    sendSignal('answer', peerConnection.localDescription);
-                    callStatusText.innerText = "Accepted";
-                    startCallTimer();
-                    processCandidateQueue();
-                })
-                .catch(e => console.error("Error accepting call:", e));
-        });
-    }
-});
-
-rejectCallBtn.addEventListener('click', () => {
-    incomingCallModal.style.display = 'none';
-    mainContent.classList.remove('blur-content');
-    sendSignal('reject', null);
-    incomingSignalData = null;
-});
-
-callEndBtn.addEventListener('click', () => endCall(false));
-
-function endCall(remoteEnded = false) {
-    if (!remoteEnded) {
-        sendSignal('end', null);
-    }
-    
-    if (callStream) {
-        callStream.getTracks().forEach(track => track.stop());
-        callStream = null;
-    }
-    
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
-    
-    clearInterval(callInterval);
-    callOverlay.classList.remove('pip-mode');
-    callOverlay.style.display = 'none';
-    callRemoteVideo.srcObject = null;
-    callLocalVideo.srcObject = null;
-    callRemoteAudio.srcObject = null;
-    candidateQueue = [];
-
-    // Ensure incoming modal is closed if the caller hangs up before answer
-    incomingCallModal.style.display = 'none';
-    mainContent.classList.remove('blur-content');
-    incomingSignalData = null;
-}
-
+// Mute/Flip/Output Handlers
 callMuteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (callStream) {
-        const audioTrack = callStream.getAudioTracks()[0];
-        if (audioTrack) {
+        const track = callStream.getAudioTracks()[0];
+        if (track) {
             isCallMuted = !isCallMuted;
-            audioTrack.enabled = !isCallMuted;
+            track.enabled = !isCallMuted;
             callMuteBtn.innerText = isCallMuted ? '🔇' : '🎤';
             callMuteBtn.style.background = isCallMuted ? '#ff4757' : 'rgba(255,255,255,0.2)';
         }
@@ -1241,10 +1316,10 @@ callMuteBtn.addEventListener('click', (e) => {
 callVideoMuteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (callStream && isVideoCall) {
-        const videoTrack = callStream.getVideoTracks()[0];
-        if (videoTrack) {
+        const track = callStream.getVideoTracks()[0];
+        if (track) {
             isVideoMuted = !isVideoMuted;
-            videoTrack.enabled = !isVideoMuted;
+            track.enabled = !isVideoMuted;
             callVideoMuteBtn.innerText = isVideoMuted ? '🚫' : '📷';
             callVideoMuteBtn.style.background = isVideoMuted ? '#ff4757' : 'rgba(255,255,255,0.2)';
         }
@@ -1254,60 +1329,52 @@ callVideoMuteBtn.addEventListener('click', (e) => {
 callFlipBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     if (callStream && isVideoCall) {
-        // Stop current video track
-        callStream.getVideoTracks().forEach(track => track.stop());
-        
+        callStream.getVideoTracks().forEach(t => t.stop());
         callFacingMode = callFacingMode === 'user' ? 'environment' : 'user';
-        
         try {
             const newStream = await navigator.mediaDevices.getUserMedia({
-                audio: true, // Keep audio
+                audio: true,
                 video: { facingMode: callFacingMode }
             });
             
-            // Replace tracks or stream
+            // Update Stream
+            const audioTrack = callStream.getAudioTracks()[0];
+            if (audioTrack) newStream.addTrack(audioTrack); // Actually getUserMedia returns new audio track too usually, better to just use new stream completely
+            
             callStream = newStream;
             callLocalVideo.srcObject = newStream;
             callLocalVideo.style.transform = callFacingMode === 'user' ? 'scaleX(-1)' : 'none';
             
-            // Maintain mute state
-            const audioTrack = callStream.getAudioTracks()[0];
-            if (audioTrack) audioTrack.enabled = !isCallMuted;
+            // Update Peer Connection
             const videoTrack = callStream.getVideoTracks()[0];
+            const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+            if (sender) sender.replaceTrack(videoTrack);
+            
+            // Restore Mute State
             if (videoTrack) videoTrack.enabled = !isVideoMuted;
             
-        } catch (err) {
-            console.error("Error flipping camera", err);
-        }
+        } catch (err) { console.error(err); }
     }
 });
 
 callAudioOutputBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
-    if (typeof callLocalVideo.setSinkId !== 'function') {
-        alert("Audio output switching is not supported by your browser.");
-        return;
+    const element = isVideoCall ? callRemoteVideo : callRemoteAudio;
+    if (typeof element.setSinkId !== 'function') {
+        alert("Output switching not supported."); return;
     }
-
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+        const outputs = devices.filter(d => d.kind === 'audiooutput');
+        if (!outputs.length) return;
         
-        if (audioOutputs.length === 0) return;
-
-        const currentDeviceId = callLocalVideo.sinkId || 'default';
-        const currentIndex = audioOutputs.findIndex(d => d.deviceId === currentDeviceId);
-        const nextIndex = (currentIndex + 1) % audioOutputs.length;
-        const nextDevice = audioOutputs[nextIndex];
-
-        await callLocalVideo.setSinkId(nextDevice.deviceId);
+        const current = element.sinkId || 'default';
+        const idx = outputs.findIndex(d => d.deviceId === current);
+        const next = outputs[(idx + 1) % outputs.length];
         
-        const label = (nextDevice.label || '').toLowerCase();
-        callAudioOutputBtn.innerText = label.includes('speaker') ? '🔊' : '👂';
-        
-    } catch (err) {
-        console.error("Error switching audio output:", err);
-    }
+        await element.setSinkId(next.deviceId);
+        callAudioOutputBtn.innerText = (next.label.toLowerCase().includes('speaker')) ? '🔊' : '👂';
+    } catch(e) { console.error(e); }
 });
 
 // --- PiP Mode Logic ---
