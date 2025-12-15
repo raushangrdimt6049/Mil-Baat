@@ -166,9 +166,6 @@ let isPipInteractionActive = false;
 let peerConnection = null;
 let incomingSignalData = null;
 let currentChatHistory = [];
-let iceCandidateQueue = []; // Queue for storing early connection candidates
-let remoteUserLastSeen = 0;
-let remoteStatusCheckInterval = null;
 
 const rtcConfig = {
     iceServers: [
@@ -312,16 +309,13 @@ function setupFirebaseListeners() {
 
     // 4. Status Listener (Other User)
     const otherUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
-    db.ref(`status/${otherUser}`).on('value', snapshot => {
-        remoteUserLastSeen = snapshot.val() || 0;
-        updateStatusUI(remoteUserLastSeen);
+    const otherRole = currentUser === 'Raushan_143' ? 'Beta' : 'Alpha';
+    db.ref('status').on('value', snapshot => {
+        const data = snapshot.val() || {};
+        const isOnline = data[`${otherRole} Online`];
+        const lastSeen = data[`${otherRole} Last Seen`];
+        updateStatusUI(isOnline, lastSeen);
     });
-
-    // Start polling to update UI (switches to Last Seen if user stops updating)
-    if (remoteStatusCheckInterval) clearInterval(remoteStatusCheckInterval);
-    remoteStatusCheckInterval = setInterval(() => {
-        updateStatusUI(remoteUserLastSeen);
-    }, 2000);
 
     // 5. Typing Listener (Other User)
     db.ref(`typing/${otherUser}`).on('value', snapshot => {
@@ -523,26 +517,24 @@ acceptBtn.addEventListener('click', () => {
 
 // --- Online Status Logic ---
 function startHeartbeat() {
-    // Set online status and handle disconnect
-    const statusRef = db.ref(`status/${currentUser}`);
-    statusRef.set(firebase.database.ServerValue.TIMESTAMP);
-    statusRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP); // Save timestamp instead of removing
-    
-    // Update timestamp periodically to show "Online"
-    heartbeatInterval = setInterval(() => {
-        statusRef.set(firebase.database.ServerValue.TIMESTAMP);
-    }, 5000);
+    const userRole = currentUser === 'Raushan_143' ? 'Alpha' : 'Beta';
+    const onlineRef = db.ref(`status/${userRole} Online`);
+    const lastSeenRef = db.ref(`status/${userRole} Last Seen`);
+
+    onlineRef.set(true);
+    lastSeenRef.set("Active");
+
+    onlineRef.onDisconnect().set(false);
+    lastSeenRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
 }
 
-function updateStatusUI(lastSeen) {
-    const now = Date.now();
-    // Considered online if active in last 15 seconds
-    if (now - lastSeen < 15000 && lastSeen !== 0) {
+function updateStatusUI(isOnline, lastSeen) {
+    if (isOnline === true || lastSeen === "Active") {
         userStatusIndicator.style.display = 'block';
         lastSeenDisplay.style.display = 'none';
     } else {
         userStatusIndicator.style.display = 'none';
-        if (lastSeen > 0) {
+        if (typeof lastSeen === 'number') {
             const dateObj = new Date(lastSeen);
             const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const d = String(dateObj.getDate()).padStart(2, '0');
@@ -946,23 +938,20 @@ async function startCall(video, isIncoming = false) {
     isVideoMuted = false;
     callTimer.innerText = "00:00";
     callStatusText.innerText = isIncoming ? "Connecting..." : "Calling...";
-    callStatusText.style.color = "white";
     callMuteBtn.innerText = '🎤';
     callMuteBtn.style.background = 'rgba(255,255,255,0.2)';
     callVideoMuteBtn.innerText = '📷';
     callVideoMuteBtn.style.background = 'rgba(255,255,255,0.2)';
     
     if (video) {
+        callRemoteVideo.style.display = 'block';
         callVideoContainer.style.display = 'block';
-        callLocalVideo.style.display = 'block';
         callAudioContainer.style.display = 'none';
         callFlipBtn.style.display = 'flex';
         callVideoMuteBtn.style.display = 'flex';
         callFacingMode = 'user';
     } else {
-        // For Audio calls, keep video container visible (but covered) so remote audio plays
-        callVideoContainer.style.display = 'block';
-        callLocalVideo.style.display = 'none';
+        callVideoContainer.style.display = 'none';
         callAudioContainer.style.display = 'flex';
         callFlipBtn.style.display = 'none';
         callVideoMuteBtn.style.display = 'none';
@@ -1020,17 +1009,6 @@ function createPeerConnection(isInitiator) {
         callRemoteVideo.srcObject = event.streams[0];
     };
 
-    peerConnection.oniceconnectionstatechange = () => {
-        const state = peerConnection.iceConnectionState;
-        if (state === 'disconnected' || state === 'failed') {
-            callStatusText.innerText = "Reconnecting...";
-            callStatusText.style.color = "#ff9f43";
-        } else if (state === 'connected' || state === 'completed') {
-            callStatusText.innerText = "Connected";
-            callStatusText.style.color = "white";
-        }
-    };
-
     if (callStream) {
         callStream.getTracks().forEach(track => peerConnection.addTrack(track, callStream));
     }
@@ -1075,16 +1053,12 @@ function handleIncomingSignal(signal) {
             peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data))
                 .catch(e => console.error("Error setting remote description:", e));
             callStatusText.innerText = "Connected";
-            callStatusText.style.color = "white";
             startCallTimer();
         }
     } else if (signal.type === 'candidate') {
-        if (peerConnection && peerConnection.remoteDescription) {
+        if (peerConnection) {
             peerConnection.addIceCandidate(new RTCIceCandidate(signal.data))
                 .catch(e => console.error("Error adding ice candidate:", e));
-        } else {
-            // Queue candidate if PC not ready yet
-            iceCandidateQueue.push(signal.data);
         }
     } else if (signal.type === 'reject') {
         alert("Call Rejected");
@@ -1110,15 +1084,7 @@ acceptCallBtn.addEventListener('click', () => {
                 .then(() => {
                     sendSignal('answer', peerConnection.localDescription);
                     callStatusText.innerText = "Connected";
-                    callStatusText.style.color = "white";
                     startCallTimer();
-                    
-                    // Process queued candidates
-                    while (iceCandidateQueue.length > 0) {
-                        const candidate = iceCandidateQueue.shift();
-                        peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
-                            .catch(e => console.error("Error adding queued candidate:", e));
-                    }
                 })
                 .catch(e => console.error("Error accepting call:", e));
         });
@@ -1154,7 +1120,6 @@ function endCall(remoteEnded = false) {
     callOverlay.style.display = 'none';
     callRemoteVideo.srcObject = null;
     callLocalVideo.srcObject = null;
-    iceCandidateQueue = []; // Clear queue
 
     // Ensure incoming modal is closed if the caller hangs up before answer
     incomingCallModal.style.display = 'none';
@@ -1191,37 +1156,28 @@ callVideoMuteBtn.addEventListener('click', (e) => {
 callFlipBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     if (callStream && isVideoCall) {
-        const oldVideoTrack = callStream.getVideoTracks()[0];
-        const newFacingMode = callFacingMode === 'user' ? 'environment' : 'user';
+        // Stop current video track
+        callStream.getVideoTracks().forEach(track => track.stop());
+        
+        callFacingMode = callFacingMode === 'user' ? 'environment' : 'user';
         
         try {
             const newStream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: newFacingMode }
+                audio: true, // Keep audio
+                video: { facingMode: callFacingMode }
             });
-            const newVideoTrack = newStream.getVideoTracks()[0];
             
-            if (oldVideoTrack) {
-                oldVideoTrack.stop();
-                callStream.removeTrack(oldVideoTrack);
-            }
-            
-            callStream.addTrack(newVideoTrack);
-            callFacingMode = newFacingMode;
-            
-            // Update local video
-            callLocalVideo.srcObject = callStream;
+            // Replace tracks or stream
+            callStream = newStream;
+            callLocalVideo.srcObject = newStream;
             callLocalVideo.style.transform = callFacingMode === 'user' ? 'scaleX(-1)' : 'none';
             
             // Maintain mute state
-            newVideoTrack.enabled = !isVideoMuted;
+            const audioTrack = callStream.getAudioTracks()[0];
+            if (audioTrack) audioTrack.enabled = !isCallMuted;
+            const videoTrack = callStream.getVideoTracks()[0];
+            if (videoTrack) videoTrack.enabled = !isVideoMuted;
             
-            // Update PeerConnection
-            if (peerConnection) {
-                const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-                if (sender) {
-                    sender.replaceTrack(newVideoTrack);
-                }
-            }
         } catch (err) {
             console.error("Error flipping camera", err);
         }
@@ -1722,13 +1678,14 @@ confirmLogout.addEventListener('click', () => {
     
     // Update status one last time before clearing
     if (currentUser && db) {
-        db.ref(`status/${currentUser}`).set(firebase.database.ServerValue.TIMESTAMP);
+        const userRole = currentUser === 'Raushan_143' ? 'Alpha' : 'Beta';
+        db.ref(`status/${userRole} Online`).set(false);
+        db.ref(`status/${userRole} Last Seen`).set(firebase.database.ServerValue.TIMESTAMP);
     }
 
     // Clear Status Logic
     db.ref().off(); // Detach all listeners
     clearInterval(heartbeatInterval);
-    clearInterval(remoteStatusCheckInterval);
     userStatusIndicator.style.display = 'none';
     lastSeenDisplay.style.display = 'none';
     headerTypingIndicator.style.display = 'none';
