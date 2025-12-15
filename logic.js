@@ -90,6 +90,7 @@ const callOverlay = document.getElementById('call-overlay');
 const callVideoContainer = document.getElementById('callVideoContainer');
 const callLocalVideo = document.getElementById('callLocalVideo');
 const callRemoteVideo = document.getElementById('callRemoteVideo');
+const callRemoteAudio = document.getElementById('callRemoteAudio');
 const callAudioContainer = document.getElementById('callAudioContainer');
 const callStatusText = document.getElementById('callStatusText');
 const callTimer = document.getElementById('callTimer');
@@ -166,6 +167,7 @@ let isPipInteractionActive = false;
 let peerConnection = null;
 let incomingSignalData = null;
 let currentChatHistory = [];
+let candidateQueue = [];
 
 const rtcConfig = {
     iceServers: [
@@ -1006,7 +1008,11 @@ function createPeerConnection(isInitiator) {
     };
 
     peerConnection.ontrack = (event) => {
-        callRemoteVideo.srcObject = event.streams[0];
+        if (isVideoCall) {
+            callRemoteVideo.srcObject = event.streams[0];
+        } else {
+            callRemoteAudio.srcObject = event.streams[0];
+        }
     };
 
     if (callStream) {
@@ -1034,6 +1040,16 @@ function sendSignal(type, data) {
         timestamp: Date.now()
     };
     db.ref('signals').push(signal);
+}
+
+function processCandidateQueue() {
+    if (peerConnection) {
+        candidateQueue.forEach(candidate => {
+            peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+                .catch(e => console.error("Error adding queued candidate:", e));
+        });
+        candidateQueue = [];
+    }
 }
 
 function handleIncomingSignal(signal) {
@@ -1085,6 +1101,7 @@ acceptCallBtn.addEventListener('click', () => {
                     sendSignal('answer', peerConnection.localDescription);
                     callStatusText.innerText = "Connected";
                     startCallTimer();
+                    processCandidateQueue();
                 })
                 .catch(e => console.error("Error accepting call:", e));
         });
@@ -1120,6 +1137,8 @@ function endCall(remoteEnded = false) {
     callOverlay.style.display = 'none';
     callRemoteVideo.srcObject = null;
     callLocalVideo.srcObject = null;
+    callRemoteAudio.srcObject = null;
+    candidateQueue = [];
 
     // Ensure incoming modal is closed if the caller hangs up before answer
     incomingCallModal.style.display = 'none';
