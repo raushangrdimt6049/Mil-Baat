@@ -166,6 +166,7 @@ let isPipInteractionActive = false;
 let peerConnection = null;
 let incomingSignalData = null;
 let currentChatHistory = [];
+let iceCandidateQueue = []; // Queue for storing early connection candidates
 let remoteUserLastSeen = 0;
 let remoteStatusCheckInterval = null;
 
@@ -945,20 +946,23 @@ async function startCall(video, isIncoming = false) {
     isVideoMuted = false;
     callTimer.innerText = "00:00";
     callStatusText.innerText = isIncoming ? "Connecting..." : "Calling...";
+    callStatusText.style.color = "white";
     callMuteBtn.innerText = '🎤';
     callMuteBtn.style.background = 'rgba(255,255,255,0.2)';
     callVideoMuteBtn.innerText = '📷';
     callVideoMuteBtn.style.background = 'rgba(255,255,255,0.2)';
     
     if (video) {
-        callRemoteVideo.style.display = 'block';
         callVideoContainer.style.display = 'block';
+        callLocalVideo.style.display = 'block';
         callAudioContainer.style.display = 'none';
         callFlipBtn.style.display = 'flex';
         callVideoMuteBtn.style.display = 'flex';
         callFacingMode = 'user';
     } else {
-        callVideoContainer.style.display = 'none';
+        // For Audio calls, keep video container visible (but covered) so remote audio plays
+        callVideoContainer.style.display = 'block';
+        callLocalVideo.style.display = 'none';
         callAudioContainer.style.display = 'flex';
         callFlipBtn.style.display = 'none';
         callVideoMuteBtn.style.display = 'none';
@@ -1016,6 +1020,17 @@ function createPeerConnection(isInitiator) {
         callRemoteVideo.srcObject = event.streams[0];
     };
 
+    peerConnection.oniceconnectionstatechange = () => {
+        const state = peerConnection.iceConnectionState;
+        if (state === 'disconnected' || state === 'failed') {
+            callStatusText.innerText = "Reconnecting...";
+            callStatusText.style.color = "#ff9f43";
+        } else if (state === 'connected' || state === 'completed') {
+            callStatusText.innerText = "Connected";
+            callStatusText.style.color = "white";
+        }
+    };
+
     if (callStream) {
         callStream.getTracks().forEach(track => peerConnection.addTrack(track, callStream));
     }
@@ -1060,12 +1075,16 @@ function handleIncomingSignal(signal) {
             peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data))
                 .catch(e => console.error("Error setting remote description:", e));
             callStatusText.innerText = "Connected";
+            callStatusText.style.color = "white";
             startCallTimer();
         }
     } else if (signal.type === 'candidate') {
-        if (peerConnection) {
+        if (peerConnection && peerConnection.remoteDescription) {
             peerConnection.addIceCandidate(new RTCIceCandidate(signal.data))
                 .catch(e => console.error("Error adding ice candidate:", e));
+        } else {
+            // Queue candidate if PC not ready yet
+            iceCandidateQueue.push(signal.data);
         }
     } else if (signal.type === 'reject') {
         alert("Call Rejected");
@@ -1091,7 +1110,15 @@ acceptCallBtn.addEventListener('click', () => {
                 .then(() => {
                     sendSignal('answer', peerConnection.localDescription);
                     callStatusText.innerText = "Connected";
+                    callStatusText.style.color = "white";
                     startCallTimer();
+                    
+                    // Process queued candidates
+                    while (iceCandidateQueue.length > 0) {
+                        const candidate = iceCandidateQueue.shift();
+                        peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+                            .catch(e => console.error("Error adding queued candidate:", e));
+                    }
                 })
                 .catch(e => console.error("Error accepting call:", e));
         });
@@ -1127,6 +1154,7 @@ function endCall(remoteEnded = false) {
     callOverlay.style.display = 'none';
     callRemoteVideo.srcObject = null;
     callLocalVideo.srcObject = null;
+    iceCandidateQueue = []; // Clear queue
 
     // Ensure incoming modal is closed if the caller hangs up before answer
     incomingCallModal.style.display = 'none';
@@ -1163,28 +1191,37 @@ callVideoMuteBtn.addEventListener('click', (e) => {
 callFlipBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     if (callStream && isVideoCall) {
-        // Stop current video track
-        callStream.getVideoTracks().forEach(track => track.stop());
-        
-        callFacingMode = callFacingMode === 'user' ? 'environment' : 'user';
+        const oldVideoTrack = callStream.getVideoTracks()[0];
+        const newFacingMode = callFacingMode === 'user' ? 'environment' : 'user';
         
         try {
             const newStream = await navigator.mediaDevices.getUserMedia({
-                audio: true, // Keep audio
-                video: { facingMode: callFacingMode }
+                video: { facingMode: newFacingMode }
             });
+            const newVideoTrack = newStream.getVideoTracks()[0];
             
-            // Replace tracks or stream
-            callStream = newStream;
-            callLocalVideo.srcObject = newStream;
+            if (oldVideoTrack) {
+                oldVideoTrack.stop();
+                callStream.removeTrack(oldVideoTrack);
+            }
+            
+            callStream.addTrack(newVideoTrack);
+            callFacingMode = newFacingMode;
+            
+            // Update local video
+            callLocalVideo.srcObject = callStream;
             callLocalVideo.style.transform = callFacingMode === 'user' ? 'scaleX(-1)' : 'none';
             
             // Maintain mute state
-            const audioTrack = callStream.getAudioTracks()[0];
-            if (audioTrack) audioTrack.enabled = !isCallMuted;
-            const videoTrack = callStream.getVideoTracks()[0];
-            if (videoTrack) videoTrack.enabled = !isVideoMuted;
+            newVideoTrack.enabled = !isVideoMuted;
             
+            // Update PeerConnection
+            if (peerConnection) {
+                const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) {
+                    sender.replaceTrack(newVideoTrack);
+                }
+            }
         } catch (err) {
             console.error("Error flipping camera", err);
         }
