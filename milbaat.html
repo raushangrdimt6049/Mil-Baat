@@ -171,6 +171,7 @@
             align-items: center;
             margin-bottom: 30px;
             padding-top: 10px;
+            position: relative;
         }
 
         .logo {
@@ -1010,10 +1011,10 @@
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div class="logo">NEXUS</div>
                     <div id="userStatusIndicator" style="font-size: 0.8rem; color: #00e676; display: none; font-weight: bold; text-shadow: 0 0 5px rgba(0, 230, 118, 0.4);">● Online</div>
-                    <div id="headerTypingIndicator" style="font-size: 0.75rem; color: #00d2ff; font-style: italic; display: none; animation: fadeText 1.5s infinite;">typing...</div>
                 </div>
                 <div id="lastSeenDisplay" style="font-size: 0.65rem; color: rgba(255,255,255,0.7); display: none; margin-top: 2px;"></div>
             </div>
+            <div id="headerTypingIndicator" style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 0.85rem; color: #00d2ff; font-style: italic; display: none; animation: fadeText 1.5s infinite; text-shadow: 0 0 5px rgba(0, 210, 255, 0.3);">typing...</div>
             <div class="menu-icon" id="menuIconBtn" style="cursor: pointer;">
                 <span></span>
                 <span></span>
