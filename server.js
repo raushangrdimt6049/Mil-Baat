@@ -1,4 +1,5 @@
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
@@ -24,7 +25,6 @@ try {
 }
 
 const server = http.createServer((req, res) => {
-    console.log(`Request for ${req.url}`);
 
     if (req.url === '/config.js') {
         res.writeHead(200, { 'Content-Type': 'application/javascript' });
@@ -32,7 +32,19 @@ const server = http.createServer((req, res) => {
             'Raushan_143': process.env.RAUSHAN_PASS || env.RAUSHAN_PASS, 
             'Nisha_143': process.env.NISHA_PASS || env.NISHA_PASS 
         };
-        res.end(`const envUsers = ${JSON.stringify(usersConfig)};`);
+        
+        let firebaseConfigStr = process.env.FIREBASE_CONFIG || env.FIREBASE_CONFIG;
+        let firebaseConfig = {};
+        if (firebaseConfigStr) {
+            try {
+                firebaseConfig = JSON.parse(firebaseConfigStr);
+            } catch (e) { console.error("Error parsing FIREBASE_CONFIG:", e.message); }
+        }
+
+        const dbUrl = process.env.DATABASE_URL || env.DATABASE_URL;
+        if (dbUrl) firebaseConfig.databaseURL = dbUrl;
+
+        res.end(`const envUsers = ${JSON.stringify(usersConfig)}; const envFirebaseConfig = ${JSON.stringify(firebaseConfig)};`);
         return;
     }
 
@@ -80,4 +92,25 @@ const server = http.createServer((req, res) => {
 
 server.listen(port, () => {
     console.log(`Server running at http://localhost:${port}/`);
+    
+    // Check Firebase Connection
+    let firebaseConfig = null;
+    if (process.env.FIREBASE_CONFIG) {
+        try { firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG); } catch(e) {}
+    } else if (env.FIREBASE_CONFIG) {
+        try { firebaseConfig = JSON.parse(env.FIREBASE_CONFIG); } catch(e) {}
+    }
+
+    const dbUrl = process.env.DATABASE_URL || env.DATABASE_URL || (firebaseConfig ? firebaseConfig.databaseURL : null);
+
+    if (dbUrl) {
+        const checkUrl = dbUrl.endsWith('/') ? `${dbUrl}.json` : `${dbUrl}/.json`;
+        https.get(checkUrl, (res) => {
+            if (res.statusCode === 200 || res.statusCode === 401) {
+                console.log("Firebase connected successfully..");
+            } else {
+                console.log(`Warning: Firebase Database returned status ${res.statusCode}`);
+            }
+        }).on('error', (e) => console.error("Error connecting to Firebase:", e.message));
+    }
 });

@@ -113,6 +113,28 @@ let baseImageForFilter = null;
 let currentFilterMode = 0; // 0:None, 1:Gray, 2:Sepia, 3:Invert
 
 const users = (typeof envUsers !== 'undefined') ? envUsers : { 'Raushan_143': '4gh4m01r', 'Nisha_143': '4gh4m01r' };
+
+// Initialize Firebase
+let db;
+try {
+    if (typeof envFirebaseConfig !== 'undefined' && envFirebaseConfig.databaseURL) {
+        firebase.initializeApp(envFirebaseConfig);
+        db = firebase.database();
+    } else {
+        console.error("Firebase Configuration Missing!");
+        alert("Database connection failed. Please check your configuration.");
+    }
+} catch (e) { console.error("Firebase Init Error:", e); }
+
+// Verify Connection
+db.ref(".info/connected").on("value", (snap) => {
+    if (snap.val() === true) {
+        console.log("✅ Firebase Realtime Database Connected!");
+    } else {
+        console.log("❌ Firebase Disconnected (or connecting...)");
+    }
+});
+
 let currentUser = null;
 let msgToDeleteId = null;
 let selectedMsgId = null;
@@ -143,6 +165,7 @@ let pipInitialTop = 0;
 let isPipInteractionActive = false;
 let peerConnection = null;
 let incomingSignalData = null;
+let currentChatHistory = [];
 
 const rtcConfig = {
     iceServers: [
@@ -242,16 +265,68 @@ function startReply(msg) {
     msgInput.focus();
 }
 
+function getMessageTable(sender) {
+    return sender === 'Raushan_143' ? 'alpha' : 'beta';
+}
+
 // --- Chat History Logic ---
-function loadChatHistory() {
-    const history = JSON.parse(localStorage.getItem('milbaat_messages')) || [];
+function setupFirebaseListeners() {
+    // 1. Chat Messages Listener
+    db.ref('messages').on('value', snapshot => {
+        const data = snapshot.val();
+        let history = [];
+        if (data) {
+            if (data.alpha) history = history.concat(Object.values(data.alpha));
+            if (data.beta) history = history.concat(Object.values(data.beta));
+        }
+        // Sort messages by date to ensure correct order
+        history.sort((a, b) => {
+            return (a.rawDate || 0) < (b.rawDate || 0) ? -1 : 1;
+        });
+        currentChatHistory = history;
+        renderChat(history);
+    });
+
+    // 2. Pinned Message Listener
+    db.ref('pinned_message').on('value', snapshot => {
+        const pinnedMsg = snapshot.val();
+        renderPinnedMessage(pinnedMsg);
+    });
+
+    // 3. Signaling Listener (Calls)
+    db.ref('signals').on('child_added', snapshot => {
+        const signal = snapshot.val();
+        if (signal) handleIncomingSignal(signal);
+        // Remove old signals to keep DB clean (optional logic could go here)
+    });
+
+    // 4. Status Listener (Other User)
+    const otherUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+    db.ref(`status/${otherUser}`).on('value', snapshot => {
+        const lastSeen = snapshot.val() || 0;
+        updateStatusUI(lastSeen);
+    });
+
+    // 5. Typing Listener (Other User)
+    db.ref(`typing/${otherUser}`).on('value', snapshot => {
+        const isTyping = snapshot.val();
+        headerTypingIndicator.style.display = isTyping ? 'block' : 'none';
+    });
+}
+
+function renderChat(history) {
     let historyChanged = false;
     let lastDateDivider = '';
 
     // Mark messages from the OTHER user as 'seen' when I load them
     history.forEach(msg => {
-        if (msg.sender !== currentUser && msg.status !== 'seen') {
-            msg.status = 'seen';
+        // Safety check
+        if (!msg) return;
+
+        if (msg.sender !== currentUser && msg.status !== 'seen' && msg.id) {
+            // Update status in Firebase
+            const table = getMessageTable(msg.sender);
+            db.ref(`messages/${table}/${msg.id}/status`).set('seen');
             
             const now = new Date();
             const d = String(now.getDate()).padStart(2, '0');
@@ -259,18 +334,10 @@ function loadChatHistory() {
             const y = now.getFullYear();
             const datePart = `${d}/${m}/${y}`;
             const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            msg.seenTimestamp = `${datePart} ${timePart}`;
             
-            historyChanged = true;
+            db.ref(`messages/${table}/${msg.id}/seenTimestamp`).set(`${datePart} ${timePart}`);
         }
     });
-
-    // Save updated status back to storage so the sender sees the double tick
-    if (historyChanged) {
-        localStorage.setItem('milbaat_messages', JSON.stringify(history));
-    }
-
-    renderPinnedMessage();
 
     chatMessages.innerHTML = ''; // Clear current view
     
@@ -408,11 +475,9 @@ acceptBtn.addEventListener('click', () => {
         
         // Push state to history to trap back button
         history.pushState({ loggedIn: true }, "", window.location.href);
-        
-        loadChatHistory(); // Load chat history for the user
+
+        setupFirebaseListeners();
         startHeartbeat();
-        startStatusCheck();
-        startTypingCheck();
 
         // 1. Fade out the overlay
         overlay.style.opacity = '0';
@@ -440,58 +505,39 @@ acceptBtn.addEventListener('click', () => {
 
 // --- Online Status Logic ---
 function startHeartbeat() {
-    // Update own status every 2 seconds
+    // Set online status and handle disconnect
+    const statusRef = db.ref(`status/${currentUser}`);
+    statusRef.set(Date.now());
+    statusRef.onDisconnect().remove();
+    
+    // Update timestamp periodically to show "Online"
     heartbeatInterval = setInterval(() => {
-        if (currentUser) {
-            localStorage.setItem(`milbaat_status_${currentUser}`, Date.now());
-        }
-    }, 2000);
+        statusRef.set(Date.now());
+    }, 5000);
 }
 
-function startStatusCheck() {
-    // Check other user's status every 2 seconds
-    statusCheckInterval = setInterval(() => {
-        if (!currentUser) return;
-        
-        const otherUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
-        const lastSeen = parseInt(localStorage.getItem(`milbaat_status_${otherUser}`) || 0);
-        const now = Date.now();
-        
-        // Considered online if active in last 5 seconds
-        if (now - lastSeen < 5000) {
-            userStatusIndicator.style.display = 'block';
+function updateStatusUI(lastSeen) {
+    const now = Date.now();
+    // Considered online if active in last 10 seconds
+    if (now - lastSeen < 10000 && lastSeen !== 0) {
+        userStatusIndicator.style.display = 'block';
+        lastSeenDisplay.style.display = 'none';
+    } else {
+        userStatusIndicator.style.display = 'none';
+        if (lastSeen > 0) {
+            const dateObj = new Date(lastSeen);
+            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const y = dateObj.getFullYear();
+            const datePart = `${d}/${m}/${y}`;
+            
+            lastSeenDisplay.innerText = `Last seen: ${datePart} ${timeStr}`;
+            lastSeenDisplay.style.display = 'block';
+        } else {
             lastSeenDisplay.style.display = 'none';
-        } else {
-            userStatusIndicator.style.display = 'none';
-            if (lastSeen > 0) {
-                const dateObj = new Date(lastSeen);
-                const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const d = String(dateObj.getDate()).padStart(2, '0');
-                const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const y = dateObj.getFullYear();
-                const datePart = `${d}/${m}/${y}`;
-                
-                lastSeenDisplay.innerText = `Last seen: ${datePart} ${timeStr}`;
-                lastSeenDisplay.style.display = 'block';
-            } else {
-                lastSeenDisplay.style.display = 'none';
-            }
         }
-    }, 2000);
-}
-
-function startTypingCheck() {
-    typingCheckInterval = setInterval(() => {
-        if (!currentUser) return;
-        const otherUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
-        const lastTyping = parseInt(localStorage.getItem(`milbaat_typing_${otherUser}`) || 0);
-        
-        if (Date.now() - lastTyping < 1500) { // Typing within last 1.5 seconds
-            headerTypingIndicator.style.display = 'block';
-        } else {
-            headerTypingIndicator.style.display = 'none';
-        }
-    }, 500);
+    }
 }
 
 // --- Menu & Logout Logic ---
@@ -521,8 +567,7 @@ clearChatBtn.addEventListener('click', () => {
 });
 
 confirmClearChat.addEventListener('click', () => {
-    localStorage.removeItem('milbaat_messages');
-    chatMessages.innerHTML = '';
+    db.ref('messages').remove();
     clearChatModal.style.display = 'none';
     mainContent.classList.remove('blur-content');
 });
@@ -553,22 +598,19 @@ deleteMsgOptionBtn.addEventListener('click', () => {
 });
 
 pinMsgBtn.addEventListener('click', () => {
-    const history = JSON.parse(localStorage.getItem('milbaat_messages')) || [];
-    const msg = history.find(m => m.id === selectedMsgId);
+    // Fetch message details from DB to pin
+    const msg = currentChatHistory.find(m => m.id === selectedMsgId);
     if (msg) {
-        localStorage.setItem('milbaat_pinned_message', JSON.stringify(msg));
-        renderPinnedMessage();
+        db.ref('pinned_message').set(msg);
     }
     closeOptionsModal();
 });
 
 unpinBtn.addEventListener('click', () => {
-    localStorage.removeItem('milbaat_pinned_message');
-    renderPinnedMessage();
+    db.ref('pinned_message').remove();
 });
 
-function renderPinnedMessage() {
-    const pinnedMsg = JSON.parse(localStorage.getItem('milbaat_pinned_message'));
+function renderPinnedMessage(pinnedMsg) {
     if (pinnedMsg) {
         pinnedMessageBar.style.display = 'flex';
         pinnedSender.innerText = pinnedMsg.sender === currentUser ? 'You' : pinnedMsg.sender;
@@ -588,17 +630,20 @@ function renderPinnedMessage() {
 // --- Delete Message Logic ---
 confirmDeleteMsg.addEventListener('click', () => {
     if (msgToDeleteId) {
-        let history = JSON.parse(localStorage.getItem('milbaat_messages')) || [];
-        history = history.filter(msg => msg.id !== msgToDeleteId);
-        localStorage.setItem('milbaat_messages', JSON.stringify(history));
-        
-        // Check if deleted message was pinned
-        const pinnedMsg = JSON.parse(localStorage.getItem('milbaat_pinned_message'));
-        if (pinnedMsg && pinnedMsg.id === msgToDeleteId) {
-            localStorage.removeItem('milbaat_pinned_message');
+        const msg = currentChatHistory.find(m => m.id === msgToDeleteId);
+        if (msg) {
+            const table = getMessageTable(msg.sender);
+            db.ref(`messages/${table}/${msgToDeleteId}`).remove();
         }
         
-        loadChatHistory();
+        // Check if deleted message was pinned
+        db.ref('pinned_message').once('value').then(snapshot => {
+            const pinnedMsg = snapshot.val();
+            if (pinnedMsg && pinnedMsg.id === msgToDeleteId) {
+                db.ref('pinned_message').remove();
+            }
+        });
+
         deleteMsgModal.style.display = 'none';
         mainContent.classList.remove('blur-content');
         msgToDeleteId = null;
@@ -692,8 +737,11 @@ themeToggleBtn.addEventListener('click', () => {
 
 // Typing detection
 msgInput.addEventListener('input', () => {
-    if (currentUser) {
-        localStorage.setItem(`milbaat_typing_${currentUser}`, Date.now());
+    if (currentUser && db) {
+        const typingRef = db.ref(`typing/${currentUser}`);
+        typingRef.set(true);
+        // Clear typing status after 2 seconds of inactivity
+        setTimeout(() => typingRef.set(false), 2000);
     }
 });
 
@@ -707,6 +755,11 @@ msgInput.addEventListener('keydown', (e) => {
 // --- Chat Functionality ---
 sendMsgBtn.addEventListener('click', () => {
     const text = msgInput.value.trim();
+    if (!db) {
+        alert("Database not connected. Cannot send message.");
+        return;
+    }
+
     if (text !== "") {
         const now = new Date();
         // Format: DD/MM HH:MM AM/PM
@@ -719,13 +772,15 @@ sendMsgBtn.addEventListener('click', () => {
         const rawDate = now.toISOString();
 
         // Stop typing status immediately
-        localStorage.removeItem(`milbaat_typing_${currentUser}`);
+        if (currentUser) db.ref(`typing/${currentUser}`).set(false).catch(e => console.error(e));
 
-        // Save to LocalStorage
-        const history = JSON.parse(localStorage.getItem('milbaat_messages')) || [];
-        history.push({
-            id: Date.now() + Math.random().toString(),
+        const table = getMessageTable(currentUser);
+        const newMsgRef = db.ref(`messages/${table}`).push();
+        const recipient = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+        const newMsg = {
+            id: newMsgRef.key,
             sender: currentUser,
+            recipient: recipient,
             text: text,
             timestamp: timeString,
             rawDate: rawDate,
@@ -735,53 +790,16 @@ sendMsgBtn.addEventListener('click', () => {
                 sender: replyToMsg.sender,
                 text: replyToMsg.text
             } : null
+        };
+        newMsgRef.set(newMsg).catch(error => {
+            console.error("Send Error:", error);
+            alert("Failed to send message: " + error.message);
         });
-        localStorage.setItem('milbaat_messages', JSON.stringify(history));
 
         // Clear reply state
         replyToMsg = null;
         replyPreview.style.display = 'none';
-
-        // Check if we need a date divider for "Today"
-        const dateString = getFormattedDate(now);
-        const dividers = chatMessages.querySelectorAll('.chat-date-divider span');
-        const lastDivider = dividers.length > 0 ? dividers[dividers.length - 1] : null;
-        if (!lastDivider || lastDivider.innerText !== dateString) {
-            const divider = document.createElement('div');
-            divider.className = 'chat-date-divider';
-            divider.innerHTML = `<span>${dateString}</span>`;
-            chatMessages.appendChild(divider);
-        }
-
-        // Create new message bubble
-        const msgDiv = document.createElement('div');
-        msgDiv.classList.add('message-bubble', 'msg-sent');
-        
-        // Render Reply Context in new bubble
-        if (history[history.length - 1].replyTo) {
-            const replyData = history[history.length - 1].replyTo;
-            const replyDiv = document.createElement('div');
-            replyDiv.className = 'replied-msg-context';
-            replyDiv.innerHTML = `
-                <span class="replied-sender">${replyData.sender === currentUser ? 'You' : replyData.sender}</span>
-                <span class="replied-text">${replyData.text}</span>
-            `;
-            msgDiv.appendChild(replyDiv);
-        }
-        msgDiv.appendChild(document.createTextNode(text));
-
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'msg-time';
-        
-        // Render single tick initially
-        timeSpan.innerHTML = `${timeString} <span class="msg-tick">✓</span>`;
-        msgDiv.appendChild(timeSpan);
-        
-        chatMessages.appendChild(msgDiv);
         msgInput.value = '';
-        
-        // Auto scroll to bottom
-        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 });
 
@@ -995,7 +1013,7 @@ function sendSignal(type, data) {
         isVideo: isVideoCall,
         timestamp: Date.now()
     };
-    localStorage.setItem('milbaat_call_signal', JSON.stringify(signal));
+    db.ref('signals').push(signal);
 }
 
 function handleIncomingSignal(signal) {
@@ -1366,11 +1384,13 @@ function sendAudioMessage(base64Audio) {
     const timeString = `${datePart} ${timePart}`;
     const rawDate = now.toISOString();
 
-    // Save to LocalStorage
-    const history = JSON.parse(localStorage.getItem('milbaat_messages')) || [];
-    history.push({
-        id: Date.now() + Math.random().toString(),
+    const table = getMessageTable(currentUser);
+    const newMsgRef = db.ref(`messages/${table}`).push();
+    const recipient = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+    newMsgRef.set({
+        id: newMsgRef.key,
         sender: currentUser,
+        recipient: recipient,
         text: '', 
         audio: base64Audio,
         timestamp: timeString,
@@ -1378,10 +1398,6 @@ function sendAudioMessage(base64Audio) {
         status: 'sent',
         replyTo: null
     });
-    localStorage.setItem('milbaat_messages', JSON.stringify(history));
-
-    // Refresh Chat
-    loadChatHistory();
 }
 
 // --- Image Preview & Send Logic ---
@@ -1501,11 +1517,13 @@ sendImageBtn.addEventListener('click', () => {
         const timeString = `${datePart} ${timePart}`;
         const rawDate = now.toISOString();
 
-        // Save to LocalStorage
-        const history = JSON.parse(localStorage.getItem('milbaat_messages')) || [];
-        history.push({
-            id: Date.now() + Math.random().toString(),
+        const table = getMessageTable(currentUser);
+        const newMsgRef = db.ref(`messages/${table}`).push();
+        const recipient = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+        newMsgRef.set({
+            id: newMsgRef.key,
             sender: currentUser,
+            recipient: recipient,
             text: '', // Empty text for image message
             image: currentImageBase64,
             timestamp: timeString,
@@ -1513,41 +1531,10 @@ sendImageBtn.addEventListener('click', () => {
             status: 'sent',
             replyTo: null
         });
-        localStorage.setItem('milbaat_messages', JSON.stringify(history));
 
-        // Check if we need a date divider for "Today"
-        const dateString = getFormattedDate(now);
-        const dividers = chatMessages.querySelectorAll('.chat-date-divider span');
-        const lastDivider = dividers.length > 0 ? dividers[dividers.length - 1] : null;
-        if (!lastDivider || lastDivider.innerText !== dateString) {
-            const divider = document.createElement('div');
-            divider.className = 'chat-date-divider';
-            divider.innerHTML = `<span>${dateString}</span>`;
-            chatMessages.appendChild(divider);
-        }
-
-        // Create new message bubble
-        const msgDiv = document.createElement('div');
-        msgDiv.classList.add('message-bubble', 'msg-sent');
-        
-        const img = document.createElement('img');
-        img.src = currentImageBase64;
-        img.className = 'msg-image';
-        msgDiv.appendChild(img);
-
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'msg-time';
-        timeSpan.innerHTML = `${timeString} <span class="msg-tick">✓</span>`;
-        msgDiv.appendChild(timeSpan);
-        
-        chatMessages.appendChild(msgDiv);
-        
         // Cleanup
         imagePreviewOverlay.style.display = 'none';
         currentImageBase64 = null;
-        
-        // Auto scroll to bottom
-        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 });
 
@@ -1664,9 +1651,8 @@ confirmLogout.addEventListener('click', () => {
     body.classList.remove('user-raushan', 'user-nisha');
     
     // Clear Status Logic
+    db.ref().off(); // Detach all listeners
     clearInterval(heartbeatInterval);
-    clearInterval(statusCheckInterval);
-    clearInterval(typingCheckInterval);
     userStatusIndicator.style.display = 'none';
     lastSeenDisplay.style.display = 'none';
     headerTypingIndicator.style.display = 'none';
@@ -1674,18 +1660,7 @@ confirmLogout.addEventListener('click', () => {
 });
 
 // Listen for storage changes (for real-time sync between tabs)
-window.addEventListener('storage', (e) => {
-    if (e.key === 'milbaat_messages' && currentUser) {
-        loadChatHistory();
-    }
-    if (e.key === 'milbaat_pinned_message') {
-        renderPinnedMessage();
-    }
-    if (e.key === 'milbaat_call_signal') {
-        const signal = JSON.parse(e.newValue);
-        if (signal) handleIncomingSignal(signal);
-    }
-});
+// Removed window.addEventListener('storage') as Firebase handles real-time updates
 
 // Handle Browser Back/Forward Buttons
 window.addEventListener('popstate', () => {
