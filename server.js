@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Load .env file manually
 const env = {};
@@ -28,7 +28,10 @@ const server = http.createServer((req, res) => {
 
     if (req.url === '/config.js') {
         res.writeHead(200, { 'Content-Type': 'application/javascript' });
-        const usersConfig = { 'Raushan_143': env.RAUSHAN_PASS, 'Nisha_143': env.NISHA_PASS };
+        const usersConfig = { 
+            'Raushan_143': process.env.RAUSHAN_PASS || env.RAUSHAN_PASS, 
+            'Nisha_143': process.env.NISHA_PASS || env.NISHA_PASS 
+        };
         res.end(`const envUsers = ${JSON.stringify(usersConfig)};`);
         return;
     }
