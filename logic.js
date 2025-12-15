@@ -316,7 +316,19 @@ function setupFirebaseListeners() {
             
             // If data is null, the call was ended remotely
             if (!data) {
-                if ((callStream || incomingSignalData) && isVideoCall === (cType === 'Video')) {
+                const isVideo = (cType === 'Video');
+                let shouldEnd = false;
+
+                // 1. I am the Caller (or active participant)
+                if (callStream && isVideoCall === isVideo) {
+                    shouldEnd = true;
+                }
+                // 2. I am the Receiver (pending call)
+                else if (incomingSignalData && incomingSignalData.isVideo === isVideo) {
+                    shouldEnd = true;
+                }
+
+                if (shouldEnd) {
                     endCall(true);
                 }
                 return;
@@ -1067,6 +1079,44 @@ async function startCall(video, isIncoming = false) {
     }
 }
 
+// Function to update the current user's "Last Seen" and check other users
+function heartbeat() {
+    fetch('/api/update-status', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            // Add your CSRF token header here if using a framework like Laravel/Django
+        },
+        body: JSON.stringify({
+            userId: currentUserId // Ensure this variable exists in your code
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // 'data' should contain the status of the user you are chatting with
+        updateStatusUI(data.isOnline, data.lastSeen);
+    })
+    .catch(error => console.error('Error updating status:', error));
+}
+
+// Function to update the HTML UI
+function updateStatusUI(isOnline, lastSeen) {
+    const statusElement = document.getElementById('user-status-indicator');
+    const textElement = document.getElementById('user-status-text');
+
+    if (isOnline) {
+        statusElement.style.backgroundColor = 'green';
+        textElement.innerText = 'Online';
+    } else {
+        statusElement.style.backgroundColor = 'gray';
+        textElement.innerText = 'Last seen: ' + lastSeen;
+    }
+}
+
+// Run this check every 0.5 seconds (500ms)
+setInterval(heartbeat, 500);
+
+
 function createPeerConnection(isInitiator) {
     peerConnection = new RTCPeerConnection(rtcConfig);
 
@@ -1231,8 +1281,6 @@ acceptCallBtn.addEventListener('click', () => {
 });
 
 rejectCallBtn.addEventListener('click', () => {
-    incomingCallModal.style.display = 'none';
-    mainContent.classList.remove('blur-content');
     // If we have data, we know the type to clean up
     if (incomingSignalData) {
         const myRole = getUserRole(currentUser);
@@ -1246,7 +1294,7 @@ rejectCallBtn.addEventListener('click', () => {
         db.ref(`signals/${myRole}_candidates`).remove();
         db.ref(`signals/${targetRole}_candidates`).remove();
     }
-    incomingSignalData = null;
+    endCall(true);
 });
 
 callEndBtn.addEventListener('click', () => endCall(false));
