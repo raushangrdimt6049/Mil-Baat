@@ -271,6 +271,10 @@ function getMessageTable(sender) {
     return sender === 'Raushan_143' ? 'alpha' : 'beta';
 }
 
+function getUserRole(username) {
+    return username === 'Raushan_143' ? 'Alpha' : 'Beta';
+}
+
 // --- Chat History Logic ---
 function setupFirebaseListeners() {
     // 1. Chat Messages Listener
@@ -302,11 +306,58 @@ function setupFirebaseListeners() {
         renderPinnedMessage(pinnedMsg);
     });
 
-    // 3. Signaling Listener (Calls)
-    db.ref('signals').on('child_added', snapshot => {
-        const signal = snapshot.val();
-        if (signal) handleIncomingSignal(signal);
-        // Remove old signals to keep DB clean (optional logic could go here)
+    // 3. Signaling Listeners (New Structure)
+    const myRole = getUserRole(currentUser);
+    const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+    const targetRole = getUserRole(targetUser);
+
+    // Listen for Incoming Calls (Offer)
+    ['Audio', 'Video'].forEach(cType => {
+        db.ref(`signals/${myRole}_incoming_${cType}`).on('value', snapshot => {
+            const data = snapshot.val();
+            if (data && data.status === 'ringing' && data.sender !== currentUser) {
+                handleIncomingSignal({
+                    type: 'offer',
+                    sender: data.sender,
+                    data: data.sdp,
+                    isVideo: cType === 'Video',
+                    timestamp: data.timestamp
+                });
+            } else if (!data && (callStream || incomingSignalData)) {
+                // Call ended remotely (node removed)
+                if (isVideoCall === (cType === 'Video')) endCall(true);
+            }
+        });
+    });
+
+    // Listen for Call Acceptance (Answer)
+    ['Audio', 'Video'].forEach(cType => {
+        db.ref(`signals/${targetRole}_incoming_${cType}`).on('value', snapshot => {
+            const data = snapshot.val();
+            if (data && data.status === 'Accepted' && data.answerSdp && data.sender === currentUser) {
+                handleIncomingSignal({
+                    type: 'answer',
+                    sender: targetUser,
+                    data: data.answerSdp,
+                    isVideo: cType === 'Video'
+                });
+            } else if (!data && (callStream || incomingSignalData) && !incomingSignalData) {
+                 // Call ended remotely (node removed)
+                 if (isVideoCall === (cType === 'Video')) endCall(true);
+            }
+        });
+    });
+
+    // Listen for Candidates
+    db.ref(`signals/${myRole}_candidates`).on('child_added', snapshot => {
+        const val = snapshot.val();
+        if (val && val.sender !== currentUser) {
+            handleIncomingSignal({
+                type: 'candidate',
+                sender: val.sender,
+                data: val.candidate
+            });
+        }
     });
 
     // 4. Status Listener (Other User)
@@ -946,6 +997,7 @@ async function startCall(video, isIncoming = false) {
     callVideoMuteBtn.style.background = 'rgba(255,255,255,0.2)';
     
     if (video) {
+        callRemoteAudio.srcObject = null; // Ensure audio element is clear for video call
         callRemoteVideo.style.display = 'block';
         callVideoContainer.style.display = 'block';
         callAudioContainer.style.display = 'none';
@@ -953,6 +1005,7 @@ async function startCall(video, isIncoming = false) {
         callVideoMuteBtn.style.display = 'flex';
         callFacingMode = 'user';
     } else {
+        callRemoteVideo.srcObject = null; // Ensure video element is clear for audio call
         callVideoContainer.style.display = 'none';
         callAudioContainer.style.display = 'flex';
         callFlipBtn.style.display = 'none';
@@ -1008,10 +1061,12 @@ function createPeerConnection(isInitiator) {
     };
 
     peerConnection.ontrack = (event) => {
+        const stream = event.streams[0] || new MediaStream([event.track]);
         if (isVideoCall) {
-            callRemoteVideo.srcObject = event.streams[0];
+            callRemoteVideo.srcObject = stream;
         } else {
-            callRemoteAudio.srcObject = event.streams[0];
+            callRemoteAudio.srcObject = stream;
+            callRemoteAudio.play().catch(e => console.error("Error playing audio:", e));
         }
     };
 
@@ -1030,16 +1085,37 @@ function createPeerConnection(isInitiator) {
 }
 
 function sendSignal(type, data) {
+    const myRole = getUserRole(currentUser);
     const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
-    const signal = {
-        type: type,
-        sender: currentUser,
-        receiver: targetUser,
-        data: data,
-        isVideo: isVideoCall,
-        timestamp: Date.now()
-    };
-    db.ref('signals').push(signal);
+    const targetRole = getUserRole(targetUser);
+    const callType = isVideoCall ? 'Video' : 'Audio';
+
+    if (type === 'offer') {
+        const path = `signals/${targetRole}_incoming_${callType}`;
+        db.ref(path).set({
+            sender: currentUser,
+            sdp: data,
+            status: 'ringing',
+            timestamp: Date.now()
+        });
+    } else if (type === 'answer') {
+        const path = `signals/${myRole}_incoming_${callType}`;
+        db.ref(path).update({
+            status: 'Accepted',
+            answerSdp: data
+        });
+    } else if (type === 'candidate') {
+        const path = `signals/${targetRole}_candidates`;
+        db.ref(path).push({
+            candidate: data,
+            sender: currentUser
+        });
+    } else if (type === 'end' || type === 'reject') {
+        db.ref(`signals/${myRole}_incoming_${callType}`).remove();
+        db.ref(`signals/${targetRole}_incoming_${callType}`).remove();
+        db.ref(`signals/${myRole}_candidates`).remove();
+        db.ref(`signals/${targetRole}_candidates`).remove();
+    }
 }
 
 function processCandidateQueue() {
@@ -1053,7 +1129,7 @@ function processCandidateQueue() {
 }
 
 function handleIncomingSignal(signal) {
-    if (signal.receiver !== currentUser) return;
+    // Receiver check handled by listener path
     
     // Ignore old signals (> 10 seconds)
     if (Date.now() - signal.timestamp > 10000) return;
@@ -1067,21 +1143,22 @@ function handleIncomingSignal(signal) {
     } else if (signal.type === 'answer') {
         if (peerConnection) {
             peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data))
+                .then(() => {
+                    callStatusText.innerText = "Connected";
+                    startCallTimer();
+                    processCandidateQueue();
+                })
                 .catch(e => console.error("Error setting remote description:", e));
-            callStatusText.innerText = "Connected";
-            startCallTimer();
         }
     } else if (signal.type === 'candidate') {
-        if (peerConnection) {
+        if (peerConnection && peerConnection.remoteDescription) {
             peerConnection.addIceCandidate(new RTCIceCandidate(signal.data))
                 .catch(e => console.error("Error adding ice candidate:", e));
+        } else {
+            candidateQueue.push(signal.data);
         }
-    } else if (signal.type === 'reject') {
-        alert("Call Rejected");
-        endCall();
-    } else if (signal.type === 'end') {
-        endCall(true); // true = remote ended
     }
+    // Reject/End handled by node removal listener
 }
 
 acceptCallBtn.addEventListener('click', () => {
