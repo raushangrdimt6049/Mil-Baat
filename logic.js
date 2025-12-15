@@ -339,7 +339,8 @@ function setupFirebaseListeners() {
                     type: 'answer',
                     sender: targetUser,
                     data: data.answerSdp,
-                    isVideo: cType === 'Video'
+                    isVideo: cType === 'Video',
+                    timestamp: data.timestamp
                 });
             } else if (!data && (callStream || incomingSignalData) && !incomingSignalData) {
                  // Call ended remotely (node removed)
@@ -1102,7 +1103,8 @@ function sendSignal(type, data) {
         const path = `signals/${myRole}_incoming_${callType}`;
         db.ref(path).update({
             status: 'Accepted',
-            answerSdp: data
+            answerSdp: data,
+            timestamp: Date.now()
         });
     } else if (type === 'candidate') {
         const path = `signals/${targetRole}_candidates`;
@@ -1144,7 +1146,7 @@ function handleIncomingSignal(signal) {
         if (peerConnection) {
             peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data))
                 .then(() => {
-                    callStatusText.innerText = "Connected";
+                    callStatusText.innerText = "Accepted";
                     startCallTimer();
                     processCandidateQueue();
                 })
@@ -1176,7 +1178,7 @@ acceptCallBtn.addEventListener('click', () => {
                 .then(answer => peerConnection.setLocalDescription(answer))
                 .then(() => {
                     sendSignal('answer', peerConnection.localDescription);
-                    callStatusText.innerText = "Connected";
+                    callStatusText.innerText = "Accepted";
                     startCallTimer();
                     processCandidateQueue();
                 })
