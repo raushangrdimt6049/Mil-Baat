@@ -166,6 +166,8 @@ let isPipInteractionActive = false;
 let peerConnection = null;
 let incomingSignalData = null;
 let currentChatHistory = [];
+let remoteUserLastSeen = 0;
+let remoteStatusCheckInterval = null;
 
 const rtcConfig = {
     iceServers: [
@@ -273,18 +275,25 @@ function getMessageTable(sender) {
 function setupFirebaseListeners() {
     // 1. Chat Messages Listener
     db.ref('messages').on('value', snapshot => {
-        const data = snapshot.val();
-        let history = [];
-        if (data) {
-            if (data.alpha) history = history.concat(Object.values(data.alpha));
-            if (data.beta) history = history.concat(Object.values(data.beta));
+        try {
+            const data = snapshot.val();
+            let history = [];
+            if (data) {
+                if (data.alpha && typeof data.alpha === 'object') history = history.concat(Object.values(data.alpha));
+                if (data.beta && typeof data.beta === 'object') history = history.concat(Object.values(data.beta));
+            }
+            // Filter out any invalid entries
+            history = history.filter(msg => msg && typeof msg === 'object' && msg.timestamp);
+            
+            // Sort messages by date to ensure correct order
+            history.sort((a, b) => {
+                return (a.rawDate || "") < (b.rawDate || "") ? -1 : 1;
+            });
+            currentChatHistory = history;
+            renderChat(history);
+        } catch (e) {
+            console.error("Error processing chat data:", e);
         }
-        // Sort messages by date to ensure correct order
-        history.sort((a, b) => {
-            return (a.rawDate || 0) < (b.rawDate || 0) ? -1 : 1;
-        });
-        currentChatHistory = history;
-        renderChat(history);
     });
 
     // 2. Pinned Message Listener
@@ -303,9 +312,15 @@ function setupFirebaseListeners() {
     // 4. Status Listener (Other User)
     const otherUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
     db.ref(`status/${otherUser}`).on('value', snapshot => {
-        const lastSeen = snapshot.val() || 0;
-        updateStatusUI(lastSeen);
+        remoteUserLastSeen = snapshot.val() || 0;
+        updateStatusUI(remoteUserLastSeen);
     });
+
+    // Start polling to update UI (switches to Last Seen if user stops updating)
+    if (remoteStatusCheckInterval) clearInterval(remoteStatusCheckInterval);
+    remoteStatusCheckInterval = setInterval(() => {
+        updateStatusUI(remoteUserLastSeen);
+    }, 2000);
 
     // 5. Typing Listener (Other User)
     db.ref(`typing/${otherUser}`).on('value', snapshot => {
@@ -321,7 +336,7 @@ function renderChat(history) {
     // Mark messages from the OTHER user as 'seen' when I load them
     history.forEach(msg => {
         // Safety check
-        if (!msg) return;
+        if (!msg || !msg.id) return;
 
         if (msg.sender !== currentUser && msg.status !== 'seen' && msg.id) {
             // Update status in Firebase
@@ -342,6 +357,8 @@ function renderChat(history) {
     chatMessages.innerHTML = ''; // Clear current view
     
     history.forEach(msg => {
+        if (!msg) return;
+
         // Date Divider Logic
         let msgDateObj = new Date(); // Default to now if missing (for old messages)
         if (msg.rawDate) {
@@ -507,19 +524,19 @@ acceptBtn.addEventListener('click', () => {
 function startHeartbeat() {
     // Set online status and handle disconnect
     const statusRef = db.ref(`status/${currentUser}`);
-    statusRef.set(Date.now());
-    statusRef.onDisconnect().remove();
+    statusRef.set(firebase.database.ServerValue.TIMESTAMP);
+    statusRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP); // Save timestamp instead of removing
     
     // Update timestamp periodically to show "Online"
     heartbeatInterval = setInterval(() => {
-        statusRef.set(Date.now());
+        statusRef.set(firebase.database.ServerValue.TIMESTAMP);
     }, 5000);
 }
 
 function updateStatusUI(lastSeen) {
     const now = Date.now();
-    // Considered online if active in last 10 seconds
-    if (now - lastSeen < 10000 && lastSeen !== 0) {
+    // Considered online if active in last 15 seconds
+    if (now - lastSeen < 15000 && lastSeen !== 0) {
         userStatusIndicator.style.display = 'block';
         lastSeenDisplay.style.display = 'none';
     } else {
@@ -567,7 +584,10 @@ clearChatBtn.addEventListener('click', () => {
 });
 
 confirmClearChat.addEventListener('click', () => {
-    db.ref('messages').remove();
+    if (db) {
+        db.ref('messages').remove().catch(e => console.error(e));
+        db.ref('pinned_message').remove().catch(e => console.error(e));
+    }
     clearChatModal.style.display = 'none';
     mainContent.classList.remove('blur-content');
 });
@@ -755,6 +775,11 @@ msgInput.addEventListener('keydown', (e) => {
 // --- Chat Functionality ---
 sendMsgBtn.addEventListener('click', () => {
     const text = msgInput.value.trim();
+    
+    if (!currentUser) {
+        alert("You appear to be logged out. Please refresh the page.");
+        return;
+    }
     if (!db) {
         alert("Database not connected. Cannot send message.");
         return;
@@ -1650,9 +1675,15 @@ confirmLogout.addEventListener('click', () => {
     body.style.overflow = 'hidden';
     body.classList.remove('user-raushan', 'user-nisha');
     
+    // Update status one last time before clearing
+    if (currentUser && db) {
+        db.ref(`status/${currentUser}`).set(firebase.database.ServerValue.TIMESTAMP);
+    }
+
     // Clear Status Logic
     db.ref().off(); // Detach all listeners
     clearInterval(heartbeatInterval);
+    clearInterval(remoteStatusCheckInterval);
     userStatusIndicator.style.display = 'none';
     lastSeenDisplay.style.display = 'none';
     headerTypingIndicator.style.display = 'none';
