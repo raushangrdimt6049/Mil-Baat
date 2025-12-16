@@ -1057,7 +1057,7 @@ async function startCall(video, isIncoming = false) {
     callVideoMuteBtn.innerText = '📷';
     callVideoMuteBtn.style.background = 'rgba(255,255,255,0.2)';
     isSpeakerOn = false;
-    callAudioOutputBtn.innerText = '👂';
+    callAudioOutputBtn.innerText = '';
     callAudioOutputBtn.style.background = 'rgba(255,255,255,0.2)';
     
     // Configure UI based on call type
@@ -1413,7 +1413,7 @@ async function updateAudioOutput(isManual = false) {
         if (!outputs.length) return;
         
         const speaker = outputs.find(d => /speaker/i.test(d.label));
-        const earpiece = outputs.find(d => /earpiece|handset|receiver/i.test(d.label));
+        const earpiece = outputs.find(d => /earpiece|handset|receiver|phone/i.test(d.label));
         
         let targetId = 'default';
         if (isSpeakerOn) {
@@ -1427,7 +1427,7 @@ async function updateAudioOutput(isManual = false) {
         }
         
         await element.setSinkId(targetId);
-        callAudioOutputBtn.innerText = isSpeakerOn ? '🔊' : '👂';
+        callAudioOutputBtn.innerText = isSpeakerOn ? '👂' : '🔊';
         callAudioOutputBtn.style.background = isSpeakerOn ? '#ff9f43' : 'rgba(255,255,255,0.2)';
     } catch(e) { console.error(e); }
 }
