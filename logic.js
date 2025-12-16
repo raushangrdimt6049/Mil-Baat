@@ -1859,6 +1859,12 @@ function handleFileSelect(event) {
                 imagePreviewOverlay.style.display = 'flex';
             };
         } else if (file.type.startsWith('video/')) {
+            // Check file size (limit to ~8MB for Firebase RTDB 10MB limit)
+            if (file.size > 8 * 1024 * 1024) {
+                alert("Video is too large. Maximum size is 8MB.");
+                event.target.value = '';
+                return;
+            }
             reader.onload = function(e) {
                 currentVideoBase64 = e.target.result;
                 currentImageBase64 = null;
@@ -1870,6 +1876,9 @@ function handleFileSelect(event) {
                 filterBtn.style.display = 'none';
                 const info = document.getElementById('file-preview-info');
                 if(info) info.style.display = 'none';
+                
+                // Ensure send button is visible
+                sendImageBtn.style.display = 'flex';
 
                 // Show Video Preview
                 let vidPreview = document.getElementById('previewVideo');
@@ -2063,7 +2072,10 @@ sendImageBtn.addEventListener('click', () => {
             msgData.video = currentVideoBase64;
         }
 
-        newMsgRef.set(msgData);
+        newMsgRef.set(msgData).catch(err => {
+            console.error("Send Error:", err);
+            alert("Failed to send. File might be too large.");
+        });
 
         // Cleanup
         imagePreviewOverlay.style.display = 'none';
