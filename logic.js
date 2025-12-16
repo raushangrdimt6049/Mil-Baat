@@ -222,67 +222,7 @@ function addLongPressHandler(element, id) {
         pressTimer = setTimeout(() => {
             selectedMsgId = id;
             
-            // --- Share Button Logic ---
             const msg = currentChatHistory.find(m => m.id === id);
-            let shareBtn = document.getElementById('shareMsgOptionBtn');
-            
-            if (!shareBtn && pinMsgBtn && pinMsgBtn.parentNode) {
-                shareBtn = document.createElement('button');
-                shareBtn.id = 'shareMsgOptionBtn';
-                shareBtn.innerHTML = '📤 Share File';
-                shareBtn.className = pinMsgBtn.className;
-                shareBtn.style.marginBottom = '10px';
-                shareBtn.style.width = '100%';
-                
-                pinMsgBtn.parentNode.insertBefore(shareBtn, pinMsgBtn.nextSibling);
-                
-                shareBtn.addEventListener('click', async () => {
-                    const m = currentChatHistory.find(x => x.id === selectedMsgId);
-                    if (m && (m.image || m.file)) {
-                        try {
-                            let blob, file;
-                            if (m.image) {
-                                const res = await fetch(m.image);
-                                blob = await res.blob();
-                                file = new File([blob], `image_${Date.now()}.jpg`, { type: blob.type });
-                            } else if (m.file) {
-                                const res = await fetch(m.file.data);
-                                blob = await res.blob();
-                                file = new File([blob], m.file.name, { type: m.file.type });
-                            }
-                            
-                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                                await navigator.share({
-                                    files: [file],
-                                    title: 'Shared File',
-                                    text: 'Shared from Mil Baat App'
-                                });
-                            } else {
-                                // Fallback: Download the file
-                                const a = document.createElement('a');
-                                a.href = URL.createObjectURL(file);
-                                a.download = file.name;
-                                document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                                alert("Sharing not supported on this device. File downloaded instead.");
-                            }
-                        } catch (e) {
-                            console.error("Share Error:", e);
-                            alert("Failed to share file.");
-                        }
-                    }
-                    closeOptionsModal();
-                });
-            }
-            
-            if (shareBtn) {
-                if (msg && (msg.image || msg.file)) {
-                    shareBtn.style.display = 'block';
-                } else {
-                    shareBtn.style.display = 'none';
-                }
-            }
 
             // --- Unsend Receipt Button Logic ---
             let unsendBtn = document.getElementById('unsendMsgOptionBtn');
@@ -296,9 +236,6 @@ function addLongPressHandler(element, id) {
                 unsendBtn.style.width = '100%';
                 
                 let refNode = pinMsgBtn.nextSibling;
-                if (shareBtn && shareBtn.parentNode === pinMsgBtn.parentNode) {
-                    refNode = shareBtn.nextSibling;
-                }
                 pinMsgBtn.parentNode.insertBefore(unsendBtn, refNode);
                 
                 unsendBtn.addEventListener('click', () => {
