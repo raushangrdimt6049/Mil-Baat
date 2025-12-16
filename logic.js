@@ -449,7 +449,7 @@ function setupFirebaseListeners() {
 
     // 6. Profile Picture Listener (Load saved photo)
     const userRole = getUserRole(currentUser);
-    db.ref(`Profile/${userRole}_Profile_Picture`).on('value', snapshot => {
+    db.ref(`Profile Pic/${userRole}_Profile_Pic`).on('value', snapshot => {
         const photo = snapshot.val();
         if (photo) {
             profileImageDisplay.src = photo;
@@ -911,53 +911,48 @@ profileBtn.addEventListener('click', () => {
     closeProfileBtn.style.right = '15px';
     closeProfileBtn.innerHTML = '❌';
 
-    // 2. Buttons Setup (Change Picture & Save)
-    uploadTriggerBtn.innerText = "Change Picture";
-    
+    // --- Fresh Button Logic (Change & Save) ---
+    if (uploadTriggerBtn) {
+        uploadTriggerBtn.style.display = 'block';
+        uploadTriggerBtn.innerText = "Change";
+        uploadTriggerBtn.style.background = "#4facfe"; // Light Blue
+        uploadTriggerBtn.style.color = "white";
+        uploadTriggerBtn.style.width = "48%";
+        uploadTriggerBtn.style.border = "none";
+    }
+
     let saveBtn = document.getElementById('saveProfileBtn');
     if (!saveBtn) {
-        // Create Wrapper for buttons to ensure same dimension and alignment
-        const btnWrapper = document.createElement('div');
-        btnWrapper.style.display = 'flex';
-        btnWrapper.style.justifyContent = 'space-between';
-        btnWrapper.style.width = '100%';
-        btnWrapper.style.marginTop = '15px';
+        // Container for buttons
+        const btnContainer = document.createElement('div');
+        btnContainer.style.display = 'flex';
+        btnContainer.style.justifyContent = 'space-between';
+        btnContainer.style.marginTop = '15px';
+        btnContainer.style.width = '100%';
 
-        uploadTriggerBtn.parentNode.insertBefore(btnWrapper, uploadTriggerBtn);
-        btnWrapper.appendChild(uploadTriggerBtn);
+        if (uploadTriggerBtn && uploadTriggerBtn.parentNode) {
+            uploadTriggerBtn.parentNode.insertBefore(btnContainer, uploadTriggerBtn);
+            btnContainer.appendChild(uploadTriggerBtn);
+        }
 
         saveBtn = document.createElement('button');
         saveBtn.id = 'saveProfileBtn';
-        saveBtn.innerText = 'Save';
-        saveBtn.className = uploadTriggerBtn.className;
-        btnWrapper.appendChild(saveBtn);
-
-        uploadTriggerBtn.style.width = '48%';
-        saveBtn.style.width = '48%';
+        saveBtn.innerText = "Save";
+        saveBtn.className = uploadTriggerBtn ? uploadTriggerBtn.className : '';
+        saveBtn.style.background = "#0052D4"; // Deep Blue
+        saveBtn.style.color = "white";
+        saveBtn.style.width = "48%";
+        saveBtn.style.border = "none";
+        
+        btnContainer.appendChild(saveBtn);
 
         saveBtn.addEventListener('click', (e) => {
-            if (e) e.preventDefault();
+            e.preventDefault();
             if (!currentUser) return alert("Please log in first.");
-            if (!db) return alert("Database connection error.");
-            if (!profileImageDisplay.src || profileImageDisplay.src === window.location.href) {
-                return alert("No image selected to save.");
-            }
-
-            const userRole = getUserRole(currentUser);
-            const originalText = saveBtn.innerText;
-            saveBtn.innerText = "Saving...";
-            saveBtn.disabled = true;
-
-            db.ref(`Profile/${userRole}_Profile_Picture`).set(profileImageDisplay.src)
+            const role = getUserRole(currentUser);
+            db.ref(`Profile Pic/${role}_Profile_Pic`).set(profileImageDisplay.src)
                 .then(() => alert("Profile Picture Saved Successfully!"))
-                .catch(err => {
-                    console.error("Error uploading profile pic:", err);
-                    alert("Failed to save: " + err.message);
-                })
-                .finally(() => {
-                    saveBtn.innerText = originalText;
-                    saveBtn.disabled = false;
-                });
+                .catch(err => alert("Failed to save: " + err.message));
         });
     }
 });
@@ -965,24 +960,6 @@ profileBtn.addEventListener('click', () => {
 closeProfileBtn.addEventListener('click', () => {
     profileModal.style.display = 'none';
     mainContent.classList.remove('blur-content');
-});
-
-// Trigger file input when button is clicked
-uploadTriggerBtn.addEventListener('click', (e) => {
-    if (e) e.preventDefault();
-    profileFileInput.click();
-});
-
-// Handle file selection and preview
-profileFileInput.addEventListener('change', function() {
-    if (this.files && this.files[0]) {
-        const file = this.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            profileImageDisplay.src = e.target.result;
-        }
-        reader.readAsDataURL(file);
-    }
 });
 
 // --- Theme Toggle Logic ---
@@ -1230,7 +1207,7 @@ async function startCall(video, isIncoming = false) {
         const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
         const targetRole = getUserRole(targetUser);
         
-        db.ref(`Profile/${targetRole}_Profile_Picture`).once('value').then(snap => {
+        db.ref(`Profile Pic/${targetRole}_Profile_Pic`).once('value').then(snap => {
             const pic = snap.val();
             let img = document.getElementById('activeAudioCallImage');
             let placeholder = document.getElementById('activeAudioCallPlaceholder');
@@ -1426,7 +1403,7 @@ function handleIncomingSignal(signal) {
         
         // Show Caller Profile Picture
         const callerRole = getUserRole(signal.sender);
-        db.ref(`Profile/${callerRole}_Profile_Picture`).once('value').then(snap => {
+        db.ref(`Profile Pic/${callerRole}_Profile_Pic`).once('value').then(snap => {
             const pic = snap.val();
             let img = document.getElementById('incomingCallImage');
             if (!img) {
