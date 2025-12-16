@@ -130,18 +130,20 @@ try {
 } catch (e) { console.error("Firebase Init Error:", e); }
 
 // Verify Connection
-db.ref(".info/connected").on("value", (snap) => {
-    if (snap.val() === true) {
-        console.log("✅ Firebase Realtime Database Connected!");
-    } else {
-        console.log("❌ Firebase Disconnected (or connecting...)");
-    }
-});
+if (db) {
+    db.ref(".info/connected").on("value", (snap) => {
+        if (snap.val() === true) {
+            console.log("✅ Firebase Realtime Database Connected!");
+        } else {
+            console.log("❌ Firebase Disconnected (or connecting...)");
+        }
+    });
 
+    db.ref(".info/serverTimeOffset").on("value", (snap) => {
+        serverTimeOffset = snap.val();
+    });
+}
 let serverTimeOffset = 0;
-db.ref(".info/serverTimeOffset").on("value", (snap) => {
-    serverTimeOffset = snap.val();
-});
 
 let currentUser = null;
 let msgToDeleteId = null;
@@ -179,6 +181,7 @@ let candidateQueue = [];
 let amICaller = false;
 let ringingTimeout = null;
 let isCallConnected = false;
+let toastTimeout = null;
 
 const rtcConfig = {
     iceServers: [
@@ -204,6 +207,18 @@ function triggerShake(element) {
     }, 500);
 }
 
+function showToast(message) {
+    const toast = document.getElementById('toast-notification');
+    if (toast) {
+        toast.innerText = message;
+        toast.classList.add("show");
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toast.classList.remove("show");
+        }, 3000);
+    }
+}
+
 // Helper to format date for divider
 function getFormattedDate(dateObj) {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -223,6 +238,61 @@ function addLongPressHandler(element, id) {
             selectedMsgId = id;
             
             const msg = currentChatHistory.find(m => m.id === id);
+
+            // --- Download Button Logic ---
+            let downloadBtn = document.getElementById('downloadMsgOptionBtn');
+            
+            if (!downloadBtn && pinMsgBtn && pinMsgBtn.parentNode) {
+                downloadBtn = document.createElement('button');
+                downloadBtn.id = 'downloadMsgOptionBtn';
+                downloadBtn.innerHTML = '⬇️ Download File';
+                downloadBtn.className = pinMsgBtn.className;
+                downloadBtn.style.marginBottom = '10px';
+                downloadBtn.style.width = '100%';
+                downloadBtn.style.background = 'rgba(46, 204, 113, 0.15)';
+                downloadBtn.style.color = '#2ecc71';
+                downloadBtn.style.border = '1px solid rgba(46, 204, 113, 0.3)';
+                
+                pinMsgBtn.parentNode.insertBefore(downloadBtn, pinMsgBtn);
+                
+                downloadBtn.addEventListener('click', () => {
+                    const m = currentChatHistory.find(x => x.id === selectedMsgId);
+                    if (m) {
+                        let dUrl = '', dName = '';
+                        if (m.file) { 
+                            dUrl = m.file.data; 
+                            dName = m.file.name; 
+                        } else if (m.image) { 
+                            dUrl = m.image; 
+                            dName = `image_${Date.now()}.jpg`; 
+                        } else if (m.video) { 
+                            dUrl = m.video; 
+                            dName = `video_${Date.now()}.mp4`; 
+                        } else if (m.audio) { 
+                            dUrl = m.audio; 
+                            dName = `audio_${Date.now()}.webm`; 
+                        }
+                        
+                        if (dUrl) {
+                            const a = document.createElement('a');
+                            a.href = dUrl;
+                            a.download = dName;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        }
+                    }
+                    closeOptionsModal();
+                });
+            }
+            
+            if (downloadBtn) {
+                if (msg && (msg.file || msg.image || msg.video || msg.audio)) {
+                    downloadBtn.style.display = 'block';
+                } else {
+                    downloadBtn.style.display = 'none';
+                }
+            }
 
             // --- Unsend Receipt Button Logic ---
             let unsendBtn = document.getElementById('unsendMsgOptionBtn');
@@ -311,7 +381,15 @@ function startReply(msg) {
     replyToMsg = msg;
     replyPreview.style.display = 'flex';
     replySender.innerText = msg.sender === currentUser ? 'You' : msg.sender;
-    replyText.innerText = msg.text;
+    
+    let displayText = msg.text;
+    if (!displayText) {
+        if (msg.image) displayText = '📷 Image';
+        else if (msg.video) displayText = '🎥 Video';
+        else if (msg.audio) displayText = '🎤 Audio';
+        else if (msg.file) displayText = '📄 File';
+    }
+    replyText.innerText = displayText;
     msgInput.focus();
 }
 
@@ -363,7 +441,7 @@ function setupFirebaseListeners() {
             const data = snapshot.val();
             
             // If data is null, the call was ended remotely
-            if (!data) {
+            if (!data || data.type === 'reject') {
                 const isVideo = (cType === 'Video');
                 let shouldEnd = false;
 
@@ -377,6 +455,9 @@ function setupFirebaseListeners() {
                 }
 
                 if (shouldEnd) {
+                    if (data && data.type === 'reject') {
+                        showToast("🚫 Call Rejected");
+                    }
                     endCall(true);
                 }
                 return;
@@ -1045,10 +1126,13 @@ sendMsgBtn.addEventListener('click', () => {
             rawDate: rawDate,
             status: 'sent', // Initial status
             // Add reply info
-            replyTo: replyToMsg ? {
-                sender: replyToMsg.sender,
-                text: replyToMsg.text
-            } : null
+            replyTo: replyToMsg ? (() => {
+                const rText = replyToMsg.text || (replyToMsg.image ? '📷 Image' : (replyToMsg.video ? '🎥 Video' : (replyToMsg.audio ? '🎤 Audio' : (replyToMsg.file ? '📄 File' : 'Message'))));
+                return {
+                    sender: replyToMsg.sender,
+                    text: rText
+                };
+            })() : null
         };
         newMsgRef.set(newMsg).catch(error => {
             console.error("Send Error:", error);
@@ -1159,12 +1243,26 @@ captureCameraBtn.addEventListener('click', () => {
     baseImageForFilter = currentImageBase64;
     currentFilterMode = 0;
     lastImageSource = 'camera';
+    currentFileData = null;
+    currentVideoBase64 = null;
     
     // Stop camera and show preview
     stopCamera();
     
     // Show existing preview overlay
     previewImage.src = currentImageBase64;
+    previewImage.style.display = 'block';
+    
+    // Show image controls (Crop & Filter) just like attachment preview
+    cropBtn.style.display = 'flex';
+    filterBtn.style.display = 'flex';
+
+    // Hide file/video elements if they were visible
+    const info = document.getElementById('file-preview-info');
+    if(info) info.style.display = 'none';
+    const vidPreview = document.getElementById('previewVideo');
+    if(vidPreview) vidPreview.style.display = 'none';
+
     imagePreviewOverlay.style.display = 'flex';
 });
 
@@ -1473,18 +1571,26 @@ acceptCallBtn.addEventListener('click', () => {
 rejectCallBtn.addEventListener('click', () => {
     // If we have data, we know the type to clean up
     if (incomingSignalData) {
-        const myRole = getUserRole(currentUser);
         const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
         const targetRole = getUserRole(targetUser);
         const type = incomingSignalData.isVideo ? 'Video' : 'Audio';
         
-        // Remove ALL signal nodes so the caller detects the rejection immediately
-        db.ref(`signals/${myRole}_incoming_${type}`).remove();
-        db.ref(`signals/${targetRole}_incoming_${type}`).remove();
-        db.ref(`signals/${myRole}_candidates`).remove();
-        db.ref(`signals/${targetRole}_candidates`).remove();
+        // Set global isVideoCall so endCall() targets the correct signal path
+        isVideoCall = incomingSignalData.isVideo;
+
+        // Send explicit reject signal so caller detects it
+        db.ref(`signals/${targetRole}_incoming_${type}`).set({
+            type: 'reject',
+            sender: currentUser
+        });
+        
+        // Delay cleanup slightly to ensure caller receives the reject signal
+        setTimeout(() => {
+            endCall(false); // This will clean up nodes via sendSignal('end')
+        }, 500);
+    } else {
+        endCall(true);
     }
-    endCall(true);
 });
 
 callEndBtn.addEventListener('click', () => endCall(false));
@@ -1626,7 +1732,7 @@ callFlipBtn.addEventListener('click', async (e) => {
             
             // Update Peer Connection
             const videoTrack = callStream.getVideoTracks()[0];
-            const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+            const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
             if (sender) sender.replaceTrack(videoTrack);
             
             // Restore Mute State
@@ -1921,9 +2027,9 @@ function handleFileSelect(event) {
                 imagePreviewOverlay.style.display = 'flex';
             };
         } else if (file.type.startsWith('video/')) {
-            // Check file size (limit to ~8MB for Firebase RTDB 10MB limit)
-            if (file.size > 8 * 1024 * 1024) {
-                alert("Video is too large. Maximum size is 8MB.");
+            // Check file size (limit to ~7MB for Firebase RTDB 10MB limit with overhead)
+            if (file.size > 7 * 1024 * 1024) {
+                alert("Video is too large. Maximum size is 7MB.");
                 event.target.value = '';
                 return;
             }
@@ -2315,6 +2421,7 @@ confirmLogout.addEventListener('click', () => {
     // Reset Profile Image to default
     profileImageDisplay.src = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
     
+    if (statusCheckInterval) clearInterval(statusCheckInterval);
     clearInterval(heartbeatInterval);
     userStatusIndicator.style.display = 'none';
     lastSeenDisplay.style.display = 'none';
