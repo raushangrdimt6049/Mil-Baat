@@ -935,7 +935,8 @@ profileBtn.addEventListener('click', () => {
         uploadTriggerBtn.style.width = '48%';
         saveBtn.style.width = '48%';
 
-        saveBtn.addEventListener('click', () => {
+        saveBtn.addEventListener('click', (e) => {
+            if (e) e.preventDefault();
             if (!currentUser) return alert("Please log in first.");
             if (!db) return alert("Database connection error.");
             if (!profileImageDisplay.src || profileImageDisplay.src === window.location.href) {
@@ -967,7 +968,8 @@ closeProfileBtn.addEventListener('click', () => {
 });
 
 // Trigger file input when button is clicked
-uploadTriggerBtn.addEventListener('click', () => {
+uploadTriggerBtn.addEventListener('click', (e) => {
+    if (e) e.preventDefault();
     profileFileInput.click();
 });
 
