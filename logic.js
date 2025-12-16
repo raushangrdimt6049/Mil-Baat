@@ -283,6 +283,42 @@ function addLongPressHandler(element, id) {
                     shareBtn.style.display = 'none';
                 }
             }
+
+            // --- Unsend Receipt Button Logic ---
+            let unsendBtn = document.getElementById('unsendMsgOptionBtn');
+            
+            if (!unsendBtn && pinMsgBtn && pinMsgBtn.parentNode) {
+                unsendBtn = document.createElement('button');
+                unsendBtn.id = 'unsendMsgOptionBtn';
+                unsendBtn.innerHTML = '👁️ Unsend Receipt';
+                unsendBtn.className = pinMsgBtn.className;
+                unsendBtn.style.marginBottom = '10px';
+                unsendBtn.style.width = '100%';
+                
+                let refNode = pinMsgBtn.nextSibling;
+                if (shareBtn && shareBtn.parentNode === pinMsgBtn.parentNode) {
+                    refNode = shareBtn.nextSibling;
+                }
+                pinMsgBtn.parentNode.insertBefore(unsendBtn, refNode);
+                
+                unsendBtn.addEventListener('click', () => {
+                    const m = currentChatHistory.find(x => x.id === selectedMsgId);
+                    if (m) {
+                        const table = getMessageTable(m.sender);
+                        db.ref(`messages/${table}/${m.id}/status`).set('sent');
+                        db.ref(`messages/${table}/${m.id}/seenTimestamp`).remove();
+                    }
+                    closeOptionsModal();
+                });
+            }
+            
+            if (unsendBtn) {
+                if (msg && msg.status === 'seen' && msg.sender === currentUser) {
+                    unsendBtn.style.display = 'block';
+                } else {
+                    unsendBtn.style.display = 'none';
+                }
+            }
             // ---------------------------
 
             messageOptionsModal.style.display = 'flex';
