@@ -1060,6 +1060,13 @@ async function startCall(video, isIncoming = false) {
     callAudioOutputBtn.innerText = '🔊';
     callAudioOutputBtn.style.background = 'rgba(255,255,255,0.2)';
     
+    // Check if audio output switching is supported
+    if (typeof callRemoteAudio.setSinkId !== 'function') {
+        callAudioOutputBtn.style.display = 'none';
+    } else {
+        callAudioOutputBtn.style.display = 'flex';
+    }
+
     // Configure UI based on call type
     if (video) {
         callVideoContainer.style.display = 'block';
@@ -1407,7 +1414,7 @@ async function updateAudioOutput(isManual = false) {
     const element = isVideoCall ? callRemoteVideo : callRemoteAudio;
     
     if (typeof element.setSinkId !== 'function') {
-        if (isManual) alert("Output switching not supported."); 
+        console.warn("Audio output switching not supported.");
         return;
     }
     try {
@@ -1417,14 +1424,18 @@ async function updateAudioOutput(isManual = false) {
         
         const speaker = outputs.find(d => /speaker/i.test(d.label));
         const earpiece = outputs.find(d => /earpiece|handset|receiver|phone/i.test(d.label));
+        const headset = outputs.find(d => /headset|bluetooth/i.test(d.label));
         
         let targetId = 'default';
         if (isSpeakerOn) {
             if (speaker) targetId = speaker.deviceId;
         } else {
-            if (earpiece) targetId = earpiece.deviceId;
+            if (headset) targetId = headset.deviceId;
+            else if (earpiece) targetId = earpiece.deviceId;
             else if (speaker && outputs.length > 1) {
-                const other = outputs.find(d => d.deviceId !== speaker.deviceId);
+                let other = outputs.find(d => d.deviceId !== speaker.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
+                if (!other) other = outputs.find(d => d.deviceId !== speaker.deviceId);
+                
                 if (other) targetId = other.deviceId;
             }
         }
