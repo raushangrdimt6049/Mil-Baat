@@ -1057,7 +1057,7 @@ async function startCall(video, isIncoming = false) {
     callVideoMuteBtn.innerText = '📷';
     callVideoMuteBtn.style.background = 'rgba(255,255,255,0.2)';
     isSpeakerOn = false;
-    callAudioOutputBtn.innerText = '';
+    callAudioOutputBtn.innerText = '🔊';
     callAudioOutputBtn.style.background = 'rgba(255,255,255,0.2)';
     
     // Configure UI based on call type
@@ -1089,6 +1089,9 @@ async function startCall(video, isIncoming = false) {
         
         // Force enable tracks
         callStream.getAudioTracks().forEach(t => t.enabled = true);
+        
+        // Initialize Audio Output (Default to Earpiece)
+        updateAudioOutput();
         
         if (video) {
             callStream.getVideoTracks().forEach(t => t.enabled = true);
