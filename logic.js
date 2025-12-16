@@ -175,6 +175,9 @@ let peerConnection = null;
 let incomingSignalData = null;
 let currentChatHistory = [];
 let candidateQueue = [];
+let amICaller = false;
+let ringingTimeout = null;
+let isCallConnected = false;
 
 const rtcConfig = {
     iceServers: [
@@ -1124,6 +1127,8 @@ videoCallBtn.addEventListener('click', () => startCall(true));
 async function startCall(video, isIncoming = false) {
     menuOptions.style.display = 'none';
     isVideoCall = video;
+    amICaller = !isIncoming;
+    isCallConnected = false;
     
     // 1. UI Setup
     callOverlay.style.display = 'flex';
@@ -1194,6 +1199,12 @@ async function startCall(video, isIncoming = false) {
         // 3. Initiate Connection if Caller
         if (!isIncoming) {
             createPeerConnection(true);
+            
+            // 10 Seconds Ringing Timeout
+            if (ringingTimeout) clearTimeout(ringingTimeout);
+            ringingTimeout = setTimeout(() => {
+                endCall(); 
+            }, 10000);
         }
         
         return true;
@@ -1273,12 +1284,14 @@ function sendSignal(type, data) {
     const candidatePath = `signals/${targetRole}_candidates`;
 
     if (type === 'offer') {
-        db.ref(incomingPath).set({
+        const ref = db.ref(incomingPath);
+        ref.set({
             type: 'offer',
             sender: currentUser,
             sdp: JSON.parse(JSON.stringify(data)),
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
+        ref.onDisconnect().remove();
     } else if (type === 'answer') {
         // Send answer to the caller's inbox so they receive it
         db.ref(incomingPath).set({
@@ -1316,6 +1329,8 @@ function handleIncomingSignal(signal) {
             const desc = new RTCSessionDescription(signal.data);
             peerConnection.setRemoteDescription(desc)
                 .then(() => {
+                    if (ringingTimeout) clearTimeout(ringingTimeout);
+                    isCallConnected = true;
                     console.log("Remote Description Set (Answer)");
                     callStatusText.innerText = "Connected";
                     startCallTimer();
@@ -1360,6 +1375,7 @@ acceptCallBtn.addEventListener('click', () => {
                     .then(answer => peerConnection.setLocalDescription(answer))
                     .then(() => {
                         sendSignal('answer', peerConnection.localDescription);
+                        isCallConnected = true;
                         callStatusText.innerText = "Connected";
                         startCallTimer();
                         processCandidateQueue();
@@ -1390,6 +1406,17 @@ rejectCallBtn.addEventListener('click', () => {
 callEndBtn.addEventListener('click', () => endCall(false));
 
 function endCall(remoteEnded = false) {
+    // Clear Timeout
+    if (ringingTimeout) {
+        clearTimeout(ringingTimeout);
+        ringingTimeout = null;
+    }
+
+    // Send Missed Call Message if I am caller, call wasn't connected, and it wasn't rejected remotely
+    if (amICaller && !isCallConnected && !remoteEnded) {
+        sendMissedCallMessage(isVideoCall);
+    }
+
     // 1. Stop Timer
     if (callInterval) clearInterval(callInterval);
     
@@ -1423,6 +1450,8 @@ function endCall(remoteEnded = false) {
     
     candidateQueue = [];
     incomingSignalData = null;
+    amICaller = false;
+    isCallConnected = false;
 }
 
 function startCallTimer() {
@@ -1435,6 +1464,34 @@ function startCallTimer() {
         const s = String(seconds % 60).padStart(2, '0');
         callTimer.innerText = `${m}:${s}`;
     }, 1000);
+}
+
+function sendMissedCallMessage(isVideo) {
+    const text = isVideo ? "📹 Missed Video Call" : "📞 Missed Audio Call";
+    
+    const now = new Date();
+    const d = String(now.getDate()).padStart(2, '0');
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const y = now.getFullYear();
+    const datePart = `${d}/${m}/${y}`;
+    const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timeString = `${datePart} ${timePart}`;
+    const rawDate = now.toISOString();
+
+    const table = getMessageTable(currentUser);
+    const newMsgRef = db.ref(`messages/${table}`).push();
+    const recipient = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+    
+    newMsgRef.set({
+        id: newMsgRef.key,
+        sender: currentUser,
+        recipient: recipient,
+        text: text,
+        timestamp: timeString,
+        rawDate: rawDate,
+        status: 'sent',
+        replyTo: null
+    });
 }
 
 // Mute/Flip/Output Handlers
