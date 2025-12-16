@@ -1424,18 +1424,14 @@ async function updateAudioOutput(isManual = false) {
         
         const speaker = outputs.find(d => /speaker/i.test(d.label));
         const earpiece = outputs.find(d => /earpiece|handset|receiver|phone/i.test(d.label));
-        const headset = outputs.find(d => /headset|bluetooth/i.test(d.label));
         
         let targetId = 'default';
         if (isSpeakerOn) {
             if (speaker) targetId = speaker.deviceId;
         } else {
-            if (headset) targetId = headset.deviceId;
-            else if (earpiece) targetId = earpiece.deviceId;
+            if (earpiece) targetId = earpiece.deviceId;
             else if (speaker && outputs.length > 1) {
-                let other = outputs.find(d => d.deviceId !== speaker.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
-                if (!other) other = outputs.find(d => d.deviceId !== speaker.deviceId);
-                
+                const other = outputs.find(d => d.deviceId !== speaker.deviceId);
                 if (other) targetId = other.deviceId;
             }
         }
