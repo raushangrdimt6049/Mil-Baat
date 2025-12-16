@@ -449,7 +449,7 @@ function setupFirebaseListeners() {
 
     // 6. Profile Picture Listener (Load saved photo)
     const userRole = getUserRole(currentUser);
-    db.ref(`profile picture/${userRole}_Profile_Picture`).on('value', snapshot => {
+    db.ref(`Profile/${userRole}_Profile_Picture`).on('value', snapshot => {
         const photo = snapshot.val();
         if (photo) {
             profileImageDisplay.src = photo;
@@ -938,7 +938,7 @@ profileBtn.addEventListener('click', () => {
         saveBtn.addEventListener('click', () => {
             if (currentUser && db && profileImageDisplay.src) {
                 const userRole = getUserRole(currentUser);
-                db.ref(`profile picture/${userRole}_Profile_Picture`).set(profileImageDisplay.src)
+                db.ref(`Profile/${userRole}_Profile_Picture`).set(profileImageDisplay.src)
                     .then(() => alert("Profile Picture Saved!"))
                     .catch(err => console.error("Error uploading profile pic:", err));
             }
@@ -1214,7 +1214,7 @@ async function startCall(video, isIncoming = false) {
         const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
         const targetRole = getUserRole(targetUser);
         
-        db.ref(`profile picture/${targetRole}_Profile_Picture`).once('value').then(snap => {
+        db.ref(`Profile/${targetRole}_Profile_Picture`).once('value').then(snap => {
             const pic = snap.val();
             let img = document.getElementById('activeAudioCallImage');
             let placeholder = document.getElementById('activeAudioCallPlaceholder');
@@ -1410,7 +1410,7 @@ function handleIncomingSignal(signal) {
         
         // Show Caller Profile Picture
         const callerRole = getUserRole(signal.sender);
-        db.ref(`profile picture/${callerRole}_Profile_Picture`).once('value').then(snap => {
+        db.ref(`Profile/${callerRole}_Profile_Picture`).once('value').then(snap => {
             const pic = snap.val();
             let img = document.getElementById('incomingCallImage');
             if (!img) {
