@@ -900,6 +900,50 @@ profileBtn.addEventListener('click', () => {
     menuOptions.style.display = 'none';
     profileModal.style.display = 'flex';
     mainContent.classList.add('blur-content');
+
+    // --- UI Updates for Profile Modal ---
+    // 1. Close Button Position
+    if (closeProfileBtn.parentNode) {
+        closeProfileBtn.parentNode.style.position = 'relative';
+    }
+    closeProfileBtn.style.position = 'absolute';
+    closeProfileBtn.style.top = '15px';
+    closeProfileBtn.style.right = '15px';
+    closeProfileBtn.innerHTML = '❌';
+
+    // 2. Buttons Setup (Change Picture & Save)
+    uploadTriggerBtn.innerText = "Change Picture";
+    
+    let saveBtn = document.getElementById('saveProfileBtn');
+    if (!saveBtn) {
+        // Create Wrapper for buttons to ensure same dimension and alignment
+        const btnWrapper = document.createElement('div');
+        btnWrapper.style.display = 'flex';
+        btnWrapper.style.justifyContent = 'space-between';
+        btnWrapper.style.width = '100%';
+        btnWrapper.style.marginTop = '15px';
+
+        uploadTriggerBtn.parentNode.insertBefore(btnWrapper, uploadTriggerBtn);
+        btnWrapper.appendChild(uploadTriggerBtn);
+
+        saveBtn = document.createElement('button');
+        saveBtn.id = 'saveProfileBtn';
+        saveBtn.innerText = 'Save';
+        saveBtn.className = uploadTriggerBtn.className;
+        btnWrapper.appendChild(saveBtn);
+
+        uploadTriggerBtn.style.width = '48%';
+        saveBtn.style.width = '48%';
+
+        saveBtn.addEventListener('click', () => {
+            if (currentUser && db && profileImageDisplay.src) {
+                const userRole = getUserRole(currentUser);
+                db.ref(`profile picture/${userRole}_Profile_Picture`).set(profileImageDisplay.src)
+                    .then(() => alert("Profile Picture Saved!"))
+                    .catch(err => console.error("Error uploading profile pic:", err));
+            }
+        });
+    }
 });
 
 closeProfileBtn.addEventListener('click', () => {
@@ -920,13 +964,6 @@ profileFileInput.addEventListener('change', function() {
             const base64 = e.target.result;
             // Update the image source with the uploaded file data
             profileImageDisplay.src = base64;
-
-            // Upload to Firebase for persistence
-            if (currentUser && db) {
-                const userRole = getUserRole(currentUser);
-                db.ref(`profile picture/${userRole}_Profile_Picture`).set(base64)
-                    .catch(err => console.error("Error uploading profile pic:", err));
-            }
         }
         reader.readAsDataURL(this.files[0]);
     }
@@ -1172,6 +1209,54 @@ async function startCall(video, isIncoming = false) {
         callAudioContainer.style.display = 'flex';
         callFlipBtn.style.display = 'none';
         callVideoMuteBtn.style.display = 'none';
+
+        // Show Remote Profile Picture in Audio Call
+        const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+        const targetRole = getUserRole(targetUser);
+        
+        db.ref(`profile picture/${targetRole}_Profile_Picture`).once('value').then(snap => {
+            const pic = snap.val();
+            let img = document.getElementById('activeAudioCallImage');
+            let placeholder = document.getElementById('activeAudioCallPlaceholder');
+
+            // Inject Pulse Animation
+            if (!document.getElementById('call-pulse-anim')) {
+                const style = document.createElement('style');
+                style.id = 'call-pulse-anim';
+                style.innerHTML = `
+                    @keyframes pulse-ring {
+                        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+                        70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(255, 255, 255, 0); }
+                        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            if (pic) {
+                if (!img) {
+                    img = document.createElement('img');
+                    img.id = 'activeAudioCallImage';
+                    img.style.cssText = "width: 150px; height: 150px; border-radius: 50%; object-fit: cover; margin: 20px auto; display: block; border: 4px solid rgba(255,255,255,0.2); animation: pulse-ring 2s infinite;";
+                    callAudioContainer.prepend(img);
+                } else {
+                    img.style.animation = "pulse-ring 2s infinite";
+                }
+                img.src = pic;
+                img.style.display = 'block';
+                if (placeholder) placeholder.style.display = 'none';
+            } else {
+                if (img) img.style.display = 'none';
+                if (!placeholder) {
+                    placeholder = document.createElement('div');
+                    placeholder.id = 'activeAudioCallPlaceholder';
+                    placeholder.innerHTML = '👤';
+                    placeholder.style.cssText = "font-size: 80px; text-align: center; margin: 20px;";
+                    callAudioContainer.prepend(placeholder);
+                }
+                placeholder.style.display = 'block';
+            }
+        });
     }
 
     callStatusText.innerText = isIncoming ? "Connecting..." : "Ringing...";
@@ -1322,6 +1407,22 @@ function handleIncomingSignal(signal) {
         incomingSignalData = signal;
         incomingCallTitle.innerText = `Incoming Call from ${signal.sender}`;
         incomingCallType.innerText = signal.isVideo ? "Video Call" : "Audio Call";
+        
+        // Show Caller Profile Picture
+        const callerRole = getUserRole(signal.sender);
+        db.ref(`profile picture/${callerRole}_Profile_Picture`).once('value').then(snap => {
+            const pic = snap.val();
+            let img = document.getElementById('incomingCallImage');
+            if (!img) {
+                img = document.createElement('img');
+                img.id = 'incomingCallImage';
+                img.style.cssText = "width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto;";
+                incomingCallTitle.parentNode.insertBefore(img, incomingCallTitle);
+            }
+            img.src = pic || ''; 
+            img.style.display = pic ? 'block' : 'none';
+        });
+
         incomingCallModal.style.display = 'flex';
         mainContent.classList.add('blur-content');
     } 
