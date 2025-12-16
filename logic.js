@@ -1060,13 +1060,6 @@ async function startCall(video, isIncoming = false) {
     callAudioOutputBtn.innerText = '🔊';
     callAudioOutputBtn.style.background = 'rgba(255,255,255,0.2)';
     
-    // Check if audio output switching is supported
-    if (typeof callRemoteAudio.setSinkId !== 'function') {
-        callAudioOutputBtn.style.display = 'none';
-    } else {
-        callAudioOutputBtn.style.display = 'flex';
-    }
-
     // Configure UI based on call type
     if (video) {
         callVideoContainer.style.display = 'block';
@@ -1414,7 +1407,7 @@ async function updateAudioOutput(isManual = false) {
     const element = isVideoCall ? callRemoteVideo : callRemoteAudio;
     
     if (typeof element.setSinkId !== 'function') {
-        console.warn("Audio output switching not supported.");
+        if (isManual) alert("Output switching not supported."); 
         return;
     }
     try {
