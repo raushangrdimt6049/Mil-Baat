@@ -951,11 +951,7 @@ profileBtn.addEventListener('click', () => {
                 .then(() => alert("Profile Picture Saved Successfully!"))
                 .catch(err => {
                     console.error("Error uploading profile pic:", err);
-                    if (err.message.includes("Permission denied")) {
-                        alert("⛔ Permission Denied!\n\nYour Firebase Database Rules are blocking this.\nSince you use a custom login, go to Firebase Console > Realtime Database > Rules and set:\n\n{ \".read\": true, \".write\": true }");
-                    } else {
-                        alert("Failed to save: " + err.message);
-                    }
+                    alert("Failed to save: " + err.message);
                 })
                 .finally(() => {
                     saveBtn.innerText = originalText;
