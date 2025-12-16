@@ -936,12 +936,27 @@ profileBtn.addEventListener('click', () => {
         saveBtn.style.width = '48%';
 
         saveBtn.addEventListener('click', () => {
-            if (currentUser && db && profileImageDisplay.src) {
-                const userRole = getUserRole(currentUser);
-                db.ref(`Profile/${userRole}_Profile_Picture`).set(profileImageDisplay.src)
-                    .then(() => alert("Profile Picture Saved!"))
-                    .catch(err => console.error("Error uploading profile pic:", err));
+            if (!currentUser) return alert("Please log in first.");
+            if (!db) return alert("Database connection error.");
+            if (!profileImageDisplay.src || profileImageDisplay.src === window.location.href) {
+                return alert("No image selected to save.");
             }
+
+            const userRole = getUserRole(currentUser);
+            const originalText = saveBtn.innerText;
+            saveBtn.innerText = "Saving...";
+            saveBtn.disabled = true;
+
+            db.ref(`Profile/${userRole}_Profile_Picture`).set(profileImageDisplay.src)
+                .then(() => alert("Profile Picture Saved Successfully!"))
+                .catch(err => {
+                    console.error("Error uploading profile pic:", err);
+                    alert("Failed to save. The image might be too large.");
+                })
+                .finally(() => {
+                    saveBtn.innerText = originalText;
+                    saveBtn.disabled = false;
+                });
         });
     }
 });
