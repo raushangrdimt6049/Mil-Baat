@@ -109,6 +109,7 @@ let cameraStream = null;
 let currentFacingMode = 'environment';
 let isFlashOn = false;
 let currentImageBase64 = null;
+let currentFileData = null;
 let cropper = null;
 let baseImageForFilter = null;
 let currentFilterMode = 0; // 0:None, 1:Gray, 2:Sepia, 3:Invert
@@ -216,6 +217,63 @@ function addLongPressHandler(element, id) {
     const start = () => {
         pressTimer = setTimeout(() => {
             selectedMsgId = id;
+            
+            // --- Share Button Logic ---
+            const msg = currentChatHistory.find(m => m.id === id);
+            let shareBtn = document.getElementById('shareMsgOptionBtn');
+            
+            if (!shareBtn && pinMsgBtn && pinMsgBtn.parentNode) {
+                shareBtn = document.createElement('button');
+                shareBtn.id = 'shareMsgOptionBtn';
+                shareBtn.innerHTML = '📤 Share File';
+                shareBtn.className = pinMsgBtn.className;
+                shareBtn.style.marginBottom = '10px';
+                shareBtn.style.width = '100%';
+                
+                pinMsgBtn.parentNode.insertBefore(shareBtn, pinMsgBtn.nextSibling);
+                
+                shareBtn.addEventListener('click', async () => {
+                    const m = currentChatHistory.find(x => x.id === selectedMsgId);
+                    if (m && (m.image || m.file)) {
+                        try {
+                            let blob, file;
+                            if (m.image) {
+                                const res = await fetch(m.image);
+                                blob = await res.blob();
+                                file = new File([blob], `image_${Date.now()}.jpg`, { type: blob.type });
+                            } else if (m.file) {
+                                const res = await fetch(m.file.data);
+                                blob = await res.blob();
+                                file = new File([blob], m.file.name, { type: m.file.type });
+                            }
+                            
+                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                                await navigator.share({
+                                    files: [file],
+                                    title: 'Shared File',
+                                    text: 'Shared from Mil Baat App'
+                                });
+                            } else {
+                                alert("Sharing not supported on this device.");
+                            }
+                        } catch (e) {
+                            console.error("Share Error:", e);
+                            alert("Failed to share file.");
+                        }
+                    }
+                    closeOptionsModal();
+                });
+            }
+            
+            if (shareBtn) {
+                if (msg && (msg.image || msg.file)) {
+                    shareBtn.style.display = 'block';
+                } else {
+                    shareBtn.style.display = 'none';
+                }
+            }
+            // ---------------------------
+
             messageOptionsModal.style.display = 'flex';
             mainContent.classList.add('blur-content');
             if (navigator.vibrate) navigator.vibrate(50);
@@ -491,7 +549,32 @@ function renderChat(history) {
             audio.className = 'msg-audio';
             msgDiv.appendChild(audio);
         }
-        if (msg.text) msgDiv.appendChild(document.createTextNode(msg.text));
+        
+        // Render File if exists
+        if (msg.file) {
+            const fileDiv = document.createElement('div');
+            fileDiv.style.cssText = 'background: rgba(0,0,0,0.1); padding: 10px; border-radius: 8px; margin: 5px 0; max-width: 200px;';
+            fileDiv.innerHTML = `
+                <a href="${msg.file.data}" download="${msg.file.name}" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:24px">📄</span>
+                    <div style="overflow:hidden;">
+                        <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${msg.file.name}</div>
+                        <div style="font-size:10px; opacity:0.7;">Tap to Download</div>
+                    </div>
+                </a>
+            `;
+            msgDiv.appendChild(fileDiv);
+        }
+
+        if (msg.text) {
+            const textSpan = document.createElement('span');
+            // Escape HTML to prevent XSS
+            const escapedText = msg.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            // Linkify URLs
+            const linkedText = escapedText.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #00a8ff; text-decoration: underline;">$1</a>');
+            textSpan.innerHTML = linkedText;
+            msgDiv.appendChild(textSpan);
+        }
 
         if (msg.id) {
             addLongPressHandler(msgDiv, msg.id);
@@ -930,6 +1013,8 @@ sendMsgBtn.addEventListener('click', () => {
 // --- Chat Actions (Attachment, Camera, Mic) ---
 attachBtn.addEventListener('click', () => {
     chatFileInput.click();
+    // Ensure we accept all files
+    chatFileInput.removeAttribute('accept');
 });
 
 // --- Live Camera Logic ---
@@ -1668,13 +1753,64 @@ function handleFileSelect(event) {
     if (file) {
         lastImageSource = 'file';
         const reader = new FileReader();
-        reader.onload = function(e) {
-            currentImageBase64 = e.target.result;
-            baseImageForFilter = currentImageBase64;
-            currentFilterMode = 0;
-            previewImage.src = currentImageBase64;
-            imagePreviewOverlay.style.display = 'flex';
-        };
+        
+        // Check if it is an image
+        if (file.type.startsWith('image/')) {
+            reader.onload = function(e) {
+                currentImageBase64 = e.target.result;
+                baseImageForFilter = currentImageBase64;
+                currentFileData = null;
+                currentFilterMode = 0;
+                
+                previewImage.src = currentImageBase64;
+                previewImage.style.display = 'block';
+                
+                // Show image controls
+                cropBtn.style.display = 'flex';
+                filterBtn.style.display = 'flex';
+                
+                // Hide file info if exists
+                const info = document.getElementById('file-preview-info');
+                if(info) info.style.display = 'none';
+
+                imagePreviewOverlay.style.display = 'flex';
+            };
+        } else {
+            // Handle generic files (PDF, DOC, APK, etc.)
+            reader.onload = function(e) {
+                currentFileData = {
+                    name: file.name,
+                    type: file.type,
+                    data: e.target.result
+                };
+                currentImageBase64 = null;
+                
+                // Hide image controls
+                previewImage.style.display = 'none';
+                cropBtn.style.display = 'none';
+                filterBtn.style.display = 'none';
+                
+                let info = document.getElementById('file-preview-info');
+                if(!info) {
+                    info = document.createElement('div');
+                    info.id = 'file-preview-info';
+                    info.style.color = 'white';
+                    info.style.textAlign = 'center';
+                    info.style.marginTop = '50px';
+                    // Insert before buttons
+                    const container = document.querySelector('.preview-actions') || imagePreviewOverlay;
+                    if(container === imagePreviewOverlay) container.insertBefore(info, previewImage);
+                }
+                info.style.display = 'block';
+                info.innerHTML = `
+                    <div style="font-size: 50px; margin-bottom: 10px;">📄</div>
+                    <h3 style="word-break: break-all; max-width: 80vw;">${file.name}</h3>
+                    <p>${(file.size/1024).toFixed(1)} KB</p>
+                `;
+                
+                imagePreviewOverlay.style.display = 'flex';
+            };
+        }
         reader.readAsDataURL(file);
     }
     // Reset input so same file can be selected again
@@ -1695,6 +1831,9 @@ retakeBtn.addEventListener('click', () => {
     previewImage.src = '';
     baseImageForFilter = null;
     currentFilterMode = 0;
+    currentFileData = null;
+    const info = document.getElementById('file-preview-info');
+    if(info) info.style.display = 'none';
 
     if (lastImageSource === 'camera') {
         cameraLiveOverlay.style.display = 'flex';
@@ -1769,7 +1908,7 @@ filterBtn.addEventListener('click', () => {
 });
 
 sendImageBtn.addEventListener('click', () => {
-    if (currentImageBase64) {
+    if (currentImageBase64 || currentFileData) {
         const now = new Date();
         const d = String(now.getDate()).padStart(2, '0');
         const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -1782,21 +1921,32 @@ sendImageBtn.addEventListener('click', () => {
         const table = getMessageTable(currentUser);
         const newMsgRef = db.ref(`messages/${table}`).push();
         const recipient = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
-        newMsgRef.set({
+        
+        const msgData = {
             id: newMsgRef.key,
             sender: currentUser,
             recipient: recipient,
-            text: '', // Empty text for image message
-            image: currentImageBase64,
+            text: '', 
             timestamp: timeString,
             rawDate: rawDate,
             status: 'sent',
             replyTo: null
-        });
+        };
+
+        if (currentImageBase64) {
+            msgData.image = currentImageBase64;
+        } else if (currentFileData) {
+            msgData.file = currentFileData;
+        }
+
+        newMsgRef.set(msgData);
 
         // Cleanup
         imagePreviewOverlay.style.display = 'none';
         currentImageBase64 = null;
+        currentFileData = null;
+        const info = document.getElementById('file-preview-info');
+        if(info) info.style.display = 'none';
     }
 });
 
