@@ -109,6 +109,7 @@ let cameraStream = null;
 let currentFacingMode = 'environment';
 let isFlashOn = false;
 let currentImageBase64 = null;
+let currentVideoBase64 = null;
 let currentFileData = null;
 let cropper = null;
 let baseImageForFilter = null;
@@ -542,6 +543,27 @@ function renderChat(history) {
             img.src = msg.image;
             img.className = 'msg-image';
             msgDiv.appendChild(img);
+        }
+        
+        // Render Video if exists
+        if (msg.video) {
+            const vidDiv = document.createElement('div');
+            vidDiv.className = 'msg-video-wrapper';
+            vidDiv.style.cssText = 'position: relative; display: inline-block; cursor: pointer; margin: 5px 0;';
+            
+            const vidThumb = document.createElement('video');
+            vidThumb.src = msg.video;
+            vidThumb.style.cssText = 'max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: cover; background: #000;';
+            vidThumb.preload = 'metadata'; // Load first frame
+            
+            const iconOverlay = document.createElement('div');
+            iconOverlay.innerHTML = '▶';
+            iconOverlay.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; background: rgba(0,0,0,0.6); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; pointer-events: none; border: 2px solid white;';
+            
+            vidDiv.appendChild(vidThumb);
+            vidDiv.appendChild(iconOverlay);
+            vidDiv.onclick = () => openVideoViewer(msg.video);
+            msgDiv.appendChild(vidDiv);
         }
         
         // Render Audio if exists
@@ -1817,6 +1839,7 @@ function handleFileSelect(event) {
                 currentImageBase64 = e.target.result;
                 baseImageForFilter = currentImageBase64;
                 currentFileData = null;
+                currentVideoBase64 = null;
                 currentFilterMode = 0;
                 
                 previewImage.src = currentImageBase64;
@@ -1829,7 +1852,37 @@ function handleFileSelect(event) {
                 // Hide file info if exists
                 const info = document.getElementById('file-preview-info');
                 if(info) info.style.display = 'none';
+                
+                const vidPreview = document.getElementById('previewVideo');
+                if(vidPreview) vidPreview.style.display = 'none';
 
+                imagePreviewOverlay.style.display = 'flex';
+            };
+        } else if (file.type.startsWith('video/')) {
+            reader.onload = function(e) {
+                currentVideoBase64 = e.target.result;
+                currentImageBase64 = null;
+                currentFileData = null;
+                
+                // Hide Image UI
+                previewImage.style.display = 'none';
+                cropBtn.style.display = 'none';
+                filterBtn.style.display = 'none';
+                const info = document.getElementById('file-preview-info');
+                if(info) info.style.display = 'none';
+
+                // Show Video Preview
+                let vidPreview = document.getElementById('previewVideo');
+                if (!vidPreview) {
+                    vidPreview = document.createElement('video');
+                    vidPreview.id = 'previewVideo';
+                    vidPreview.controls = true;
+                    vidPreview.style.cssText = 'max-width: 100%; max-height: 60vh; border-radius: 10px;';
+                    previewImage.parentNode.insertBefore(vidPreview, previewImage);
+                }
+                vidPreview.src = currentVideoBase64;
+                vidPreview.style.display = 'block';
+                
                 imagePreviewOverlay.style.display = 'flex';
             };
         } else {
@@ -1841,6 +1894,7 @@ function handleFileSelect(event) {
                     data: e.target.result
                 };
                 currentImageBase64 = null;
+                currentVideoBase64 = null;
                 
                 // Hide image controls
                 previewImage.style.display = 'none';
@@ -1859,6 +1913,10 @@ function handleFileSelect(event) {
                     if(container === imagePreviewOverlay) container.insertBefore(info, previewImage);
                 }
                 info.style.display = 'block';
+                
+                const vidPreview = document.getElementById('previewVideo');
+                if(vidPreview) vidPreview.style.display = 'none';
+                
                 info.innerHTML = `
                     <div style="font-size: 50px; margin-bottom: 10px;">📄</div>
                     <h3 style="word-break: break-all; max-width: 80vw;">${file.name}</h3>
@@ -1889,8 +1947,15 @@ retakeBtn.addEventListener('click', () => {
     baseImageForFilter = null;
     currentFilterMode = 0;
     currentFileData = null;
+    currentVideoBase64 = null;
     const info = document.getElementById('file-preview-info');
     if(info) info.style.display = 'none';
+    
+    const vidPreview = document.getElementById('previewVideo');
+    if(vidPreview) {
+        vidPreview.pause();
+        vidPreview.style.display = 'none';
+    }
 
     if (lastImageSource === 'camera') {
         cameraLiveOverlay.style.display = 'flex';
@@ -1965,7 +2030,7 @@ filterBtn.addEventListener('click', () => {
 });
 
 sendImageBtn.addEventListener('click', () => {
-    if (currentImageBase64 || currentFileData) {
+    if (currentImageBase64 || currentFileData || currentVideoBase64) {
         const now = new Date();
         const d = String(now.getDate()).padStart(2, '0');
         const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -1994,6 +2059,8 @@ sendImageBtn.addEventListener('click', () => {
             msgData.image = currentImageBase64;
         } else if (currentFileData) {
             msgData.file = currentFileData;
+        } else if (currentVideoBase64) {
+            msgData.video = currentVideoBase64;
         }
 
         newMsgRef.set(msgData);
@@ -2002,8 +2069,14 @@ sendImageBtn.addEventListener('click', () => {
         imagePreviewOverlay.style.display = 'none';
         currentImageBase64 = null;
         currentFileData = null;
+        currentVideoBase64 = null;
         const info = document.getElementById('file-preview-info');
         if(info) info.style.display = 'none';
+        const vidPreview = document.getElementById('previewVideo');
+        if(vidPreview) {
+            vidPreview.pause();
+            vidPreview.style.display = 'none';
+        }
     }
 });
 
@@ -2013,6 +2086,7 @@ sendImageBtn.addEventListener('click', () => {
 chatMessages.addEventListener('click', (e) => {
     if (e.target.classList.contains('msg-image')) {
         imageViewerModal.style.display = 'block';
+        viewerImage.style.display = 'block';
         viewerImage.src = e.target.src;
         // Reset State
         viewerScale = 1;
@@ -2020,12 +2094,38 @@ chatMessages.addEventListener('click', (e) => {
         viewerTranslateY = 0;
         zoomSlider.value = 1;
         updateViewerTransform();
+        
+        // Hide video if present
+        const v = document.getElementById('viewerVideoElement');
+        if(v) v.style.display = 'none';
     }
 });
+
+function openVideoViewer(src) {
+    imageViewerModal.style.display = 'block';
+    viewerImage.style.display = 'none';
+    
+    let viewerVideo = document.getElementById('viewerVideoElement');
+    if (!viewerVideo) {
+        viewerVideo = document.createElement('video');
+        viewerVideo.id = 'viewerVideoElement';
+        viewerVideo.controls = true;
+        viewerVideo.style.cssText = 'max-width: 100%; max-height: 80vh; display: block; margin: auto;';
+        viewerImage.parentNode.insertBefore(viewerVideo, viewerImage);
+    }
+    viewerVideo.src = src;
+    viewerVideo.style.display = 'block';
+    viewerVideo.play();
+}
 
 // Close Viewer
 closeViewerBtn.addEventListener('click', () => {
     imageViewerModal.style.display = 'none';
+    const v = document.getElementById('viewerVideoElement');
+    if(v) {
+        v.pause();
+        v.src = '';
+    }
 });
 
 // Update Transform
