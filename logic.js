@@ -962,6 +962,23 @@ closeProfileBtn.addEventListener('click', () => {
     mainContent.classList.remove('blur-content');
 });
 
+// Trigger file input when Change button is clicked
+uploadTriggerBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    profileFileInput.click();
+});
+
+// Handle profile picture selection
+profileFileInput.addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            profileImageDisplay.src = e.target.result;
+        };
+        reader.readAsDataURL(this.files[0]);
+    }
+});
+
 // --- Theme Toggle Logic ---
 themeToggleBtn.addEventListener('click', () => {
     body.classList.toggle('light-mode');
