@@ -258,7 +258,14 @@ function addLongPressHandler(element, id) {
                                     text: 'Shared from Mil Baat App'
                                 });
                             } else {
-                                alert("Sharing not supported on this device.");
+                                // Fallback: Download the file
+                                const a = document.createElement('a');
+                                a.href = URL.createObjectURL(file);
+                                a.download = file.name;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                alert("Sharing not supported on this device. File downloaded instead.");
                             }
                         } catch (e) {
                             console.error("Share Error:", e);
