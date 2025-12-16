@@ -951,7 +951,7 @@ profileBtn.addEventListener('click', () => {
                 .then(() => alert("Profile Picture Saved Successfully!"))
                 .catch(err => {
                     console.error("Error uploading profile pic:", err);
-                    alert("Failed to save. The image might be too large.");
+                    alert("Failed to save: " + err.message);
                 })
                 .finally(() => {
                     saveBtn.innerText = originalText;
@@ -977,36 +977,7 @@ profileFileInput.addEventListener('change', function() {
         const file = this.files[0];
         const reader = new FileReader();
         reader.onload = function(e) {
-            const img = new Image();
-            img.src = e.target.result;
-            img.onload = function() {
-                // Compress Image (Max 600px, 0.7 Quality)
-                const maxWidth = 600;
-                const maxHeight = 600;
-                let width = img.width;
-                let height = img.height;
-
-                if (width > height) {
-                    if (width > maxWidth) {
-                        height *= maxWidth / width;
-                        width = maxWidth;
-                    }
-                } else {
-                    if (height > maxHeight) {
-                        width *= maxHeight / height;
-                        height = maxHeight;
-                    }
-                }
-
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-
-                // Update display with compressed Base64
-                profileImageDisplay.src = canvas.toDataURL('image/jpeg', 0.7);
-            };
+            profileImageDisplay.src = e.target.result;
         }
         reader.readAsDataURL(file);
     }
