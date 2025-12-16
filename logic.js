@@ -163,6 +163,7 @@ let isCallMuted = false;
 let isVideoMuted = false;
 let callFacingMode = 'user';
 let isVideoCall = false;
+let isSpeakerOn = false;
 let pipIsDragging = false;
 let pipStartX = 0;
 let pipStartY = 0;
@@ -1055,6 +1056,9 @@ async function startCall(video, isIncoming = false) {
     callMuteBtn.style.background = 'rgba(255,255,255,0.2)';
     callVideoMuteBtn.innerText = '📷';
     callVideoMuteBtn.style.background = 'rgba(255,255,255,0.2)';
+    isSpeakerOn = false;
+    callAudioOutputBtn.innerText = '👂';
+    callAudioOutputBtn.style.background = 'rgba(255,255,255,0.2)';
     
     // Configure UI based on call type
     if (video) {
@@ -1143,6 +1147,7 @@ function createPeerConnection(isInitiator) {
                 document.body.addEventListener('click', () => mediaElement.play(), { once: true });
             });
         }
+        updateAudioOutput();
     };
 
     // Add Local Tracks
@@ -1395,24 +1400,42 @@ callFlipBtn.addEventListener('click', async (e) => {
     }
 });
 
-callAudioOutputBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
+async function updateAudioOutput(isManual = false) {
     const element = isVideoCall ? callRemoteVideo : callRemoteAudio;
+    
     if (typeof element.setSinkId !== 'function') {
-        alert("Output switching not supported."); return;
+        if (isManual) alert("Output switching not supported."); 
+        return;
     }
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const outputs = devices.filter(d => d.kind === 'audiooutput');
         if (!outputs.length) return;
         
-        const current = element.sinkId || 'default';
-        const idx = outputs.findIndex(d => d.deviceId === current);
-        const next = outputs[(idx + 1) % outputs.length];
+        const speaker = outputs.find(d => /speaker/i.test(d.label));
+        const earpiece = outputs.find(d => /earpiece|handset|receiver/i.test(d.label));
         
-        await element.setSinkId(next.deviceId);
-        callAudioOutputBtn.innerText = (next.label.toLowerCase().includes('speaker')) ? '🔊' : '👂';
+        let targetId = 'default';
+        if (isSpeakerOn) {
+            if (speaker) targetId = speaker.deviceId;
+        } else {
+            if (earpiece) targetId = earpiece.deviceId;
+            else if (speaker && outputs.length > 1) {
+                const other = outputs.find(d => d.deviceId !== speaker.deviceId);
+                if (other) targetId = other.deviceId;
+            }
+        }
+        
+        await element.setSinkId(targetId);
+        callAudioOutputBtn.innerText = isSpeakerOn ? '🔊' : '👂';
+        callAudioOutputBtn.style.background = isSpeakerOn ? '#ff9f43' : 'rgba(255,255,255,0.2)';
     } catch(e) { console.error(e); }
+}
+
+callAudioOutputBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    isSpeakerOn = !isSpeakerOn;
+    updateAudioOutput(true);
 });
 
 // --- PiP Mode Logic ---
