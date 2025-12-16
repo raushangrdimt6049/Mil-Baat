@@ -1220,51 +1220,15 @@ async function startCall(video, isIncoming = false) {
         callFlipBtn.style.display = 'none';
         callVideoMuteBtn.style.display = 'none';
 
-        // Show Remote Profile Picture in Audio Call
+        // Fetch and display target user's profile picture
         const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
         const targetRole = getUserRole(targetUser);
         
         db.ref(`Profile Pic/${targetRole}_Profile_Pic`).once('value').then(snap => {
             const pic = snap.val();
-            let img = document.getElementById('activeAudioCallImage');
-            let placeholder = document.getElementById('activeAudioCallPlaceholder');
-
-            // Inject Pulse Animation
-            if (!document.getElementById('call-pulse-anim')) {
-                const style = document.createElement('style');
-                style.id = 'call-pulse-anim';
-                style.innerHTML = `
-                    @keyframes pulse-ring {
-                        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
-                        70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(255, 255, 255, 0); }
-                        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-
-            if (pic) {
-                if (!img) {
-                    img = document.createElement('img');
-                    img.id = 'activeAudioCallImage';
-                    img.style.cssText = "width: 150px; height: 150px; border-radius: 50%; object-fit: cover; margin: 20px auto; display: block; border: 4px solid rgba(255,255,255,0.2); animation: pulse-ring 2s infinite;";
-                    callAudioContainer.prepend(img);
-                } else {
-                    img.style.animation = "pulse-ring 2s infinite";
-                }
-                img.src = pic;
-                img.style.display = 'block';
-                if (placeholder) placeholder.style.display = 'none';
-            } else {
-                if (img) img.style.display = 'none';
-                if (!placeholder) {
-                    placeholder = document.createElement('div');
-                    placeholder.id = 'activeAudioCallPlaceholder';
-                    placeholder.innerHTML = '👤';
-                    placeholder.style.cssText = "font-size: 80px; text-align: center; margin: 20px;";
-                    callAudioContainer.prepend(placeholder);
-                }
-                placeholder.style.display = 'block';
+            const audioImg = callAudioContainer.querySelector('img');
+            if (audioImg) {
+                audioImg.src = pic || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
             }
         });
     }
@@ -1422,15 +1386,22 @@ function handleIncomingSignal(signal) {
         const callerRole = getUserRole(signal.sender);
         db.ref(`Profile Pic/${callerRole}_Profile_Pic`).once('value').then(snap => {
             const pic = snap.val();
-            let img = document.getElementById('incomingCallImage');
-            if (!img) {
-                img = document.createElement('img');
-                img.id = 'incomingCallImage';
-                img.style.cssText = "width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto;";
-                incomingCallTitle.parentNode.insertBefore(img, incomingCallTitle);
+            
+            // Target the existing image in the HTML instead of creating a new one
+            const existingImg = document.querySelector('#incoming-call-modal .profile-pic img');
+            
+            // Clean up: Remove any rogue images directly inside the modal box (artifacts from old code)
+            const modalBox = document.querySelector('#incoming-call-modal .modal-box');
+            if (modalBox) {
+                const rogueImages = modalBox.querySelectorAll(':scope > img');
+                rogueImages.forEach(img => img.remove());
+                const oldIdImg = document.getElementById('incomingCallImage');
+                if (oldIdImg) oldIdImg.remove();
             }
-            img.src = pic || ''; 
-            img.style.display = pic ? 'block' : 'none';
+
+            if (existingImg) {
+                existingImg.src = pic || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+            }
         });
 
         incomingCallModal.style.display = 'flex';
@@ -2327,10 +2298,23 @@ confirmLogout.addEventListener('click', () => {
         const userRole = currentUser === 'Raushan_143' ? 'Alpha' : 'Beta';
         db.ref(`status/${userRole} Online`).set(false);
         db.ref(`status/${userRole} Last Seen`).set(firebase.database.ServerValue.TIMESTAMP);
+
+        // Detach all listeners to prevent data leaking to next user
+        const otherUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+        db.ref('messages').off();
+        db.ref('pinned_message').off();
+        db.ref('status').off();
+        db.ref(`typing/${otherUser}`).off();
+        db.ref(`Profile Pic/${userRole}_Profile_Pic`).off();
+        db.ref(`signals/${userRole}_incoming_Audio`).off();
+        db.ref(`signals/${userRole}_incoming_Video`).off();
+        db.ref(`signals/${userRole}_candidates`).off();
     }
 
     // Clear Status Logic
-    db.ref().off(); // Detach all listeners
+    // Reset Profile Image to default
+    profileImageDisplay.src = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+    
     clearInterval(heartbeatInterval);
     userStatusIndicator.style.display = 'none';
     lastSeenDisplay.style.display = 'none';
