@@ -2181,9 +2181,9 @@ function handleFileSelect(event) {
                 imagePreviewOverlay.style.display = 'flex';
             };
         } else if (file.type.startsWith('video/')) {
-            // Check file size (limit to ~7MB for Firebase RTDB 10MB limit with overhead)
-            if (file.size > 7 * 1024 * 1024) {
-                alert("Video is too large. Maximum size is 7MB.");
+            // Check file size
+            if (file.size > 20 * 1024 * 1024) {
+                alert("Video is too large. Maximum size is 20MB.");
                 event.target.value = '';
                 return;
             }
@@ -2218,6 +2218,11 @@ function handleFileSelect(event) {
             };
         } else {
             // Handle generic files (PDF, DOC, APK, etc.)
+            if (file.size > 20 * 1024 * 1024) {
+                alert("File is too large. Maximum size is 20MB.");
+                event.target.value = '';
+                return;
+            }
             reader.onload = function(e) {
                 currentFileData = {
                     name: file.name,
