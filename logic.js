@@ -184,11 +184,20 @@ let isCallConnected = false;
 let toastTimeout = null;
 
 // --- Set Custom Background ---
-body.style.backgroundImage = "url('Mil Baat Background.jpg')";
-body.style.backgroundSize = "cover";
-body.style.backgroundPosition = "center";
-body.style.backgroundRepeat = "no-repeat";
-body.style.backgroundAttachment = "fixed";
+body.style.background = "none";
+
+// Create blurred background overlay
+let bgOverlay = document.getElementById('blur-bg-overlay');
+if (!bgOverlay) {
+    bgOverlay = document.createElement('div');
+    bgOverlay.id = 'blur-bg-overlay';
+    bgOverlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+        background: url('Mil Baat Background.jpg') no-repeat center center;
+        background-size: cover; filter: blur(8px); transform: scale(1.1);
+    `;
+    document.body.appendChild(bgOverlay);
+}
 
 const rtcConfig = {
     iceServers: [
@@ -1207,15 +1216,27 @@ profileFileInput.addEventListener('change', function() {
     }
 });
 
-// --- Theme Toggle Logic ---
-themeToggleBtn.addEventListener('click', () => {
-    body.classList.toggle('light-mode');
-    if (body.classList.contains('light-mode')) {
-        themeToggleBtn.innerText = '🌙 Dark Mode';
+// --- Theme Logic (Device Sync) ---
+const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+function applyTheme(e) {
+    if (e.matches) {
+        body.classList.remove('light-mode'); // Dark Mode
+        if (themeToggleBtn) themeToggleBtn.innerText = '☀️ Light Mode';
     } else {
-        themeToggleBtn.innerText = '☀️ Light Mode';
+        body.classList.add('light-mode'); // Light Mode
+        if (themeToggleBtn) themeToggleBtn.innerText = '🌙 Dark Mode';
     }
-});
+}
+applyTheme(darkModeMediaQuery); // Initial check
+darkModeMediaQuery.addEventListener('change', applyTheme); // Listener
+
+if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+        body.classList.toggle('light-mode');
+        const isLight = body.classList.contains('light-mode');
+        themeToggleBtn.innerText = isLight ? '🌙 Dark Mode' : '☀️ Light Mode';
+    });
+}
 
 // Typing detection
 msgInput.addEventListener('input', () => {
