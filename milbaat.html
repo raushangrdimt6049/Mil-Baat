@@ -133,23 +133,6 @@
             background: rgba(0, 0, 0, 0.3);
         }
 
-        /* Fixed Background Emojis */
-        .bg-emoji-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            pointer-events: none; /* Ensures clicks pass through to the app */
-            user-select: none;
-        }
-        .bg-emoji {
-            position: absolute;
-            opacity: 0.7;
-            filter: blur(3px); /* Half blurred effect */
-        }
-
         /* --- Main Website Content (Hidden Initially) --- */
         #main-content {
             opacity: 0;
@@ -424,9 +407,6 @@
         }
         body.light-mode .nav-item.active {
             color: #007aff;
-        }
-        body.light-mode .bg-emoji {
-            opacity: 0.2;
         }
 
         /* --- Chat Interface Styles --- */
@@ -927,20 +907,6 @@
     </style>
 </head>
 <body>
-
-    <!-- Fixed Background Emojis -->
-    <div class="bg-emoji-container">
-        <span class="bg-emoji" style="top: 5%; left: 5%; font-size: 4rem; transform: rotate(-15deg);">🎨</span>
-        <span class="bg-emoji" style="top: 15%; left: 80%; font-size: 6rem; transform: rotate(20deg);">🚀</span>
-        <span class="bg-emoji" style="top: 40%; left: 10%; font-size: 3rem; transform: rotate(10deg);">💡</span>
-        <span class="bg-emoji" style="top: 60%; left: 75%; font-size: 8rem; transform: rotate(-30deg);">✨</span>
-        <span class="bg-emoji" style="top: 85%; left: 15%; font-size: 5rem; transform: rotate(45deg);">🔥</span>
-        <span class="bg-emoji" style="top: 10%; left: 45%; font-size: 2.5rem; transform: rotate(5deg);">📱</span>
-        <span class="bg-emoji" style="top: 35%; left: 90%; font-size: 4rem; transform: rotate(-10deg);">💻</span>
-        <span class="bg-emoji" style="top: 55%; left: 35%; font-size: 7rem; transform: rotate(15deg);">🌈</span>
-        <span class="bg-emoji" style="top: 80%; left: 85%; font-size: 3.5rem; transform: rotate(-20deg);">⚙️</span>
-        <span class="bg-emoji" style="top: 25%; left: 25%; font-size: 5.5rem; transform: rotate(30deg);">🔒</span>
-    </div>
 
     <!-- 1. The Entry Overlay -->
     <div id="entry-overlay">
