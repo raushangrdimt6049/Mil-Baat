@@ -331,7 +331,7 @@ function addLongPressHandler(element, id) {
             if (!downloadBtn && pinMsgBtn && pinMsgBtn.parentNode) {
                 downloadBtn = document.createElement('button');
                 downloadBtn.id = 'downloadMsgOptionBtn';
-                downloadBtn.innerHTML = '⬇️ Download File';
+                downloadBtn.innerHTML = '💾 Save File';
                 downloadBtn.className = pinMsgBtn.className;
                 downloadBtn.style.marginBottom = '10px';
                 downloadBtn.style.width = '100%';
@@ -341,7 +341,7 @@ function addLongPressHandler(element, id) {
                 
                 pinMsgBtn.parentNode.insertBefore(downloadBtn, pinMsgBtn);
                 
-                downloadBtn.addEventListener('click', () => {
+                downloadBtn.addEventListener('click', async () => {
                     const m = currentChatHistory.find(x => x.id === selectedMsgId);
                     if (m) {
                         let dUrl = '', dName = '';
@@ -360,12 +360,30 @@ function addLongPressHandler(element, id) {
                         }
                         
                         if (dUrl) {
-                            const a = document.createElement('a');
-                            a.href = dUrl;
-                            a.download = dName;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
+                            let useFallback = true;
+                            if (window.showSaveFilePicker) {
+                                try {
+                                    const res = await fetch(dUrl);
+                                    const blob = await res.blob();
+                                    const handle = await window.showSaveFilePicker({
+                                        suggestedName: dName,
+                                    });
+                                    const writable = await handle.createWritable();
+                                    await writable.write(blob);
+                                    await writable.close();
+                                    useFallback = false;
+                                } catch (err) {
+                                    if (err.name === 'AbortError') useFallback = false;
+                                }
+                            }
+                            if (useFallback) {
+                                const a = document.createElement('a');
+                                a.href = dUrl;
+                                a.download = dName;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                            }
                         }
                     }
                     closeOptionsModal();
