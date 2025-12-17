@@ -183,6 +183,13 @@ let ringingTimeout = null;
 let isCallConnected = false;
 let toastTimeout = null;
 
+// --- Set Custom Background ---
+body.style.backgroundImage = "url('Mil Baat Background.jpg')";
+body.style.backgroundSize = "cover";
+body.style.backgroundPosition = "center";
+body.style.backgroundRepeat = "no-repeat";
+body.style.backgroundAttachment = "fixed";
+
 const rtcConfig = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
