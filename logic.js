@@ -1216,28 +1216,6 @@ profileFileInput.addEventListener('change', function() {
     }
 });
 
-// --- Theme Logic (Device Sync) ---
-const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-function applyTheme(e) {
-    if (e.matches) {
-        body.classList.remove('light-mode'); // Dark Mode
-        if (themeToggleBtn) themeToggleBtn.innerText = '☀️ Light Mode';
-    } else {
-        body.classList.add('light-mode'); // Light Mode
-        if (themeToggleBtn) themeToggleBtn.innerText = '🌙 Dark Mode';
-    }
-}
-applyTheme(darkModeMediaQuery); // Initial check
-darkModeMediaQuery.addEventListener('change', applyTheme); // Listener
-
-if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', () => {
-        body.classList.toggle('light-mode');
-        const isLight = body.classList.contains('light-mode');
-        themeToggleBtn.innerText = isLight ? '🌙 Dark Mode' : '☀️ Light Mode';
-    });
-}
-
 // Typing detection
 msgInput.addEventListener('input', () => {
     if (currentUser && db) {
