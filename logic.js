@@ -200,6 +200,92 @@ let viewerTranslateY = 0;
 let initialPinchDistance = 0;
 let initialScale = 1;
 
+// --- Dynamic Edit Modal Creation ---
+(function createEditModal() {
+    if (!document.getElementById('edit-msg-modal')) {
+        const modal = document.createElement('div');
+        modal.id = 'edit-msg-modal';
+        modal.className = 'modal-overlay'; 
+        modal.style.display = 'none';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.zIndex = '1000';
+        
+        modal.innerHTML = `
+            <div class="modal-box" style="background: #2d3436; padding: 20px; border-radius: 15px; width: 85%; max-width: 400px; text-align: center; color: white;">
+                <h3 style="margin-bottom: 15px;">Edit Message</h3>
+                <textarea id="editMsgInput" style="width: 100%; height: 100px; margin-bottom: 15px; padding: 10px; border-radius: 8px; border: none; background: rgba(255,255,255,0.1); color: white; resize: none;"></textarea>
+                <div class="modal-actions" style="display: flex; justify-content: space-between;">
+                    <button id="cancelEditMsg" style="padding: 10px 20px; border: none; border-radius: 8px; background: #ff4757; color: white; cursor: pointer; width: 45%;">Cancel</button>
+                    <button id="confirmEditMsg" style="padding: 10px 20px; border: none; border-radius: 8px; background: #2ecc71; color: white; cursor: pointer; width: 45%;">Send</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('cancelEditMsg').addEventListener('click', () => {
+            modal.style.display = 'none';
+            if (mainContent) mainContent.classList.remove('blur-content');
+        });
+
+        document.getElementById('confirmEditMsg').addEventListener('click', () => {
+            const newText = document.getElementById('editMsgInput').value.trim();
+            if (selectedMsgId && newText !== "") {
+                const m = currentChatHistory.find(x => x.id === selectedMsgId);
+                if (m) {
+                    const table = getMessageTable(m.sender);
+                    db.ref(`messages/${table}/${selectedMsgId}`).update({ text: newText });
+                }
+            }
+            modal.style.display = 'none';
+            if (mainContent) mainContent.classList.remove('blur-content');
+        });
+    }
+})();
+
+// --- Dynamic Preview Close Button ---
+(function createPreviewCloseBtn() {
+    const overlay = document.getElementById('image-preview-overlay');
+    if (overlay && !document.getElementById('closePreviewBtn')) {
+        const closeBtn = document.createElement('button');
+        closeBtn.id = 'closePreviewBtn';
+        closeBtn.innerHTML = '✖';
+        closeBtn.style.cssText = 'position: absolute; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.5); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; z-index: 1001; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);';
+        
+        overlay.appendChild(closeBtn);
+        
+        closeBtn.addEventListener('click', () => {
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+                resetCropButton();
+            }
+            overlay.style.display = 'none';
+            currentImageBase64 = null;
+            previewImage.src = '';
+            baseImageForFilter = null;
+            currentFilterMode = 0;
+            currentFileData = null;
+            currentVideoBase64 = null;
+            
+            const info = document.getElementById('file-preview-info');
+            if(info) info.style.display = 'none';
+            
+            const vidPreview = document.getElementById('previewVideo');
+            if(vidPreview) {
+                vidPreview.pause();
+                vidPreview.style.display = 'none';
+            }
+        });
+    }
+})();
+
 function triggerShake(element) {
     element.classList.add('shake');
     setTimeout(() => {
@@ -324,6 +410,42 @@ function addLongPressHandler(element, id) {
                     unsendBtn.style.display = 'block';
                 } else {
                     unsendBtn.style.display = 'none';
+                }
+            }
+
+            // --- Edit Message Button Logic ---
+            let editBtn = document.getElementById('editMsgOptionBtn');
+            
+            if (!editBtn && deleteMsgOptionBtn && deleteMsgOptionBtn.parentNode) {
+                editBtn = document.createElement('button');
+                editBtn.id = 'editMsgOptionBtn';
+                editBtn.innerHTML = '✏️ Edit Message';
+                editBtn.className = pinMsgBtn.className;
+                editBtn.style.marginBottom = '10px';
+                editBtn.style.width = '100%';
+                
+                deleteMsgOptionBtn.parentNode.insertBefore(editBtn, deleteMsgOptionBtn);
+                
+                editBtn.addEventListener('click', () => {
+                    const m = currentChatHistory.find(x => x.id === selectedMsgId);
+                    if (m) {
+                        const editModal = document.getElementById('edit-msg-modal');
+                        const editInput = document.getElementById('editMsgInput');
+                        if (editModal && editInput) {
+                            editInput.value = m.text || "";
+                            editModal.style.display = 'flex';
+                            mainContent.classList.add('blur-content');
+                        }
+                    }
+                    closeOptionsModal();
+                });
+            }
+            
+            if (editBtn) {
+                if (msg && msg.sender === currentUser && msg.text) {
+                    editBtn.style.display = 'block';
+                } else {
+                    editBtn.style.display = 'none';
                 }
             }
             // ---------------------------
