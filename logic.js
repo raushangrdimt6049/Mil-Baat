@@ -994,7 +994,9 @@ document.addEventListener('click', (e) => {
 // --- Theme Toggle Logic ---
 themeToggleBtn.addEventListener('click', () => {
     body.classList.toggle('light-mode');
-    themeToggleBtn.innerText = body.classList.contains('light-mode') ? '🌙' : '☀️';
+    const isLight = body.classList.contains('light-mode');
+    
+    themeToggleBtn.innerText = isLight ? '🌙 Dark Mode' : '☀️ Light Mode';
 });
 
 // --- Clear Chat Logic ---
