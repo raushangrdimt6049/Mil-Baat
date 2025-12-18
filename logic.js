@@ -115,7 +115,10 @@ let cropper = null;
 let baseImageForFilter = null;
 let currentFilterMode = 0; // 0:None, 1:Gray, 2:Sepia, 3:Invert
 
-const users = (typeof envUsers !== 'undefined') ? envUsers : { 'Raushan_143': '4gh4m01r', 'Nisha_143': '4gh4m01r' };
+const ALPHA_USER = (typeof envUserNames !== 'undefined') ? envUserNames.alpha : 'Raushan_143';
+const BETA_USER = (typeof envUserNames !== 'undefined') ? envUserNames.beta : 'Nisha_143';
+
+const users = (typeof envUsers !== 'undefined') ? envUsers : { [ALPHA_USER]: '4gh4m01r', [BETA_USER]: '4gh4m01r' };
 
 // Initialize Firebase
 let db;
@@ -550,11 +553,11 @@ function startReply(msg) {
 }
 
 function getMessageTable(sender) {
-    return sender === 'Raushan_143' ? 'alpha' : 'beta';
+    return sender === ALPHA_USER ? 'alpha' : 'beta';
 }
 
 function getUserRole(username) {
-    return username === 'Raushan_143' ? 'Alpha' : 'Beta';
+    return username === ALPHA_USER ? 'Alpha' : 'Beta';
 }
 
 // --- Chat History Logic ---
@@ -653,8 +656,8 @@ function setupFirebaseListeners() {
     });
 
     // 4. Status Listener (Other User)
-    const otherUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
-    const otherRole = currentUser === 'Raushan_143' ? 'Beta' : 'Alpha';
+    const otherUser = currentUser === ALPHA_USER ? BETA_USER : ALPHA_USER;
+    const otherRole = currentUser === ALPHA_USER ? 'Beta' : 'Alpha';
     
     let otherUserHeartbeat = 0;
     let otherUserLastSeen = null;
@@ -891,14 +894,16 @@ acceptBtn.addEventListener('click', () => {
         currentUser = username;
         profileUsernameDisplay.innerText = currentUser;
 
-        if (currentUser === 'Raushan_143') {
+        if (currentUser === ALPHA_USER) {
+            profileUsernameDisplay.innerText = '💎_Alpha_💎';
             logoDisplay.innerText = '💎_Alpha_💎';
-            body.classList.add('user-raushan');
-            body.classList.remove('user-nisha');
-        } else if (currentUser === 'Nisha_143') {
+            body.classList.add('user-alpha');
+            body.classList.remove('user-beta');
+        } else if (currentUser === BETA_USER) {
+            profileUsernameDisplay.innerText = '💎_Beta_💎';
             logoDisplay.innerText = '💎_Beta_💎';
-            body.classList.add('user-nisha');
-            body.classList.remove('user-raushan');
+            body.classList.add('user-beta');
+            body.classList.remove('user-alpha');
         }
         
         // Push state to history to trap back button
@@ -933,7 +938,7 @@ acceptBtn.addEventListener('click', () => {
 
 // --- Online Status Logic ---
 function startHeartbeat() {
-    const userRole = currentUser === 'Raushan_143' ? 'Alpha' : 'Beta';
+    const userRole = currentUser === ALPHA_USER ? 'Alpha' : 'Beta';
     const onlineRef = db.ref(`status/${userRole} Online`);
     const lastSeenRef = db.ref(`status/${userRole} Last Seen`);
     const heartbeatRef = db.ref(`status/${userRole} Heartbeat`);
@@ -1288,7 +1293,7 @@ sendMsgBtn.addEventListener('click', () => {
 
         const table = getMessageTable(currentUser);
         const newMsgRef = db.ref(`messages/${table}`).push();
-        const recipient = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+        const recipient = currentUser === ALPHA_USER ? BETA_USER : ALPHA_USER;
         const newMsg = {
             id: newMsgRef.key,
             sender: currentUser,
@@ -1491,7 +1496,7 @@ async function startCall(video, isIncoming = false) {
         callVideoMuteBtn.style.display = 'none';
 
         // Fetch and display target user's profile picture
-        const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+        const targetUser = currentUser === ALPHA_USER ? BETA_USER : ALPHA_USER;
         const targetRole = getUserRole(targetUser);
         
         db.ref(`Profile Pic/${targetRole}_Profile_Pic`).once('value').then(snap => {
@@ -1605,7 +1610,7 @@ function createPeerConnection(isInitiator) {
 
 function sendSignal(type, data) {
     const myRole = getUserRole(currentUser);
-    const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+    const targetUser = currentUser === ALPHA_USER ? BETA_USER : ALPHA_USER;
     const targetRole = getUserRole(targetUser);
     const callType = isVideoCall ? 'Video' : 'Audio';
     
@@ -1743,7 +1748,7 @@ acceptCallBtn.addEventListener('click', () => {
 rejectCallBtn.addEventListener('click', () => {
     // If we have data, we know the type to clean up
     if (incomingSignalData) {
-        const targetUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+        const targetUser = currentUser === ALPHA_USER ? BETA_USER : ALPHA_USER;
         const targetRole = getUserRole(targetUser);
         const type = incomingSignalData.isVideo ? 'Video' : 'Audio';
         
@@ -1842,7 +1847,7 @@ function sendMissedCallMessage(isVideo) {
 
     const table = getMessageTable(currentUser);
     const newMsgRef = db.ref(`messages/${table}`).push();
-    const recipient = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+    const recipient = currentUser === ALPHA_USER ? BETA_USER : ALPHA_USER;
     
     newMsgRef.set({
         id: newMsgRef.key,
@@ -2152,7 +2157,7 @@ function sendAudioMessage(base64Audio) {
 
     const table = getMessageTable(currentUser);
     const newMsgRef = db.ref(`messages/${table}`).push();
-    const recipient = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+    const recipient = currentUser === ALPHA_USER ? BETA_USER : ALPHA_USER;
     newMsgRef.set({
         id: newMsgRef.key,
         sender: currentUser,
@@ -2396,7 +2401,7 @@ sendImageBtn.addEventListener('click', () => {
 
         const table = getMessageTable(currentUser);
         const newMsgRef = db.ref(`messages/${table}`).push();
-        const recipient = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+        const recipient = currentUser === ALPHA_USER ? BETA_USER : ALPHA_USER;
         
         const msgData = {
             id: newMsgRef.key,
@@ -2574,16 +2579,16 @@ confirmLogout.addEventListener('click', () => {
     usernameInput.value = '';
     passwordInput.value = '';
     body.style.overflow = 'hidden';
-    body.classList.remove('user-raushan', 'user-nisha');
+    body.classList.remove('user-alpha', 'user-beta');
     
     // Update status one last time before clearing
     if (currentUser && db) {
-        const userRole = currentUser === 'Raushan_143' ? 'Alpha' : 'Beta';
+        const userRole = currentUser === ALPHA_USER ? 'Alpha' : 'Beta';
         db.ref(`status/${userRole} Online`).set(false);
         db.ref(`status/${userRole} Last Seen`).set(firebase.database.ServerValue.TIMESTAMP);
 
         // Detach all listeners to prevent data leaking to next user
-        const otherUser = currentUser === 'Raushan_143' ? 'Nisha_143' : 'Raushan_143';
+        const otherUser = currentUser === ALPHA_USER ? BETA_USER : ALPHA_USER;
         db.ref('messages').off();
         db.ref('pinned_message').off();
         db.ref('status').off();

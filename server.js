@@ -28,10 +28,15 @@ const server = http.createServer((req, res) => {
 
     if (req.url === '/config.js') {
         res.writeHead(200, { 'Content-Type': 'application/javascript' });
+        
+        const alphaUser = process.env.Alpha_Admin || env.Alpha_Admin || 'Raushan_143';
+        const betaUser = process.env.Beta_Admin || env.Beta_Admin || 'Nisha_143';
+
         const usersConfig = { 
-            'Raushan_143': process.env.RAUSHAN_PASS || env.RAUSHAN_PASS, 
-            'Nisha_143': process.env.NISHA_PASS || env.NISHA_PASS 
+            [alphaUser]: process.env.ALPHA_PASS || env.ALPHA_PASS || '4gh4m01r', 
+            [betaUser]: process.env.BETA_PASS || env.BETA_PASS || '4gh4m01r'
         };
+        const userNamesConfig = { alpha: alphaUser, beta: betaUser };
         
         let firebaseConfigStr = process.env.FIREBASE_CONFIG || env.FIREBASE_CONFIG;
         let firebaseConfig = {};
@@ -44,7 +49,7 @@ const server = http.createServer((req, res) => {
         const dbUrl = process.env.DATABASE_URL || env.DATABASE_URL;
         if (dbUrl) firebaseConfig.databaseURL = dbUrl;
 
-        res.end(`const envUsers = ${JSON.stringify(usersConfig)}; const envFirebaseConfig = ${JSON.stringify(firebaseConfig)};`);
+        res.end(`const envUsers = ${JSON.stringify(usersConfig)}; const envUserNames = ${JSON.stringify(userNamesConfig)}; const envFirebaseConfig = ${JSON.stringify(firebaseConfig)};`);
         return;
     }
 
