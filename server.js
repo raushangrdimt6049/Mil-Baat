@@ -33,8 +33,8 @@ const server = http.createServer((req, res) => {
         const betaUser = process.env.Beta_Admin || env.Beta_Admin || 'Nisha_143';
 
         const usersConfig = { 
-            [alphaUser]: process.env.ALPHA_PASS || env.ALPHA_PASS || '4gh4m01r', 
-            [betaUser]: process.env.BETA_PASS || env.BETA_PASS || '4gh4m01r'
+            [alphaUser]: process.env.ALPHA_PASS || env.ALPHA_PASS || 'asdf@1234', 
+            [betaUser]: process.env.BETA_PASS || env.BETA_PASS || '11041805143'
         };
         const userNamesConfig = { alpha: alphaUser, beta: betaUser };
         
