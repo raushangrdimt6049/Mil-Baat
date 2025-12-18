@@ -196,10 +196,21 @@ if (!bgOverlay) {
     bgOverlay.id = 'blur-bg-overlay';
     bgOverlay.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
-        background: url('Mil Baat Background.jpg') no-repeat center center;
-        background-size: cover; filter: blur(8px); transform: scale(1.1);
+        filter: blur(8px); transform: scale(1.1);
     `;
+
+    const bgVideo = document.createElement('video');
+    bgVideo.id = 'theme-bg-video';
+    bgVideo.src = 'Dark Theme.mp4';
+    bgVideo.autoplay = true;
+    bgVideo.loop = true;
+    bgVideo.muted = true;
+    bgVideo.playsInline = true;
+    bgVideo.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;';
+    
+    bgOverlay.appendChild(bgVideo);
     document.body.appendChild(bgOverlay);
+    bgVideo.play().catch(e => console.log(e));
 }
 
 const rtcConfig = {
