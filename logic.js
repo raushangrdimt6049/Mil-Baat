@@ -954,12 +954,12 @@ function updateStatusUI(isOnline, lastSeen, isTyping) {
     userStatusIndicator.style.display = 'none';
 
     // Increase text size and move right
-    lastSeenDisplay.style.marginLeft = '3px';
+    lastSeenDisplay.style.marginLeft = '1px';
 
     if (isTyping) {
         lastSeenDisplay.innerText = "Typing...";
         lastSeenDisplay.style.fontSize = '0.9rem';
-        lastSeenDisplay.style.marginLeft = '37px';
+        lastSeenDisplay.style.marginLeft = '34px';
         lastSeenDisplay.style.display = 'block';
         lastSeenDisplay.style.color = '#2ecc71';
         return;
@@ -968,7 +968,7 @@ function updateStatusUI(isOnline, lastSeen, isTyping) {
     if (isOnline === true || lastSeen === "Active") {
         lastSeenDisplay.innerText = "Online";
         lastSeenDisplay.style.fontSize = '0.9rem';
-        lastSeenDisplay.style.marginLeft = '37px';
+        lastSeenDisplay.style.marginLeft = '34px';
         lastSeenDisplay.style.display = 'block';
         lastSeenDisplay.style.color = '#2ecc71';
     } else {
