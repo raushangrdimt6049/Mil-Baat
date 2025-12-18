@@ -658,6 +658,7 @@ function setupFirebaseListeners() {
     
     let otherUserHeartbeat = 0;
     let otherUserLastSeen = null;
+    let isOtherUserTyping = false;
 
     db.ref('status').on('value', snapshot => {
         const data = snapshot.val() || {};
@@ -675,13 +676,12 @@ function setupFirebaseListeners() {
         if (!isOnline && displayLastSeen === "Active") {
             displayLastSeen = otherUserHeartbeat;
         }
-        updateStatusUI(isOnline, displayLastSeen);
+        updateStatusUI(isOnline, displayLastSeen, isOtherUserTyping);
     }, 500);
 
     // 5. Typing Listener (Other User)
     db.ref(`typing/${otherUser}`).on('value', snapshot => {
-        const isTyping = snapshot.val();
-        headerTypingIndicator.style.display = isTyping ? 'block' : 'none';
+        isOtherUserTyping = snapshot.val();
     });
 
     // 6. Profile Picture Listener (Load saved photo)
@@ -950,12 +950,30 @@ function startHeartbeat() {
     }, 500);
 }
 
-function updateStatusUI(isOnline, lastSeen) {
+function updateStatusUI(isOnline, lastSeen, isTyping) {
+    userStatusIndicator.style.display = 'none';
+
+    // Increase text size and move right
+    lastSeenDisplay.style.marginLeft = '3px';
+
+    if (isTyping) {
+        lastSeenDisplay.innerText = "Typing...";
+        lastSeenDisplay.style.fontSize = '0.9rem';
+        lastSeenDisplay.style.marginLeft = '37px';
+        lastSeenDisplay.style.display = 'block';
+        lastSeenDisplay.style.color = '#2ecc71';
+        return;
+    }
+
     if (isOnline === true || lastSeen === "Active") {
-        userStatusIndicator.style.display = 'block';
-        lastSeenDisplay.style.display = 'none';
+        lastSeenDisplay.innerText = "Online";
+        lastSeenDisplay.style.fontSize = '0.9rem';
+        lastSeenDisplay.style.marginLeft = '37px';
+        lastSeenDisplay.style.display = 'block';
+        lastSeenDisplay.style.color = '#2ecc71';
     } else {
-        userStatusIndicator.style.display = 'none';
+        lastSeenDisplay.style.color = '';
+        lastSeenDisplay.style.fontSize = '0.60rem';
         if (typeof lastSeen === 'number') {
             const dateObj = new Date(lastSeen);
             const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
