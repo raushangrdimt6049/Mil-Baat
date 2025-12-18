@@ -1028,29 +1028,21 @@ themeToggleBtn.addEventListener('click', () => {
     if (bgOverlay) {
         let bgVideo = document.getElementById('theme-bg-video');
 
-        if (isLight) {
-            bgOverlay.style.backgroundImage = 'none';
-            if (!bgVideo) {
-                bgVideo = document.createElement('video');
-                bgVideo.id = 'theme-bg-video';
-                bgVideo.src = 'Light Theme.mp4';
-                bgVideo.autoplay = true;
-                bgVideo.loop = true;
-                bgVideo.muted = true;
-                bgVideo.playsInline = true;
-                bgVideo.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;';
-                bgOverlay.appendChild(bgVideo);
-            } else {
-                bgVideo.style.display = 'block';
-                bgVideo.play().catch(e => console.log(e));
-            }
-        } else {
-            if (bgVideo) {
-                bgVideo.style.display = 'none';
-                bgVideo.pause();
-            }
-            bgOverlay.style.backgroundImage = "url('Mil Baat Background.jpg')";
+        if (!bgVideo) {
+            bgVideo = document.createElement('video');
+            bgVideo.id = 'theme-bg-video';
+            bgVideo.autoplay = true;
+            bgVideo.loop = true;
+            bgVideo.muted = true;
+            bgVideo.playsInline = true;
+            bgVideo.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;';
+            bgOverlay.appendChild(bgVideo);
         }
+
+        bgOverlay.style.backgroundImage = 'none';
+        bgVideo.style.display = 'block';
+        bgVideo.src = isLight ? 'Light Theme.mp4' : 'Dark Theme.mp4';
+        bgVideo.play().catch(e => console.log(e));
     }
 });
 
