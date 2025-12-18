@@ -348,6 +348,14 @@
             background: linear-gradient(90deg, #00d2ff, #3a7bd5);
         }
 
+        /* Menu Icon Rotation */
+        #menuIconBtn img {
+            transition: transform 0.3s ease;
+        }
+        #menuIconBtn.rotate img {
+            transform: rotate(90deg);
+        }
+
         /* --- Light Mode Styles --- */
         body.light-mode {
             background: linear-gradient(-45deg, #89f7fe, #66a6ff, #e2ebf0, #fdfbfb);
@@ -1011,7 +1019,7 @@
             <div style="display: flex; align-items: center; gap: 20px;">
                 <div id="videoCallBtn" style="cursor: pointer;"><img src="Video Icon.png" style="width: 37px; height: 37px;"></div>
                 <div id="audioCallBtn" style="cursor: pointer;"><img src="Audio Icon.png" style="width: 39px; height: 39px;"></div>
-                <div id="menuIconBtn" style="cursor: pointer;"><img src="Menu Icon.png" style="width: 37px; height: 37px;"></div>
+                <div id="menuIconBtn" style="cursor: pointer;"><img src="Menu Icon.png" style="width: 39px; height: 39px;"></div>
             </div>
             <div class="menu-options" id="menuOptions">
                 <div class="menu-item" id="profileBtn">Profile</div>

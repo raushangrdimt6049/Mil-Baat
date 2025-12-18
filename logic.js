@@ -1002,8 +1002,10 @@ menuIconBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (menuOptions.style.display === 'flex') {
         menuOptions.style.display = 'none';
+        menuIconBtn.classList.remove('rotate');
     } else {
         menuOptions.style.display = 'flex';
+        menuIconBtn.classList.add('rotate');
     }
 });
 
@@ -1011,6 +1013,7 @@ menuIconBtn.addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
     if (!menuIconBtn.contains(e.target) && !menuOptions.contains(e.target)) {
         menuOptions.style.display = 'none';
+        menuIconBtn.classList.remove('rotate');
     }
 });
 
@@ -1020,11 +1023,17 @@ themeToggleBtn.addEventListener('click', () => {
     const isLight = body.classList.contains('light-mode');
     
     themeToggleBtn.innerText = isLight ? '🌙 Dark Mode' : '☀️ Light Mode';
+
+    // Switch background image based on theme
+    if (bgOverlay) {
+        bgOverlay.style.backgroundImage = isLight ? "url('Light Theme.jpg')" : "url('Mil Baat Background.jpg')";
+    }
 });
 
 // --- Clear Chat Logic ---
 clearChatBtn.addEventListener('click', () => {
     menuOptions.style.display = 'none';
+    menuIconBtn.classList.remove('rotate');
     clearChatModal.style.display = 'flex';
     mainContent.classList.add('blur-content');
 });
@@ -1131,6 +1140,7 @@ cancelReplyBtn.addEventListener('click', () => {
 // --- Change Password Logic ---
 changePassBtn.addEventListener('click', () => {
     menuOptions.style.display = 'none';
+    menuIconBtn.classList.remove('rotate');
     changePassModal.style.display = 'flex';
     mainContent.classList.add('blur-content');
     // Reset fields
@@ -1166,6 +1176,7 @@ confirmChangePass.addEventListener('click', () => {
 // --- Profile Logic ---
 profileBtn.addEventListener('click', () => {
     menuOptions.style.display = 'none';
+    menuIconBtn.classList.remove('rotate');
     profileModal.style.display = 'flex';
     mainContent.classList.add('blur-content');
 
@@ -1450,6 +1461,7 @@ videoCallBtn.addEventListener('click', () => startCall(true));
 
 async function startCall(video, isIncoming = false) {
     menuOptions.style.display = 'none';
+    menuIconBtn.classList.remove('rotate');
     isVideoCall = video;
     amICaller = !isIncoming;
     isCallConnected = false;
@@ -2551,6 +2563,7 @@ viewerImage.addEventListener('dblclick', () => {
 // Show Logout Confirmation
 logoutBtn.addEventListener('click', () => {
     menuOptions.style.display = 'none';
+    menuIconBtn.classList.remove('rotate');
     logoutModal.style.display = 'flex';
     mainContent.classList.add('blur-content');
 });
@@ -2622,6 +2635,7 @@ window.addEventListener('popstate', () => {
         
         // Show logout confirmation
         menuOptions.style.display = 'none';
+        menuIconBtn.classList.remove('rotate');
         logoutModal.style.display = 'flex';
         mainContent.classList.add('blur-content');
     }
