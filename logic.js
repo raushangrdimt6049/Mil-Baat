@@ -706,6 +706,15 @@ function setupFirebaseListeners() {
             profileImageDisplay.src = photo;
         }
     });
+
+    // 7. Font Preference Listener
+    db.ref(`User_Font_Style/${userRole}_Font`).on('value', snapshot => {
+        const font = snapshot.val();
+        if (font) {
+            document.body.style.fontFamily = `'${font}', sans-serif`;
+            localStorage.setItem('appFont', font);
+        }
+    });
 }
 
 function renderChat(history) {
@@ -1005,6 +1014,97 @@ function updateStatusUI(isOnline, lastSeen, isTyping) {
         }
     }
 }
+
+// --- Font Change Logic ---
+(function setupFontFeature() {
+    // 1. Inject Google Fonts
+    const fontLink = document.createElement('link');
+    fontLink.href = "https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Bangers&family=Cinzel&family=Comic+Neue&family=Courgette&family=Dancing+Script&family=Fredoka+One&family=Great+Vibes&family=Indie+Flower&family=Lobster&family=Montserrat&family=Orbitron&family=Oswald&family=Pacifico&family=Permanent+Marker&family=Playfair+Display&family=Poppins&family=Raleway&family=Righteous&family=Roboto&family=Satisfy&family=Shadows+Into+Light&display=swap";
+    fontLink.rel = "stylesheet";
+    document.head.appendChild(fontLink);
+
+    const fontList = [
+        'Roboto', 'Poppins', 'Montserrat', 'Raleway', 'Oswald',
+        'Playfair Display', 'Cinzel', 'Pacifico', 'Dancing Script', 'Great Vibes',
+        'Lobster', 'Bangers', 'Orbitron', 'Indie Flower', 'Shadows Into Light',
+        'Comic Neue', 'Permanent Marker', 'Architects Daughter', 'Courgette', 'Satisfy',
+        'Righteous', 'Fredoka One'
+    ];
+
+    // Check for saved font
+    const savedFont = localStorage.getItem('appFont');
+    if (savedFont) {
+        document.body.style.fontFamily = `'${savedFont}', sans-serif`;
+    }
+
+    // 2. Add Button to Menu
+    const changeFontBtn = document.createElement('button');
+    changeFontBtn.id = 'changeFontBtn';
+    changeFontBtn.innerHTML = '🔠 Change Font';
+    changeFontBtn.style.cssText = "display: block; width: 100%; padding: 12px 15px; text-align: left; background: none; border: none; color: white; cursor: pointer; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.1);";
+    changeFontBtn.onmouseover = () => changeFontBtn.style.background = 'rgba(255,255,255,0.1)';
+    changeFontBtn.onmouseout = () => changeFontBtn.style.background = 'none';
+
+    if (menuOptions) {
+        if (logoutBtn) menuOptions.insertBefore(changeFontBtn, logoutBtn);
+        else menuOptions.appendChild(changeFontBtn);
+    }
+
+    // 3. Create Modal
+    const modal = document.createElement('div');
+    modal.id = 'font-modal';
+    modal.className = 'modal-overlay';
+    modal.style.cssText = "display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center;";
+
+    const modalBox = document.createElement('div');
+    modalBox.className = 'modal-box';
+    modalBox.style.cssText = "background: #2d3436; padding: 20px; border-radius: 15px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; text-align: center; color: white; display: flex; flex-direction: column; gap: 10px;";
+
+    const title = document.createElement('h3');
+    title.innerText = "Select App Font";
+    modalBox.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = "display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;";
+
+    fontList.forEach(font => {
+        const btn = document.createElement('button');
+        btn.innerText = font;
+        btn.style.cssText = `font-family: '${font}', sans-serif; padding: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: white; border-radius: 8px; cursor: pointer; font-size: 16px;`;
+        
+        btn.addEventListener('click', () => {
+            document.body.style.fontFamily = `'${font}', sans-serif`;
+            localStorage.setItem('appFont', font); // Save to localStorage
+            if (currentUser && db) {
+                const role = getUserRole(currentUser);
+                db.ref(`User_Font_Style/${role}_Font`).set(font);
+            }
+            modal.style.display = 'none';
+            if (mainContent) mainContent.classList.remove('blur-content');
+        });
+        grid.appendChild(btn);
+    });
+
+    modalBox.appendChild(grid);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.innerText = "Cancel";
+    closeBtn.style.cssText = "margin-top: 15px; padding: 10px; background: #ff4757; color: white; border: none; border-radius: 8px; cursor: pointer;";
+    closeBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        if (mainContent) mainContent.classList.remove('blur-content');
+    });
+
+    modal.appendChild(modalBox);
+    document.body.appendChild(modal);
+
+    changeFontBtn.addEventListener('click', () => {
+        if (menuOptions) menuOptions.style.display = 'none';
+        if (menuIconBtn) menuIconBtn.classList.remove('rotate');
+        modal.style.display = 'flex';
+        if (mainContent) mainContent.classList.add('blur-content');
+    });
+})();
 
 // --- Menu & Logout Logic ---
 
