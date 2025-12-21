@@ -199,18 +199,13 @@ if (!bgOverlay) {
         filter: blur(8px); transform: scale(1.1);
     `;
 
-    const bgVideo = document.createElement('video');
-    bgVideo.id = 'theme-bg-video';
-    bgVideo.src = 'Dark Theme.mp4';
-    bgVideo.autoplay = true;
-    bgVideo.loop = true;
-    bgVideo.muted = true;
-    bgVideo.playsInline = true;
-    bgVideo.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;';
+    const bgImage = document.createElement('img');
+    bgImage.id = 'theme-bg-image';
+    bgImage.src = 'Dark Theme.jpg';
+    bgImage.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;';
     
-    bgOverlay.appendChild(bgVideo);
+    bgOverlay.appendChild(bgImage);
     document.body.appendChild(bgOverlay);
-    bgVideo.play().catch(e => console.log(e));
 }
 
 const rtcConfig = {
@@ -1137,23 +1132,16 @@ themeToggleBtn.addEventListener('click', () => {
 
     // Switch background image based on theme
     if (bgOverlay) {
-        let bgVideo = document.getElementById('theme-bg-video');
+        let bgImage = document.getElementById('theme-bg-image');
 
-        if (!bgVideo) {
-            bgVideo = document.createElement('video');
-            bgVideo.id = 'theme-bg-video';
-            bgVideo.autoplay = true;
-            bgVideo.loop = true;
-            bgVideo.muted = true;
-            bgVideo.playsInline = true;
-            bgVideo.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;';
-            bgOverlay.appendChild(bgVideo);
+        if (!bgImage) {
+            bgImage = document.createElement('img');
+            bgImage.id = 'theme-bg-image';
+            bgImage.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;';
+            bgOverlay.appendChild(bgImage);
         }
 
-        bgOverlay.style.backgroundImage = 'none';
-        bgVideo.style.display = 'block';
-        bgVideo.src = isLight ? 'Light Theme.mp4' : 'Dark Theme.mp4';
-        bgVideo.play().catch(e => console.log(e));
+        bgImage.src = isLight ? 'Light Theme.jpg' : 'Dark Theme.jpg';
     }
 });
 
