@@ -146,6 +146,27 @@ const callPipBtn = document.getElementById('callPipBtn');
             box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2); color: white; gap: 8px;
         `;
 
+        // Fix: Move Reply Preview inside Footer to eliminate gap
+        if (replyPreview) {
+            chatInputBar.appendChild(replyPreview);
+            replyPreview.style.cssText = `
+                position: absolute; 
+                bottom: 100%; 
+                left: 0; 
+                width: 100%; 
+                display: none; 
+                background: rgba(20, 20, 30, 0.95);
+                backdrop-filter: blur(10px);
+                padding: 10px 15px;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+                justify-content: space-between;
+                align-items: center;
+                z-index: 998;
+                border-left: 4px solid #00d2ff;
+                box-sizing: border-box;
+            `;
+        }
+
         // --- Chat Container Dimensions & Padding ---
         // You can modify these values manually to fit your design
         if (chatMessages) {
