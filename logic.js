@@ -237,16 +237,16 @@ const callPipBtn = document.getElementById('callPipBtn');
             chatInputBar.prepend(inputWrapper);
             
             // Style Mic & Send Buttons (Outside)
-            const actionBtnStyle = `width: 40px; height: 40px; border-radius: 50%; background: #00d2ff; color: white; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-shrink: 0;`;
+            const actionBtnStyle = `width: 45px; height: 45px; border-radius: 50%; background: transparent; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; padding: 0;`;
             
             if (micBtn) {
                 micBtn.style.cssText = actionBtnStyle;
-                micBtn.innerHTML = '<img src="Voice Icon.png" style="width: 60%; height: 60%; object-fit: contain;">';
+                micBtn.innerHTML = '<img src="Voice Icon.png" style="width: 100%; height: 100%; object-fit: contain;">';
                 chatInputBar.appendChild(micBtn);
             }
             if (sendMsgBtn) {
                 sendMsgBtn.style.cssText = actionBtnStyle + ' display: none;'; // Hidden initially
-                sendMsgBtn.innerHTML = '<img src="Send Icon.png" style="width: 55%; height: 55%; object-fit: contain; margin-left: 3px;">';
+                sendMsgBtn.innerHTML = '<img src="Send Icon.png" style="width: 100%; height: 100%; object-fit: contain;">';
                 chatInputBar.appendChild(sendMsgBtn);
             }
         }
