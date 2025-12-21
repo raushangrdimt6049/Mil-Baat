@@ -105,6 +105,68 @@ const incomingCallType = document.getElementById('incomingCallType');
 const acceptCallBtn = document.getElementById('acceptCallBtn');
 const rejectCallBtn = document.getElementById('rejectCallBtn');
 const callPipBtn = document.getElementById('callPipBtn');
+
+// --- Dynamic Header Setup ---
+(function setupHeader() {
+    let header = document.querySelector('header');
+    if (!header) {
+        header = document.createElement('header');
+        document.body.prepend(header);
+        
+        // Move header elements into the new header container
+        const headerElements = [menuIconBtn, logoDisplay, userStatusIndicator, profileBtn];
+        headerElements.forEach(el => {
+            if (el && el.parentNode) header.appendChild(el);
+        });
+    }
+
+    // Style: Full width, fixed top, neutral dark glass background (works for Light/Dark themes)
+    header.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 60px;
+        display: flex; align-items: center; justify-content: space-between; padding: 0 15px;
+        background: rgba(18, 18, 18, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border-bottom: 3px solid rgba(255, 255, 255, 0.08); z-index: 1000; box-sizing: border-box;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); color: white;
+    `;
+
+    // Push content down so it's not hidden behind header
+    if (mainContent) mainContent.style.paddingTop = '60px';
+})();
+
+// --- Dynamic Footer Setup ---
+(function setupFooter() {
+    if (chatInputBar) {
+        // Style: Fixed bottom, full width, glassmorphism with a cool dark slate tint
+        // Note: display is set to 'none' initially, toggled to 'flex' on login
+        chatInputBar.style.cssText = `
+            position: fixed; bottom: 0; left: 0; width: 100%; height: auto; 
+            display: none; align-items: center; justify-content: space-between; padding: 5px 15px;
+            background: rgba(25, 30, 35, 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-top: 3px solid rgba(255, 255, 255, 0.08); z-index: 1000; box-sizing: border-box;
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2); color: white; gap: 8px;
+        `;
+
+        // --- Chat Container Dimensions & Padding ---
+        // You can modify these values manually to fit your design
+        if (chatMessages) {
+            chatMessages.style.cssText = `
+                width: 100%;
+                height: 100vh;           /* Full screen height */
+                overflow-y: auto;        /* Enable scrolling */
+                padding-top: 80px;       /* Space for Header (Adjust manually) */
+                padding-bottom: 10px;   /* Space for Footer (Adjust manually) */
+                padding-left: 10px;      /* Left spacing */
+                padding-right: 10px;     /* Right spacing */
+                box-sizing: border-box;  /* Include padding in width/height */
+                position: fixed;         /* Fix position to screen */
+                top: 0;
+                left: 0;
+                z-index: 0;              /* Behind header/footer */
+            `;
+        }
+    }
+})();
+
 let cameraStream = null;
 let currentFacingMode = 'environment';
 let isFlashOn = false;
@@ -1115,6 +1177,18 @@ menuIconBtn.addEventListener('click', (e) => {
     } else {
         menuOptions.style.display = 'flex';
         menuIconBtn.classList.add('rotate');
+        
+        // Apply 70% Blur/Glass Effect to Menu
+        menuOptions.style.cssText = `
+            display: flex; flex-direction: column; position: fixed; top: 65px; right: 10px;
+            background: rgba(44, 62, 80, 0.9); backdrop-filter: blur(70px); -webkit-backdrop-filter: blur(70px);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 10px;
+            z-index: 2000; min-width: 160px; gap: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            color: white;
+        `;
+
+        // Ensure text is white in both modes
+        Array.from(menuOptions.children).forEach(child => child.style.color = 'white');
     }
 });
 
