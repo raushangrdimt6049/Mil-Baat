@@ -140,11 +140,116 @@ const callPipBtn = document.getElementById('callPipBtn');
         // Note: display is set to 'none' initially, toggled to 'flex' on login
         chatInputBar.style.cssText = `
             position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; 
-            display: none; align-items: center; justify-content: space-between; padding: 5px 15px;
+            display: none; align-items: center; justify-content: space-between; padding: 5px 8px;
             background: rgba(25, 30, 35, 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border-top: 3px solid rgba(255, 255, 255, 0.08); z-index: 1000; box-sizing: border-box;
-            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2); color: white; gap: 8px;
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2); color: white; gap: 5px;
         `;
+
+        // --- Input Box Layout Restructuring ---
+        let inputWrapper = document.getElementById('input-box-wrapper');
+        if (!inputWrapper) {
+            inputWrapper = document.createElement('div');
+            inputWrapper.id = 'input-box-wrapper';
+            
+            // Style the wrapper (The "Box")
+            inputWrapper.style.cssText = `
+                display: flex; align-items: center; flex: 1;
+                background: rgba(255, 255, 255, 0.1); border-radius: 25px;
+                padding: 5px 8px; position: relative; min-width: 0;
+            `;
+            
+            // Style Input Field
+            if (msgInput) {
+                // Emoji Button
+                const emojiBtn = document.createElement('button');
+                emojiBtn.id = 'emojiBtn';
+                emojiBtn.innerHTML = '😀';
+                emojiBtn.style.cssText = 'background: transparent; border: none; padding: 0 8px; cursor: pointer; font-size: 1.2rem; margin-right: 0px; line-height: 1; filter: grayscale(0.2); transition: transform 0.2s;';
+                emojiBtn.onmouseover = () => emojiBtn.style.transform = 'scale(1.1)';
+                emojiBtn.onmouseout = () => emojiBtn.style.transform = 'scale(1)';
+                
+                inputWrapper.appendChild(emojiBtn);
+
+                msgInput.style.background = 'transparent';
+                msgInput.style.border = 'none';
+                msgInput.style.color = 'white';
+                msgInput.style.flex = '1';
+                msgInput.style.padding = '8px';
+                msgInput.style.outline = 'none';
+                msgInput.placeholder = "Type a Message...";
+                inputWrapper.appendChild(msgInput);
+
+                // Emoji Picker Container
+                const emojiPicker = document.createElement('div');
+                emojiPicker.id = 'emoji-picker';
+                emojiPicker.style.cssText = `
+                    position: absolute; bottom: 100%; left: 10px; margin-bottom: 10px;
+                    width: 300px; max-width: 80vw; height: 250px; overflow-y: auto;
+                    background: rgba(30, 30, 40, 0.95); backdrop-filter: blur(10px);
+                    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px;
+                    display: none; grid-template-columns: repeat(auto-fill, minmax(35px, 1fr));
+                    padding: 10px; gap: 5px; z-index: 2000; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                `;
+                
+                const emojis = ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🤭", "🤫", "🤥", "😶", "😐", "😑", "😬", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑", "🤠", "😈", "👿", "👹", "👺", "🤡", "💩", "👻", "💀", "☠️", "👽", "👾", "🤖", "🎃", "😺", "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", "👋", "🤚", "🖐", "✋", "🖖", "👌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "💪", "🧠", "🦴", "👀", "👁", "👄", "💋", "🦷", "👅", "👂", "🦻", "👃", "🦵", "🦶", "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "☮️", "✝️", "☪️", "🕉", "☸️", "✡️", "🔯", "🕎", "☯️", "☦️", "🛐", "⛎", "♈️", "♉️", "♊️", "♋️", "♌️", "♍️", "♎️", "♏️", "♐️", "♑️", "♒️", "♓️", "🆔", "⚛️", "🉑", "☢️", "☣️", "📴", "📳", "🈶", "🈚️", "🈸", "🈺", "🈷️", "✴️", "🆚", "💮", "🉐", "㊙️", "㊗️", "🈴", "🈵", "🈹", "🈲", "🅰️", "🅱️", "🆎", "🆑", "🅾️", "🆘", "❌", "⭕️", "🛑", "⛔️", "📛", "🚫", "💯", "💢", "♨️", "🚷", "🚯", "🚳", "🚱", "🔞", "📵", "🚭", "❗️", "❕", "❓", "❔", "‼️", "⁉️", "🔅", "🔆", "〽️", "⚠️", "🚸", "🔱", "⚜️", "🔰", "♻️", "✅", "🈯️", "💹", "❇️", "✳️", "❎", "🌐", "🍆", "🍑", "🍓", "🍒", "🥑", "🍔", "🍕", "🍖", "🍗", "🌭", "🥪", "🌮", "🌯", "🥙", "🥚", "🍳", "🥘", "🍲", "🥣", "🥗", "🍿", "🧈", "🧂", "🥫", "🍱", "🍘", "🍙", "🍚", "🍛", "🍜", "🍝", "🍠", "🍢", "🍣", "🍤", "🍥", "🥮", "🍡", "🥟", "🥠", "🥡", "🦀", "🦞", "🦐", "🦑", "🦪", "🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", "🍬", "🍭", "🍮", "🍯", "🍼", "🥛", "☕️", "🍵", "🍶", "🍾", "🍷", "🍸", "🍹", "🍺", "🍻", "🥂", "🥃", "🥤", "🧃", "🧉", "🧊", "🥢", "🍽", "🍴", "🥄", "🔪", "🏺"];
+
+                emojis.forEach(emoji => {
+                    const span = document.createElement('span');
+                    span.innerText = emoji;
+                    span.style.cssText = 'cursor: pointer; font-size: 1.5rem; padding: 5px; text-align: center; user-select: none; transition: transform 0.1s;';
+                    span.onmouseover = () => span.style.transform = 'scale(1.2)';
+                    span.onmouseout = () => span.style.transform = 'scale(1)';
+                    span.onclick = () => {
+                        msgInput.value += emoji;
+                        msgInput.focus();
+                        msgInput.dispatchEvent(new Event('input'));
+                    };
+                    emojiPicker.appendChild(span);
+                });
+
+                chatInputBar.appendChild(emojiPicker);
+
+                emojiBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    emojiPicker.style.display = emojiPicker.style.display === 'grid' ? 'none' : 'grid';
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+                        emojiPicker.style.display = 'none';
+                    }
+                });
+            }
+
+            // Style & Move Attach/Camera Icons inside wrapper
+            [attachBtn, cameraBtn].forEach(btn => {
+                if (btn) {
+                    btn.style.background = 'transparent';
+                    btn.style.border = 'none';
+                    btn.style.padding = '8px';
+                    btn.style.cursor = 'pointer';
+                    btn.style.fontSize = '1.2rem';
+                    inputWrapper.appendChild(btn);
+                }
+            });
+
+            chatInputBar.prepend(inputWrapper);
+            
+            // Style Mic & Send Buttons (Outside)
+            const actionBtnStyle = `width: 40px; height: 40px; border-radius: 50%; background: #00d2ff; color: white; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-shrink: 0;`;
+            
+            if (micBtn) {
+                micBtn.style.cssText = actionBtnStyle;
+                micBtn.innerHTML = '<img src="Voice Icon.png" style="width: 60%; height: 60%; object-fit: contain;">';
+                chatInputBar.appendChild(micBtn);
+            }
+            if (sendMsgBtn) {
+                sendMsgBtn.style.cssText = actionBtnStyle + ' display: none;'; // Hidden initially
+                sendMsgBtn.innerHTML = '<img src="Send Icon.png" style="width: 55%; height: 55%; object-fit: contain; margin-left: 3px;">';
+                chatInputBar.appendChild(sendMsgBtn);
+            }
+        }
 
         // Fix: Move Reply Preview inside Footer to eliminate gap
         if (replyPreview) {
@@ -1495,6 +1600,18 @@ profileFileInput.addEventListener('change', function() {
 
 // Typing detection
 msgInput.addEventListener('input', () => {
+    const text = msgInput.value.trim();
+    // Toggle Mic / Send
+    if (text.length > 0) {
+        if (micBtn) micBtn.style.display = 'none';
+        if (sendMsgBtn) sendMsgBtn.style.display = 'flex';
+        if (cameraBtn) cameraBtn.style.display = 'none';
+    } else {
+        if (micBtn) micBtn.style.display = 'flex';
+        if (sendMsgBtn) sendMsgBtn.style.display = 'none';
+        if (cameraBtn) cameraBtn.style.display = 'inline-block';
+    }
+
     if (currentUser && db) {
         const typingRef = db.ref(`typing/${currentUser}`);
         typingRef.set(true);
@@ -1566,6 +1683,11 @@ sendMsgBtn.addEventListener('click', () => {
         replyToMsg = null;
         replyPreview.style.display = 'none';
         msgInput.value = '';
+        
+        // Reset Mic/Send State
+        if (micBtn) micBtn.style.display = 'flex';
+        if (sendMsgBtn) sendMsgBtn.style.display = 'none';
+        if (cameraBtn) cameraBtn.style.display = 'inline-block';
     }
 });
 
