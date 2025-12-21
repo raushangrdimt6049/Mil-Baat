@@ -139,7 +139,7 @@ const callPipBtn = document.getElementById('callPipBtn');
         // Style: Fixed bottom, full width, glassmorphism with a cool dark slate tint
         // Note: display is set to 'none' initially, toggled to 'flex' on login
         chatInputBar.style.cssText = `
-            position: fixed; bottom: 0; left: 0; width: 100%; height: auto; 
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; 
             display: none; align-items: center; justify-content: space-between; padding: 5px 15px;
             background: rgba(25, 30, 35, 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border-top: 3px solid rgba(255, 255, 255, 0.08); z-index: 1000; box-sizing: border-box;
@@ -175,7 +175,7 @@ const callPipBtn = document.getElementById('callPipBtn');
                 height: 100vh;           /* Full screen height */
                 overflow-y: auto;        /* Enable scrolling */
                 padding-top: 50px;       /* Space for Header (Adjust manually) */
-                padding-bottom: 50px;   /* Space for Footer (Adjust manually) */
+                padding-bottom: 60px;   /* Space for Footer (Adjust manually) */
                 padding-left: 10px;      /* Left spacing */
                 padding-right: 10px;     /* Right spacing */
                 box-sizing: border-box;  /* Include padding in width/height */
