@@ -153,8 +153,8 @@ const callPipBtn = document.getElementById('callPipBtn');
                 width: 100%;
                 height: 100vh;           /* Full screen height */
                 overflow-y: auto;        /* Enable scrolling */
-                padding-top: 80px;       /* Space for Header (Adjust manually) */
-                padding-bottom: 10px;   /* Space for Footer (Adjust manually) */
+                padding-top: 200px;       /* Space for Header (Adjust manually) */
+                padding-bottom: 100px;   /* Space for Footer (Adjust manually) */
                 padding-left: 10px;      /* Left spacing */
                 padding-right: 10px;     /* Right spacing */
                 box-sizing: border-box;  /* Include padding in width/height */
@@ -1181,7 +1181,7 @@ menuIconBtn.addEventListener('click', (e) => {
         // Apply 70% Blur/Glass Effect to Menu
         menuOptions.style.cssText = `
             display: flex; flex-direction: column; position: fixed; top: 65px; right: 10px;
-            background: rgba(44, 62, 80, 0.9); backdrop-filter: blur(70px); -webkit-backdrop-filter: blur(70px);
+            background: rgba(44, 62, 80, 0.9); backdrop-filter: blur(70px); -webkit-backdrop-filter: blur(90px);
             border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 10px;
             z-index: 2000; min-width: 160px; gap: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             color: white;
