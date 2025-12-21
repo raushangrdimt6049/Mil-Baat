@@ -122,7 +122,7 @@ const callPipBtn = document.getElementById('callPipBtn');
 
     // Style: Full width, fixed top, neutral dark glass background (works for Light/Dark themes)
     header.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; height: 60px;
+        position: fixed; top: 0; left: 0; width: 100%; height: 70px;
         display: flex; align-items: center; justify-content: space-between; padding: 0 15px;
         background: rgba(18, 18, 18, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
         border-bottom: 3px solid rgba(255, 255, 255, 0.08); z-index: 1000; box-sizing: border-box;
@@ -175,7 +175,7 @@ const callPipBtn = document.getElementById('callPipBtn');
                 height: 100vh;           /* Full screen height */
                 overflow-y: auto;        /* Enable scrolling */
                 padding-top: 50px;       /* Space for Header (Adjust manually) */
-                padding-bottom: 60px;   /* Space for Footer (Adjust manually) */
+                padding-bottom: 65px;   /* Space for Footer (Adjust manually) */
                 padding-left: 10px;      /* Left spacing */
                 padding-right: 10px;     /* Right spacing */
                 box-sizing: border-box;  /* Include padding in width/height */
