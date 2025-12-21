@@ -153,8 +153,8 @@ const callPipBtn = document.getElementById('callPipBtn');
                 width: 100%;
                 height: 100vh;           /* Full screen height */
                 overflow-y: auto;        /* Enable scrolling */
-                padding-top: 200px;       /* Space for Header (Adjust manually) */
-                padding-bottom: 100px;   /* Space for Footer (Adjust manually) */
+                padding-top: 50px;       /* Space for Header (Adjust manually) */
+                padding-bottom: 50px;   /* Space for Footer (Adjust manually) */
                 padding-left: 10px;      /* Left spacing */
                 padding-right: 10px;     /* Right spacing */
                 box-sizing: border-box;  /* Include padding in width/height */
@@ -162,9 +162,19 @@ const callPipBtn = document.getElementById('callPipBtn');
                 top: 0;
                 left: 0;
                 z-index: 0;              /* Behind header/footer */
+                
             `;
         }
     }
+})();
+
+// --- Initialize Message Bubble Style ---
+(function initMsgStyle() {
+    const msgStyle = document.createElement('style');
+    msgStyle.id = 'dynamic-msg-style';
+    // Default Dark Theme (Gray)
+    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; }`;
+    document.head.appendChild(msgStyle);
 })();
 
 let cameraStream = null;
@@ -1206,6 +1216,17 @@ themeToggleBtn.addEventListener('click', () => {
     const isLight = body.classList.contains('light-mode');
     
     themeToggleBtn.innerText = isLight ? '🌙 Dark Mode' : '☀️ Light Mode';
+
+    // Switch Message Bubble Background
+    let msgStyle = document.getElementById('dynamic-msg-style');
+    if (!msgStyle) {
+        msgStyle = document.createElement('style');
+        msgStyle.id = 'dynamic-msg-style';
+        document.head.appendChild(msgStyle);
+    }
+    // Light Mode -> All Bubbles Blue | Dark Mode -> All Bubbles Gray
+    const bubbleColor = isLight ? 'rgba(0, 123, 255, 0.85)' : 'rgba(45, 52, 54, 0.9)';
+    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: ${bubbleColor} !important; color: white !important; }`;
 
     // Switch background image based on theme
     if (bgOverlay) {
