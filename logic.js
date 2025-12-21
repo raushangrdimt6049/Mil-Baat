@@ -199,13 +199,16 @@ if (!bgOverlay) {
         filter: blur(8px); transform: scale(1.1);
     `;
 
-    const bgImage = document.createElement('img');
-    bgImage.id = 'theme-bg-image';
-    bgImage.src = 'Dark Theme.jpg';
-    bgImage.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;';
-    
-    bgOverlay.appendChild(bgImage);
     document.body.appendChild(bgOverlay);
+}
+
+let bgImage = document.getElementById('theme-bg-image');
+if (!bgImage && bgOverlay) {
+    bgImage = document.createElement('img');
+    bgImage.id = 'theme-bg-image';
+    bgImage.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;';
+    bgOverlay.appendChild(bgImage);
+    bgImage.src = 'Dark Theme.jpg';
 }
 
 const rtcConfig = {
@@ -1141,6 +1144,7 @@ themeToggleBtn.addEventListener('click', () => {
             bgOverlay.appendChild(bgImage);
         }
 
+        bgOverlay.style.backgroundImage = 'none';
         bgImage.src = isLight ? 'Light Theme.jpg' : 'Dark Theme.jpg';
     }
 });
