@@ -344,10 +344,10 @@ const callPipBtn = document.getElementById('callPipBtn');
         #call-overlay .call-header { top: 0; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
         #call-overlay .call-header > * { flex-shrink: 0; }
         #call-overlay .call-header > :nth-child(2) { flex-grow: 1; text-align: center; }
-        #call-overlay .call-footer { bottom: 0; justify-content: space-evenly; border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 10px 5px; gap: 5px; }
+        #call-overlay .call-footer { bottom: 0; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 10px 20px; width: 100%; box-sizing: border-box; }
         #call-overlay .call-footer button {
-            width: clamp(40px, 12vw, 55px); height: clamp(40px, 12vw, 55px); border-radius: 50%; background: rgba(255, 255, 255, 0.2);
-            border: none; font-size: clamp(18px, 5vw, 24px); color: white; display: flex; align-items: center; justify-content: center;
+            width: clamp(35px, 12vw, 50px); height: clamp(35px, 12vw, 50px); border-radius: 50%; background: rgba(255, 255, 255, 0.2);
+            border: none; font-size: clamp(16px, 5vw, 22px); color: white; display: flex; align-items: center; justify-content: center;
             cursor: pointer; flex-shrink: 0;
         }
         #callEndBtn { background-color: #ff4757 !important; }
