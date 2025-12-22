@@ -2324,6 +2324,10 @@ function endCall(remoteEnded = false) {
 
     incomingCallModal.style.display = 'none';
     mainContent.classList.remove('blur-content');
+    if (currentUser) {
+        mainContent.style.display = 'flex';
+        chatInputBar.style.display = 'flex';
+    }
     
     // 6. Clear Media Elements
     callRemoteVideo.srcObject = null;
