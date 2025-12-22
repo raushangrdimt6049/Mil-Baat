@@ -328,6 +328,12 @@ const callPipBtn = document.getElementById('callPipBtn');
         }
         body.light-mode #entry-overlay input::placeholder, body.light-mode #change-pass-modal input::placeholder { color: #6c757d !important; }
         body.light-mode #cancelLogout, body.light-mode #cancelChangePass, body.light-mode #cancelClearChat { background-color: #e9ecef !important; color: #495057 !important; }
+
+        /* Font Modal Styles */
+        .font-option-btn { border: 1px solid rgba(255,255,255,0.2) !important; background: rgba(255,255,255,0.05) !important; color: white !important; }
+        body.light-mode .font-option-btn { border: 1px solid #ced4da !important; background: #f8f9fa !important; color: #333 !important; }
+        #font-modal-close { color: rgba(255,255,255,0.7) !important; }
+        body.light-mode #font-modal-close { color: #333 !important; }
     `;
     document.head.appendChild(style);
 
@@ -346,11 +352,12 @@ const callPipBtn = document.getElementById('callPipBtn');
         #call-overlay .call-header > :nth-child(2) { flex-grow: 1; text-align: center; }
         #call-overlay .call-footer { bottom: 0; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 10px 20px; width: 100%; box-sizing: border-box; }
         #call-overlay .call-footer button {
-            width: clamp(35px, 12vw, 50px); height: clamp(35px, 12vw, 50px); border-radius: 50%; background: rgba(255, 255, 255, 0.2);
-            border: none; font-size: clamp(16px, 5vw, 22px); color: white; display: flex; align-items: center; justify-content: center;
+            width: clamp(30px, 10vw, 45px); height: clamp(30px, 10vw, 45px); background: transparent;
+            border: none; font-size: clamp(14px, 4vw, 18px); color: white; display: flex; align-items: center; justify-content: center;
             cursor: pointer; flex-shrink: 0;
         }
-        #callEndBtn { background-color: #ff4757 !important; }
+        #call-overlay .call-footer button img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+        #callEndBtn { background-color: transparent !important; }
         #callRemoteVideo { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
         #callLocalVideo {
             position: absolute; top: 80px; right: 15px;
@@ -364,8 +371,8 @@ const callPipBtn = document.getElementById('callPipBtn');
         body.light-mode #call-overlay .call-header, body.light-mode #call-overlay .call-footer {
             background: rgba(245, 245, 245, 0.8); color: #333; border-color: rgba(0, 0, 0, 0.1);
         }
-        body.light-mode #call-overlay .call-footer button { background: rgba(0, 0, 0, 0.08); color: #333; }
-        body.light-mode #callEndBtn { background-color: #e74c3c !important; color: white !important; }
+        body.light-mode #call-overlay .call-footer button { background: transparent; color: #333; }
+        body.light-mode #callEndBtn { background-color: transparent !important; color: white !important; }
         body.light-mode #callLocalVideo { border-color: rgba(0, 0, 0, 0.4); }
 
         /* Custom PiP View Styles */
@@ -621,13 +628,10 @@ let initialScale = 1;
     
     pipView.innerHTML = `
         <div id="pip-header" style="padding: 5px 8px; text-align: center; color: white; font-size: 12px; cursor: move; display: flex; justify-content: space-between; align-items: center;">
-            <span id="pip-title">Video Call</span>
+            <span>Video Call</span>
             <button id="pip-expand-btn" title="Expand" style="background:none; border:none; color:white; font-size:14px; cursor:pointer;">&#x26F6;</button>
         </div>
         <video id="pip-remote-video" playsinline autoplay style="width: 100%; height: 100%; object-fit: cover; flex-grow: 1; background: #111;"></video>
-        <div id="pip-audio-placeholder" style="display:none; flex-grow: 1; align-items: center; justify-content: center; background: #2d3436; width: 100%; height: 100%;">
-            <img src="" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.2);">
-        </div>
         <div id="pip-footer" style="display: flex; justify-content: space-around; align-items: center; padding: 5px 8px;">
             <button id="pip-speaker-btn" class="pip-control-btn">🔊</button>
             <button id="pip-end-btn" class="pip-control-btn pip-end-call">📞</button>
@@ -1134,6 +1138,15 @@ function setupFirebaseListeners() {
             profileImageDisplay.src = photo;
         }
     });
+
+    // 7. Font Preference Listener
+    db.ref(`User_Font_Style/${userRole}_Font`).on('value', snapshot => {
+        const font = snapshot.val();
+        if (font) {
+            document.body.style.fontFamily = `'${font}', sans-serif`;
+            localStorage.setItem('appFont', font);
+        }
+    });
 }
 
 function renderChat(history) {
@@ -1433,6 +1446,109 @@ function updateStatusUI(isOnline, lastSeen, isTyping) {
         }
     }
 }
+
+// --- Font Change Logic ---
+(function setupFontFeature() {
+    // 1. Inject Google Fonts
+    const fontLink = document.createElement('link');
+    fontLink.href = "https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Bangers&family=Cinzel&family=Comic+Neue&family=Courgette&family=Dancing+Script&family=Fredoka+One&family=Great+Vibes&family=Indie+Flower&family=Lobster&family=Montserrat&family=Orbitron&family=Oswald&family=Pacifico&family=Permanent+Marker&family=Playfair+Display&family=Poppins&family=Raleway&family=Righteous&family=Roboto&family=Satisfy&family=Shadows+Into+Light&display=swap";
+    fontLink.rel = "stylesheet";
+    document.head.appendChild(fontLink);
+
+    const fontList = [
+        'Roboto', 'Poppins', 'Montserrat', 'Raleway', 'Oswald',
+        'Playfair Display', 'Cinzel', 'Pacifico', 'Dancing Script', 'Great Vibes',
+        'Lobster', 'Bangers', 'Orbitron', 'Indie Flower', 'Shadows Into Light',
+        'Comic Neue', 'Permanent Marker', 'Architects Daughter', 'Courgette', 'Satisfy',
+        'Righteous', 'Fredoka One'
+    ];
+
+    // Check for saved font
+    const savedFont = localStorage.getItem('appFont');
+    if (savedFont) {
+        document.body.style.fontFamily = `'${savedFont}', sans-serif`;
+    }
+
+    // 2. Add Button to Menu
+    const changeFontBtn = document.createElement('button');
+    changeFontBtn.id = 'changeFontBtn';
+    changeFontBtn.innerHTML = '🔠 Change Font';
+    changeFontBtn.style.cssText = "display: block; width: 100%; padding: 12px 15px; text-align: left; background: none; border: none; color: white; cursor: pointer; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.1);";
+    changeFontBtn.onmouseover = () => changeFontBtn.style.background = 'rgba(255,255,255,0.1)';
+    changeFontBtn.onmouseout = () => changeFontBtn.style.background = 'none';
+
+    if (menuOptions) {
+        if (logoutBtn) menuOptions.insertBefore(changeFontBtn, logoutBtn);
+        else menuOptions.appendChild(changeFontBtn);
+    }
+
+    // 3. Create Modal
+    const modal = document.createElement('div');
+    modal.id = 'font-modal';
+    modal.className = 'modal-overlay';
+    modal.style.cssText = "display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center;";
+
+    const modalBox = document.createElement('div');
+    modalBox.className = 'modal-box';
+    modalBox.style.cssText = "padding: 20px; border-radius: 15px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; text-align: center; display: flex; flex-direction: column; gap: 10px; position: relative;";
+
+    // Close Button (Top Right)
+    const topCloseBtn = document.createElement('button');
+    topCloseBtn.id = 'font-modal-close';
+    topCloseBtn.innerHTML = '✖';
+    topCloseBtn.style.cssText = "position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 18px; cursor: pointer; padding: 5px;";
+    topCloseBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        if (mainContent) mainContent.classList.remove('blur-content');
+    });
+    modalBox.appendChild(topCloseBtn);
+
+    const title = document.createElement('h3');
+    title.innerText = "Select App Font";
+    modalBox.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = "display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;";
+
+    fontList.forEach(font => {
+        const btn = document.createElement('button');
+        btn.innerText = font;
+        btn.className = 'font-option-btn';
+        btn.style.cssText = `font-family: '${font}', sans-serif; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 16px; width: 100%;`;
+        
+        btn.addEventListener('click', () => {
+            document.body.style.fontFamily = `'${font}', sans-serif`;
+            localStorage.setItem('appFont', font); // Save to localStorage
+            if (currentUser && db) {
+                const role = getUserRole(currentUser);
+                db.ref(`User_Font_Style/${role}_Font`).set(font);
+            }
+            modal.style.display = 'none';
+            if (mainContent) mainContent.classList.remove('blur-content');
+        });
+        grid.appendChild(btn);
+    });
+
+    modalBox.appendChild(grid);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.innerText = "Cancel";
+    closeBtn.style.cssText = "margin-top: 15px; padding: 10px; background: #ff4757; color: white; border: none; border-radius: 8px; cursor: pointer;";
+    closeBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        if (mainContent) mainContent.classList.remove('blur-content');
+    });
+
+    modal.appendChild(modalBox);
+    document.body.appendChild(modal);
+
+    changeFontBtn.addEventListener('click', () => {
+        if (menuOptions) menuOptions.style.display = 'none';
+        if (menuIconBtn) menuIconBtn.classList.remove('rotate');
+        modal.style.display = 'flex';
+        if (mainContent) mainContent.classList.add('blur-content');
+    });
+})();
 
 // --- Menu & Logout Logic ---
 
@@ -1975,13 +2091,15 @@ async function startCall(video, isIncoming = false) {
     // Reset Buttons
     isCallMuted = false;
     isVideoMuted = false;
-    callMuteBtn.innerText = '🎤';
-    callMuteBtn.style.background = 'rgba(255,255,255,0.2)';
-    callVideoMuteBtn.innerText = '📷';
-    callVideoMuteBtn.style.background = 'rgba(255,255,255,0.2)';
+    callMuteBtn.innerHTML = '<img src="Mic Icon.png">';
+    callMuteBtn.style.background = 'transparent';
+    callVideoMuteBtn.innerHTML = '<img src="Camera Icon.png">';
+    callVideoMuteBtn.style.background = 'transparent';
     isSpeakerOn = false;
-    callAudioOutputBtn.innerText = '🔊';
-    callAudioOutputBtn.style.background = 'rgba(255,255,255,0.2)';
+    callAudioOutputBtn.innerHTML = '<img src="Speaker Icon.png">';
+    callAudioOutputBtn.style.background = 'transparent';
+    callFlipBtn.innerHTML = '<img src="Camera Flip Icon.png">';
+    callEndBtn.innerHTML = '<img src="Call End Icon.png">';
     
     // Check if audio output switching is supported
     if (typeof callRemoteAudio.setSinkId !== 'function') {
@@ -2324,10 +2442,6 @@ function endCall(remoteEnded = false) {
 
     incomingCallModal.style.display = 'none';
     mainContent.classList.remove('blur-content');
-    if (currentUser) {
-        mainContent.style.display = 'flex';
-        chatInputBar.style.display = 'flex';
-    }
     
     // 6. Clear Media Elements
     callRemoteVideo.srcObject = null;
@@ -2388,9 +2502,9 @@ callMuteBtn.addEventListener('click', (e) => {
         if (track) {
             isCallMuted = !isCallMuted;
             track.enabled = !isCallMuted;
-            callMuteBtn.innerText = isCallMuted ? '🔇' : '🎤';
+            callMuteBtn.innerHTML = isCallMuted ? '<img src="Audio Mute Icon.png">' : '<img src="Mic Icon.png">';
             syncPipControls();
-            callMuteBtn.style.background = isCallMuted ? '#ff4757' : 'rgba(255,255,255,0.2)';
+            callMuteBtn.style.background = 'transparent';
         }
     }
 });
@@ -2402,8 +2516,8 @@ callVideoMuteBtn.addEventListener('click', (e) => {
         if (track) {
             isVideoMuted = !isVideoMuted;
             track.enabled = !isVideoMuted;
-            callVideoMuteBtn.innerText = isVideoMuted ? '🚫' : '📷';
-            callVideoMuteBtn.style.background = isVideoMuted ? '#ff4757' : 'rgba(255,255,255,0.2)';
+            callVideoMuteBtn.innerHTML = isVideoMuted ? '<img src="Video Mute Icon.png">' : '<img src="Camera Icon.png">';
+            callVideoMuteBtn.style.background = 'transparent';
         }
     }
 });
@@ -2513,8 +2627,8 @@ async function updateAudioOutput(isManual = false) {
         }
         
         await element.setSinkId(targetId);
-        callAudioOutputBtn.innerText = isSpeakerOn ? '👂' : '🔊';
-        callAudioOutputBtn.style.background = isSpeakerOn ? '#ff9f43' : 'rgba(255,255,255,0.2)';
+        callAudioOutputBtn.innerHTML = isSpeakerOn ? '<img src="Ear Piece Icon.png">' : '<img src="Speaker Icon.png">';
+        callAudioOutputBtn.style.background = 'transparent';
         syncPipControls();
     } catch(e) { console.error(e); }
 }
@@ -2528,6 +2642,7 @@ callAudioOutputBtn.addEventListener('click', (e) => {
 // --- PiP Mode Logic ---
 callPipBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (!isVideoCall) return;
 
     // Hide full screen call & show chat
     callOverlay.style.display = 'none';
@@ -2537,30 +2652,9 @@ callPipBtn.addEventListener('click', (e) => {
     // Show and configure custom PiP view
     const pipView = document.getElementById('custom-pip-view');
     const pipVideo = document.getElementById('pip-remote-video');
-    const pipAudio = document.getElementById('pip-audio-placeholder');
-    const pipTitle = document.getElementById('pip-title');
 
     pipView.style.display = 'flex';
-    
-    if (isVideoCall) {
-        if (pipTitle) pipTitle.innerText = "Video Call";
-        pipVideo.style.display = 'block';
-        if (pipAudio) pipAudio.style.display = 'none';
-        pipVideo.srcObject = callRemoteVideo.srcObject;
-    } else {
-        if (pipTitle) pipTitle.innerText = "Audio Call";
-        pipVideo.style.display = 'none';
-        if (pipAudio) {
-            pipAudio.style.display = 'flex';
-            const targetUser = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
-            const targetRole = getUserRole(targetUser);
-            db.ref(`Profile Pic/${targetRole}_Profile_Pic`).once('value').then(snap => {
-                const pic = snap.val();
-                const img = pipAudio.querySelector('img');
-                if (img) img.src = pic || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
-            });
-        }
-    }
+    pipVideo.srcObject = callRemoteVideo.srcObject;
     
     syncPipControls();
 });
