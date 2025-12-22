@@ -313,10 +313,11 @@ let cropper = null;
 let baseImageForFilter = null;
 let currentFilterMode = 0; // 0:None, 1:Gray, 2:Sepia, 3:Invert
 
-const ALPHA_USER = (typeof envUserNames !== 'undefined') ? envUserNames.alpha : 'Raushan_143';
-const BETA_USER = (typeof envUserNames !== 'undefined') ? envUserNames.beta : 'Nisha_143';
+// Define Admin Usernames from Config (or defaults)
+const ALPHA_USER = (typeof envUserNames !== 'undefined') ? envUserNames.alpha : "Raushan_143";
+const BETA_USER = (typeof envUserNames !== 'undefined') ? envUserNames.beta : "Nisha_143";
 
-const users = (typeof envUsers !== 'undefined') ? envUsers : { [ALPHA_USER]: 'asdf@1234', [BETA_USER]: '11041805143' };
+const users = (typeof envUsers !== 'undefined') ? envUsers : { [ALPHA_USER]: "asdf@1234", [BETA_USER]: "11041805143" };
 
 // Initialize Firebase
 let db;

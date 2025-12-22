@@ -29,12 +29,12 @@ const server = http.createServer((req, res) => {
     if (req.url === '/config.js') {
         res.writeHead(200, { 'Content-Type': 'application/javascript' });
         
-        const alphaUser = process.env.Alpha_Admin || env.Alpha_Admin || 'Raushan_143';
-        const betaUser = process.env.Beta_Admin || env.Beta_Admin || 'Nisha_143';
+        const alphaUser = process.env.ALPHA_ADMIN || env.ALPHA_ADMIN;
+        const betaUser = process.env.BETA_ADMIN || env.BETA_ADMIN;
 
         const usersConfig = { 
-            [alphaUser]: process.env.ALPHA_PASS || env.ALPHA_PASS || 'asdf@1234', 
-            [betaUser]: process.env.BETA_PASS || env.BETA_PASS || '11041805143'
+            [alphaUser]: process.env.ALPHA_PASS || env.ALPHA_PASS, 
+            [betaUser]: process.env.BETA_PASS || env.BETA_PASS 
         };
         const userNamesConfig = { alpha: alphaUser, beta: betaUser };
         
