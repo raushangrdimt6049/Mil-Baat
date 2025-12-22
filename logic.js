@@ -364,6 +364,11 @@ const callPipBtn = document.getElementById('callPipBtn');
             padding: 15px 20px;      /* Footer padding */
         }
 
+        /* --- Audio Call Specific Styling (3 Icons) --- */
+        #call-overlay.audio-only .call-footer {
+            gap: 50px;               /* Increased gap for audio calls */
+        }
+
         /* Base Button Style */
         #call-overlay .call-footer button {
             border: none; 
@@ -2124,6 +2129,9 @@ async function startCall(video, isIncoming = false) {
     // 1. UI Setup
     callOverlay.style.display = 'flex';
     callOverlay.classList.remove('pip-mode'); // Reset PiP
+
+    if (video) callOverlay.classList.remove('audio-only');
+    else callOverlay.classList.add('audio-only');
     
     // Reset Media Elements
     callRemoteAudio.srcObject = null;
