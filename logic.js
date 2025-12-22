@@ -352,7 +352,7 @@ const callPipBtn = document.getElementById('callPipBtn');
             display: flex; 
             justify-content: space-between;
             align-items: center;
-            padding: 20px 15px;
+            padding: 15px 15px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
             width: 100%;
             box-sizing: border-box;
