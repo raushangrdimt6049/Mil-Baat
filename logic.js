@@ -504,7 +504,7 @@ const callPipBtn = document.getElementById('callPipBtn');
             cursor: move;
         }
         #custom-pip-view .pip-control-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 5px; }
-        #pip-header, #pip-footer { background: rgba(0,0,0,0.3); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); flex-shrink: 0; }
+        #pip-header, #pip-footer { background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); flex-shrink: 0; z-index: 10; }
         
         /* Light Theme for PiP */
         body.light-mode #custom-pip-view { background-color: #f1f2f6; border-color: rgba(0,0,0,0.1); }
@@ -765,7 +765,7 @@ let initialScale = 1;
             <span>Video Call</span>
             <button id="pip-expand-btn" title="Expand" style="background:none; border:none; color:white; font-size:14px; cursor:pointer;">&#x26F6;</button>
         </div>
-        <video id="pip-remote-video" playsinline autoplay style="width: 100%; height: 100%; object-fit: cover; flex-grow: 1; background: #111;"></video>
+        <video id="pip-remote-video" playsinline autoplay style="width: 100%; min-height: 0; object-fit: cover; flex-grow: 1; background: #111;"></video>
         <div id="pip-footer" style="display: flex; justify-content: space-around; align-items: center; padding: 5px 8px;">
             <button id="pip-speaker-btn" class="pip-control-btn">🔊</button>
             <button id="pip-end-btn" class="pip-control-btn pip-end-call">📞</button>
@@ -2341,6 +2341,14 @@ function createPeerConnection(isInitiator) {
         if (mediaElement.srcObject !== stream) {
             mediaElement.srcObject = stream;
             console.log("Remote stream attached to", isVideoCall ? "Video" : "Audio");
+            
+            // Update PiP if active
+            const pipView = document.getElementById('custom-pip-view');
+            const pipVideo = document.getElementById('pip-remote-video');
+            if (isVideoCall && pipView && pipView.style.display === 'flex' && pipVideo) {
+                pipVideo.srcObject = stream;
+                pipVideo.play().catch(e => console.error("PiP Auto-play error:", e));
+            }
         }
         
         // Robust Playback
@@ -2801,6 +2809,7 @@ callPipBtn.addEventListener('click', (e) => {
 
     pipView.style.display = 'flex';
     pipVideo.srcObject = callRemoteVideo.srcObject;
+    pipVideo.play().catch(e => console.error("PiP Play Error:", e));
     
     syncPipControls();
 });
