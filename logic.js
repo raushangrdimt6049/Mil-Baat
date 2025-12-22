@@ -621,10 +621,13 @@ let initialScale = 1;
     
     pipView.innerHTML = `
         <div id="pip-header" style="padding: 5px 8px; text-align: center; color: white; font-size: 12px; cursor: move; display: flex; justify-content: space-between; align-items: center;">
-            <span>Video Call</span>
+            <span id="pip-title">Video Call</span>
             <button id="pip-expand-btn" title="Expand" style="background:none; border:none; color:white; font-size:14px; cursor:pointer;">&#x26F6;</button>
         </div>
         <video id="pip-remote-video" playsinline autoplay style="width: 100%; height: 100%; object-fit: cover; flex-grow: 1; background: #111;"></video>
+        <div id="pip-audio-placeholder" style="display:none; flex-grow: 1; align-items: center; justify-content: center; background: #2d3436; width: 100%; height: 100%;">
+            <img src="" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.2);">
+        </div>
         <div id="pip-footer" style="display: flex; justify-content: space-around; align-items: center; padding: 5px 8px;">
             <button id="pip-speaker-btn" class="pip-control-btn">🔊</button>
             <button id="pip-end-btn" class="pip-control-btn pip-end-call">📞</button>
@@ -2521,7 +2524,6 @@ callAudioOutputBtn.addEventListener('click', (e) => {
 // --- PiP Mode Logic ---
 callPipBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (!isVideoCall) return;
 
     // Hide full screen call & show chat
     callOverlay.style.display = 'none';
@@ -2531,9 +2533,30 @@ callPipBtn.addEventListener('click', (e) => {
     // Show and configure custom PiP view
     const pipView = document.getElementById('custom-pip-view');
     const pipVideo = document.getElementById('pip-remote-video');
+    const pipAudio = document.getElementById('pip-audio-placeholder');
+    const pipTitle = document.getElementById('pip-title');
 
     pipView.style.display = 'flex';
-    pipVideo.srcObject = callRemoteVideo.srcObject;
+    
+    if (isVideoCall) {
+        if (pipTitle) pipTitle.innerText = "Video Call";
+        pipVideo.style.display = 'block';
+        if (pipAudio) pipAudio.style.display = 'none';
+        pipVideo.srcObject = callRemoteVideo.srcObject;
+    } else {
+        if (pipTitle) pipTitle.innerText = "Audio Call";
+        pipVideo.style.display = 'none';
+        if (pipAudio) {
+            pipAudio.style.display = 'flex';
+            const targetUser = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
+            const targetRole = getUserRole(targetUser);
+            db.ref(`Profile Pic/${targetRole}_Profile_Pic`).once('value').then(snap => {
+                const pic = snap.val();
+                const img = pipAudio.querySelector('img');
+                if (img) img.src = pic || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+            });
+        }
+    }
     
     syncPipControls();
 });
