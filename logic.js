@@ -347,9 +347,61 @@ const callPipBtn = document.getElementById('callPipBtn');
             background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
             color: white;
         }
-        #call-overlay .call-header { top: 0; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
-        #call-overlay .call-header > * { flex-shrink: 0; }
-        #call-overlay .call-header > :nth-child(2) { flex-grow: 1; text-align: center; }
+        #call-overlay .call-header { 
+            top: 0; 
+            display: flex; 
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
+            width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        
+        /* --- Call Header Manual Styling --- */
+        
+        /* 1. Name Text Size */
+        #callHeaderName { 
+            font-size: 20px; /* <-- Change Name Size Here */
+        }
+
+        /* 2. PiP Icon Size */
+        #callPipBtn { 
+            font-size: 20px; /* <-- Change Icon Size Here */
+            /* Manual Margins */
+            margin-top: 0px;
+            margin-bottom: 0px;
+            margin-left: 0px;
+            margin-right: 0px;
+            
+            /* Remove Border/Background */
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            color: white;
+        }
+
+        /* 3. Status Text (Ringing...) Size */
+        #callStatusText { 
+            font-size: 2px; /* <-- Change Status Size Here */
+            font-weight: 200; margin-bottom: 2px; letter-spacing: 0.5px; 
+        }
+
+        /* 4. Timer Text Size */
+        #callTimer { 
+            font-size: 13px; /* <-- Change Timer Size Here */
+            font-weight: bold; 
+        }
+
+        #callHeaderCenter { 
+            position: absolute;
+            top: 60px; /* Position below header */
+            left: 0; width: 100%;
+            text-align: center; 
+            display: flex; flex-direction: column; align-items: center; 
+            z-index: 20; pointer-events: none;
+        }
         
         .blink-anim { animation: blinkText 1.5s infinite; }
         @keyframes blinkText { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
@@ -644,7 +696,6 @@ let initialScale = 1;
         nameEl = document.createElement('div');
         nameEl.id = 'callHeaderName';
         nameEl.style.fontWeight = 'bold';
-        nameEl.style.fontSize = '16px';
         nameEl.style.textShadow = '0 0 5px rgba(0,0,0,0.5)';
         header.appendChild(nameEl);
     }
@@ -654,7 +705,7 @@ let initialScale = 1;
     if (!centerEl) {
         centerEl = document.createElement('div');
         centerEl.id = 'callHeaderCenter';
-        header.appendChild(centerEl);
+        overlay.appendChild(centerEl);
     }
 
     const status = document.getElementById('callStatusText');
