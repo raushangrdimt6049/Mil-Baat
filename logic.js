@@ -2149,7 +2149,6 @@ async function startCall(video, isIncoming = false) {
     callEndBtn.innerHTML = '<img src="Call End Icon.png">';
     
     callAudioOutputBtn.style.display = 'flex';
-    }
 
     // Configure UI based on call type
     if (video) {
@@ -2327,7 +2326,12 @@ function handleIncomingSignal(signal) {
     // 1. Offer (Incoming Call)
     if (signal.type === 'offer') {
         incomingSignalData = signal;
-        incomingCallTitle.innerText = `Incoming Call from ${signal.sender}`;
+        
+        let displayName = signal.sender;
+        if (signal.sender === ALPHA_ADMIN) displayName = "💎_Alpha_💎";
+        else if (signal.sender === BETA_ADMIN) displayName = "💎_Beta_💎";
+
+        incomingCallTitle.innerText = `Incoming Call From ${displayName}`;
         incomingCallType.innerText = signal.isVideo ? "Video Call" : "Audio Call";
         
         // Show Caller Profile Picture
