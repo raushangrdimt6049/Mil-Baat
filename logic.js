@@ -303,6 +303,100 @@ const callPipBtn = document.getElementById('callPipBtn');
     document.head.appendChild(msgStyle);
 })();
 
+// --- Initialize Theme Adaptive Styles (Login, Logout, Change Pass) ---
+(function initThemeStyles() {
+    const style = document.createElement('style');
+    style.id = 'theme-adaptive-styles';
+    style.innerHTML = `
+        /* --- Default Dark Theme --- */
+        #entry-overlay { background-color: #121212 !important; color: #ffffff !important; }
+        #logout-modal > div, #change-pass-modal > div, #clear-chat-modal > div, .modal-box { background-color: #2d3436 !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.1); }
+        #entry-overlay input, #change-pass-modal input { background: rgba(255, 255, 255, 0.1) !important; color: white !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; }
+        
+        /* --- Light Theme Overrides --- */
+        body.light-mode #entry-overlay { background-color: #f4f6f8 !important; color: #2c3e50 !important; }
+        body.light-mode #logout-modal > div, body.light-mode #change-pass-modal > div, body.light-mode #clear-chat-modal > div, body.light-mode .modal-box { 
+            background-color: #ffffff !important; 
+            color: #2c3e50 !important; 
+            border: 1px solid #e1e4e8 !important; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important; 
+        }
+        body.light-mode #entry-overlay input, body.light-mode #change-pass-modal input { 
+            background: #ffffff !important; 
+            color: #333333 !important; 
+            border: 1px solid #ced4da !important; 
+        }
+        body.light-mode #entry-overlay input::placeholder, body.light-mode #change-pass-modal input::placeholder { color: #6c757d !important; }
+        body.light-mode #cancelLogout, body.light-mode #cancelChangePass, body.light-mode #cancelClearChat { background-color: #e9ecef !important; color: #495057 !important; }
+    `;
+    document.head.appendChild(style);
+
+    // --- Call UI Theme Styles ---
+    const callStyle = document.createElement('style');
+    callStyle.id = 'call-ui-styles';
+    callStyle.innerHTML = `
+        #call-overlay .call-header, #call-overlay .call-footer {
+            position: absolute; left: 0; width: 100%; display: flex; align-items: center;
+            padding: 15px; box-sizing: border-box; z-index: 10;
+            background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            color: white;
+        }
+        #call-overlay .call-header { top: 0; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        #call-overlay .call-header > * { flex-shrink: 0; }
+        #call-overlay .call-header > :nth-child(2) { flex-grow: 1; text-align: center; }
+        #call-overlay .call-footer { bottom: 0; justify-content: space-around; border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 10px 15px; gap: 10px; }
+        #call-overlay .call-footer button {
+            width: 50px; height: 50px; border-radius: 50%; background: rgba(255, 255, 255, 0.2);
+            border: none; font-size: 24px; color: white; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; flex-shrink: 0;
+        }
+        #callEndBtn { background-color: #ff4757 !important; }
+        #callRemoteVideo { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        #callLocalVideo {
+            position: absolute; top: 80px; right: 15px;
+            width: clamp(100px, 25vw, 140px); height: clamp(150px, 40vw, 210px);
+            border: 2px solid rgba(255, 255, 255, 0.7); border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); object-fit: cover; z-index: 11;
+            cursor: move; background-color: #000;
+            transition: top 0.3s ease, left 0.3s ease, right 0.3s ease, bottom 0.3s ease;
+        }
+        /* Light Theme */
+        body.light-mode #call-overlay .call-header, body.light-mode #call-overlay .call-footer {
+            background: rgba(245, 245, 245, 0.8); color: #333; border-color: rgba(0, 0, 0, 0.1);
+        }
+        body.light-mode #call-overlay .call-footer button { background: rgba(0, 0, 0, 0.08); color: #333; }
+        body.light-mode #callEndBtn { background-color: #e74c3c !important; color: white !important; }
+        body.light-mode #callLocalVideo { border-color: rgba(0, 0, 0, 0.4); }
+
+        /* Custom PiP View Styles */
+        #custom-pip-view {
+            position: fixed;
+            width: 160px; height: 240px;
+            background-color: #2d3436;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+            z-index: 1001;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.2);
+            /* For draggable positioning */
+            bottom: 75px; right: 15px; top: auto; left: auto;
+            transition: left 0.3s ease, top 0.3s ease, right 0.3s ease, bottom 0.3s ease;
+        }
+        #custom-pip-view .pip-control-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 5px; }
+        #custom-pip-view .pip-end-call { background: #ff4757; width: 35px; height: 35px; border-radius: 50%; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+        #pip-header, #pip-footer { background: rgba(0,0,0,0.3); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); flex-shrink: 0; }
+        
+        /* Light Theme for PiP */
+        body.light-mode #custom-pip-view { background-color: #f1f2f6; border-color: rgba(0,0,0,0.1); }
+        body.light-mode #pip-header, body.light-mode #pip-footer { background: rgba(255,255,255,0.7); color: #333; }
+        body.light-mode #custom-pip-view .pip-control-btn { color: #333; }
+        body.light-mode #custom-pip-view .pip-end-call { background: #e74c3c; color: white; }
+    `;
+    document.head.appendChild(callStyle);
+})();
+
 let cameraStream = null;
 let currentFacingMode = 'environment';
 let isFlashOn = false;
@@ -372,10 +466,6 @@ let isVideoCall = false;
 let isSpeakerOn = false;
 let pipIsDragging = false;
 let pipStartX = 0;
-let pipStartY = 0;
-let pipInitialLeft = 0;
-let pipInitialTop = 0;
-let isPipInteractionActive = false;
 let peerConnection = null;
 let incomingSignalData = null;
 let currentChatHistory = [];
@@ -474,6 +564,144 @@ let initialScale = 1;
             if (mainContent) mainContent.classList.remove('blur-content');
         });
     }
+})();
+
+// --- Dynamic Call UI Structure ---
+(function setupCallUI() {
+    const overlay = document.getElementById('call-overlay');
+    if (!overlay) return;
+
+    // 1. Create Header
+    let header = overlay.querySelector('.call-header');
+    if (!header) {
+        header = document.createElement('div');
+        header.className = 'call-header';
+        
+        const status = document.getElementById('callStatusText');
+        const timer = document.getElementById('callTimer');
+        const pipBtn = document.getElementById('callPipBtn');
+        
+        if (status) header.appendChild(status);
+        if (timer) header.appendChild(timer);
+        if (pipBtn) header.appendChild(pipBtn);
+        
+        overlay.prepend(header);
+    }
+
+    // 2. Create Footer
+    let footer = overlay.querySelector('.call-footer');
+    if (!footer) {
+        footer = document.createElement('div');
+        footer.className = 'call-footer';
+        
+        const buttons = [
+            document.getElementById('callAudioOutputBtn'), document.getElementById('callMuteBtn'),
+            document.getElementById('callVideoMuteBtn'), document.getElementById('callFlipBtn'),
+            document.getElementById('callEndBtn')
+        ];
+        buttons.forEach(btn => { if (btn) footer.appendChild(btn); });
+        overlay.appendChild(footer);
+    }
+
+    // 3. Ensure local video is a direct child for absolute positioning
+    const localVideo = document.getElementById('callLocalVideo');
+    const videoContainer = document.getElementById('callVideoContainer');
+    if (localVideo && videoContainer && localVideo.parentElement === videoContainer) {
+        overlay.appendChild(localVideo);
+    }
+})();
+
+// --- Dynamic Custom PiP View ---
+(function createCustomPipView() {
+    if (document.getElementById('custom-pip-view')) return;
+
+    const pipView = document.createElement('div');
+    pipView.id = 'custom-pip-view';
+    
+    pipView.innerHTML = `
+        <div id="pip-header" style="padding: 5px 8px; text-align: center; color: white; font-size: 12px; cursor: move; display: flex; justify-content: space-between; align-items: center;">
+            <span>Video Call</span>
+            <button id="pip-expand-btn" title="Expand" style="background:none; border:none; color:white; font-size:14px; cursor:pointer;">&#x26F6;</button>
+        </div>
+        <video id="pip-remote-video" playsinline autoplay style="width: 100%; height: 100%; object-fit: cover; flex-grow: 1; background: #111;"></video>
+        <div id="pip-footer" style="display: flex; justify-content: space-around; align-items: center; padding: 5px 8px;">
+            <button id="pip-speaker-btn" class="pip-control-btn">🔊</button>
+            <button id="pip-end-btn" class="pip-control-btn pip-end-call">📞</button>
+            <button id="pip-mute-btn" class="pip-control-btn">🎤</button>
+        </div>
+    `;
+    document.body.appendChild(pipView);
+
+    function expandToFullScreen() {
+        if (pipView.style.display === 'flex') {
+            pipView.style.display = 'none';
+            callOverlay.style.display = 'flex';
+            mainContent.style.display = 'none';
+            chatInputBar.style.display = 'none';
+        }
+    }
+
+    // Event listeners for controls
+    document.getElementById('pip-expand-btn').addEventListener('click', expandToFullScreen);
+    document.getElementById('pip-remote-video').addEventListener('dblclick', expandToFullScreen);
+
+    document.getElementById('pip-speaker-btn').addEventListener('click', (e) => { e.stopPropagation(); callAudioOutputBtn.click(); });
+    document.getElementById('pip-end-btn').addEventListener('click', (e) => { e.stopPropagation(); callEndBtn.click(); });
+    document.getElementById('pip-mute-btn').addEventListener('click', (e) => { e.stopPropagation(); callMuteBtn.click(); });
+
+    // Draggable Logic
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+    const dragHandle = document.getElementById('pip-header');
+
+    function dragStart(e) {
+        if (e.target.tagName === 'BUTTON') return;
+        isDragging = true;
+        const rect = pipView.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        startX = clientX;
+        startY = clientY;
+        initialX = rect.left;
+        initialY = rect.top;
+        pipView.style.transition = 'none';
+        pipView.style.right = 'auto';
+        pipView.style.bottom = 'auto';
+    }
+
+    function dragMove(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+        
+        let newX = initialX + dx;
+        let newY = initialY + dy;
+
+        // Boundary Checks
+        newX = Math.max(0, Math.min(newX, window.innerWidth - pipView.offsetWidth));
+        newY = Math.max(0, Math.min(newY, window.innerHeight - pipView.offsetHeight));
+
+        pipView.style.left = `${newX}px`;
+        pipView.style.top = `${newY}px`;
+    }
+
+    function dragEnd() {
+        if (isDragging) {
+            isDragging = false;
+            pipView.style.transition = 'left 0.3s ease, top 0.3s ease, right 0.3s ease, bottom 0.3s ease';
+        }
+    }
+
+    dragHandle.addEventListener('mousedown', dragStart);
+    window.addEventListener('mousemove', dragMove);
+    window.addEventListener('mouseup', dragEnd);
+    
+    dragHandle.addEventListener('touchstart', dragStart, { passive: false });
+    window.addEventListener('touchmove', dragMove, { passive: false });
+    window.addEventListener('touchend', dragEnd);
 })();
 
 // --- Dynamic Preview Close Button ---
@@ -1823,7 +2051,15 @@ async function startCall(video, isIncoming = false) {
     isVideoCall = video;
     amICaller = !isIncoming;
     isCallConnected = false;
-    
+
+    // Reset local video position
+    const localVideo = document.getElementById('callLocalVideo');
+    if (localVideo) {
+        localVideo.style.top = '80px';
+        localVideo.style.left = 'auto';
+        localVideo.style.right = '15px';
+        localVideo.style.bottom = 'auto';
+    }
     // 1. UI Setup
     callOverlay.style.display = 'flex';
     callOverlay.classList.remove('pip-mode'); // Reset PiP
@@ -2176,7 +2412,10 @@ function endCall(remoteEnded = false) {
     
     // 5. Reset UI
     callOverlay.style.display = 'none';
-    callOverlay.classList.remove('pip-mode');
+    
+    const pipView = document.getElementById('custom-pip-view');
+    if (pipView) pipView.style.display = 'none';
+
     incomingCallModal.style.display = 'none';
     mainContent.classList.remove('blur-content');
     
@@ -2240,6 +2479,7 @@ callMuteBtn.addEventListener('click', (e) => {
             isCallMuted = !isCallMuted;
             track.enabled = !isCallMuted;
             callMuteBtn.innerText = isCallMuted ? '🔇' : '🎤';
+            syncPipControls();
             callMuteBtn.style.background = isCallMuted ? '#ff4757' : 'rgba(255,255,255,0.2)';
         }
     }
@@ -2258,6 +2498,50 @@ callVideoMuteBtn.addEventListener('click', (e) => {
     }
 });
 
+// --- Swap Video Feeds on Tap ---
+function swapVideoFeeds() {
+    if (!isVideoCall || !callLocalVideo.srcObject || !callRemoteVideo.srcObject) {
+        return; // Only for video calls with both streams active
+    }
+
+    const localVideoSrc = callLocalVideo.srcObject;
+    const remoteVideoSrc = callRemoteVideo.srcObject;
+
+    // Swap the streams
+    callLocalVideo.srcObject = remoteVideoSrc;
+    callRemoteVideo.srcObject = localVideoSrc;
+
+    // The element showing the local user's front-facing camera should be mirrored.
+    // Reset transforms first.
+    callLocalVideo.style.transform = 'none';
+    callRemoteVideo.style.transform = 'none';
+
+    // Re-apply mirroring to whichever element is now showing the local user's front-facing camera
+    if (callFacingMode === 'user') {
+        if (callLocalVideo.srcObject === callStream) {
+            callLocalVideo.style.transform = 'scaleX(-1)';
+        } else if (callRemoteVideo.srcObject === callStream) {
+            callRemoteVideo.style.transform = 'scaleX(-1)';
+        }
+    }
+
+    // Ensure playback continues
+    callLocalVideo.play().catch(e => console.error("Local video play failed after swap:", e));
+    callRemoteVideo.play().catch(e => console.error("Remote video play failed after swap:", e));
+}
+
+function syncPipControls() {
+    const pipMuteBtn = document.getElementById('pip-mute-btn');
+    const pipSpeakerBtn = document.getElementById('pip-speaker-btn');
+
+    if (pipMuteBtn) {
+        pipMuteBtn.innerText = isCallMuted ? '🔇' : '🎤';
+    }
+    if (pipSpeakerBtn) {
+        pipSpeakerBtn.innerText = isSpeakerOn ? '👂' : '🔊';
+    }
+}
+
 callFlipBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     if (callStream && isVideoCall) {
@@ -2265,26 +2549,29 @@ callFlipBtn.addEventListener('click', async (e) => {
         callFacingMode = callFacingMode === 'user' ? 'environment' : 'user';
         try {
             const newStream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
                 video: { facingMode: callFacingMode }
             });
+            const newVideoTrack = newStream.getVideoTracks()[0];
             
-            // Update Stream
-            const audioTrack = callStream.getAudioTracks()[0];
-            if (audioTrack) newStream.addTrack(audioTrack); // Actually getUserMedia returns new audio track too usually, better to just use new stream completely
-            
-            callStream = newStream;
-            callLocalVideo.srcObject = newStream;
-            callLocalVideo.style.transform = callFacingMode === 'user' ? 'scaleX(-1)' : 'none';
-            
-            // Update Peer Connection
-            const videoTrack = callStream.getVideoTracks()[0];
+            // Replace track in Peer Connection
             const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-            if (sender) sender.replaceTrack(videoTrack);
+            if (sender) await sender.replaceTrack(newVideoTrack);
+
+            // Update local callStream object
+            const oldVideoTrack = callStream.getVideoTracks()[0];
+            callStream.removeTrack(oldVideoTrack);
+            callStream.addTrack(newVideoTrack);
+
+            // Update mirroring on the correct element
+            callLocalVideo.style.transform = 'none';
+            callRemoteVideo.style.transform = 'none';
+            if (callFacingMode === 'user') {
+                if (callLocalVideo.srcObject === callStream) callLocalVideo.style.transform = 'scaleX(-1)';
+                else if (callRemoteVideo.srcObject === callStream) callRemoteVideo.style.transform = 'scaleX(-1)';
+            }
             
             // Restore Mute State
-            if (videoTrack) videoTrack.enabled = !isVideoMuted;
-            
+            if (newVideoTrack) newVideoTrack.enabled = !isVideoMuted;
         } catch (err) { console.error(err); }
     }
 });
@@ -2318,6 +2605,7 @@ async function updateAudioOutput(isManual = false) {
         await element.setSinkId(targetId);
         callAudioOutputBtn.innerText = isSpeakerOn ? '👂' : '🔊';
         callAudioOutputBtn.style.background = isSpeakerOn ? '#ff9f43' : 'rgba(255,255,255,0.2)';
+        syncPipControls();
     } catch(e) { console.error(e); }
 }
 
@@ -2330,80 +2618,104 @@ callAudioOutputBtn.addEventListener('click', (e) => {
 // --- PiP Mode Logic ---
 callPipBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    callOverlay.classList.add('pip-mode');
-});
+    if (!isVideoCall) return;
 
-// Modified click listener to handle drag vs click
-callOverlay.addEventListener('click', () => {
-    if (callOverlay.classList.contains('pip-mode')) {
-        if (!pipIsDragging) {
-            callOverlay.classList.remove('pip-mode');
-            // Reset styles applied during drag
-            callOverlay.style.top = '';
-            callOverlay.style.left = '';
-            callOverlay.style.right = '';
-            callOverlay.style.bottom = '';
-        }
-        pipIsDragging = false;
-    }
-});
+    // Hide full screen call & show chat
+    callOverlay.style.display = 'none';
+    mainContent.style.display = 'flex';
+    chatInputBar.style.display = 'flex';
 
-// Draggable PiP Logic
-function handlePipStart(e) {
-    if (!callOverlay.classList.contains('pip-mode')) return;
-    isPipInteractionActive = true;
+    // Show and configure custom PiP view
+    const pipView = document.getElementById('custom-pip-view');
+    const pipVideo = document.getElementById('pip-remote-video');
+
+    pipView.style.display = 'flex';
+    pipVideo.srcObject = callRemoteVideo.srcObject;
     
+    syncPipControls();
+});
+
+// --- Draggable Local Video Logic ---
+let localVideoIsDragging = false;
+let localVideoDidMove = false;
+let localVideoStartX = 0, localVideoStartY = 0;
+let localVideoInitialX = 0, localVideoInitialY = 0;
+
+const localVideoDraggable = document.getElementById('callLocalVideo');
+
+function handleLocalVideoDragStart(e) {
+    if (!callOverlay.style.display || callOverlay.style.display === 'none') return;
+    e.preventDefault();
+    localVideoIsDragging = true;
+    localVideoDidMove = false; // Reset on start
+
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    pipStartX = clientX;
-    pipStartY = clientY;
-    
-    const rect = callOverlay.getBoundingClientRect();
-    pipInitialLeft = rect.left;
-    pipInitialTop = rect.top;
-    
-    pipIsDragging = false;
-    callOverlay.style.transition = 'none';
+
+    const rect = localVideoDraggable.getBoundingClientRect();
+    localVideoDraggable.style.right = 'auto';
+    localVideoDraggable.style.bottom = 'auto';
+    localVideoDraggable.style.left = `${rect.left}px`;
+    localVideoDraggable.style.top = `${rect.top}px`;
+
+    localVideoStartX = clientX;
+    localVideoStartY = clientY;
+    localVideoInitialX = rect.left;
+    localVideoInitialY = rect.top;
+
+    localVideoDraggable.style.transition = 'none';
 }
 
-function handlePipMove(e) {
-    if (!isPipInteractionActive || !callOverlay.classList.contains('pip-mode')) return;
-    
+function handleLocalVideoDragMove(e) {
+    if (!localVideoIsDragging) return;
+    e.preventDefault();
+
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    if (Math.abs(clientX - pipStartX) > 5 || Math.abs(clientY - pipStartY) > 5) {
-        pipIsDragging = true;
+
+    const dx = clientX - localVideoStartX;
+    const dy = clientY - localVideoStartY;
+
+    // If moved more than a threshold, consider it a drag
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        localVideoDidMove = true;
     }
 
-    if (pipIsDragging) {
-        e.preventDefault();
-        const dx = clientX - pipStartX;
-        const dy = clientY - pipStartY;
-        
-        callOverlay.style.left = `${pipInitialLeft + dx}px`;
-        callOverlay.style.top = `${pipInitialTop + dy}px`;
-        callOverlay.style.right = 'auto';
-        callOverlay.style.bottom = 'auto';
-    }
+    let newX = localVideoInitialX + dx;
+    let newY = localVideoInitialY + dy;
+
+    const overlayRect = callOverlay.getBoundingClientRect();
+    const videoRect = localVideoDraggable.getBoundingClientRect();
+    const headerHeight = 70;
+    const footerHeight = 80;
+
+    newX = Math.max(5, Math.min(newX, overlayRect.width - videoRect.width - 5));
+    newY = Math.max(headerHeight, Math.min(newY, overlayRect.height - videoRect.height - footerHeight));
+
+    localVideoDraggable.style.left = `${newX}px`;
+    localVideoDraggable.style.top = `${newY}px`;
 }
 
-function handlePipEnd() {
-    isPipInteractionActive = false;
-    if (callOverlay.classList.contains('pip-mode')) {
-        callOverlay.style.transition = 'all 0.3s ease';
+function handleLocalVideoDragEnd() {
+    if (!localVideoIsDragging) return;
+
+    // If the video was not dragged, treat it as a tap/click to swap feeds
+    if (!localVideoDidMove) {
+        swapVideoFeeds();
     }
+
+    localVideoIsDragging = false;
+    localVideoDraggable.style.transition = 'top 0.3s ease, left 0.3s ease, right 0.3s ease, bottom 0.3s ease';
 }
 
-callOverlay.addEventListener('touchstart', handlePipStart, {passive: false});
-callOverlay.addEventListener('touchmove', handlePipMove, {passive: false});
-callOverlay.addEventListener('touchend', handlePipEnd);
-callOverlay.addEventListener('mousedown', handlePipStart);
-window.addEventListener('mousemove', (e) => {
-    if (e.buttons === 1) handlePipMove(e);
-});
-window.addEventListener('mouseup', handlePipEnd);
+if (localVideoDraggable) {
+    localVideoDraggable.addEventListener('mousedown', handleLocalVideoDragStart);
+    localVideoDraggable.addEventListener('touchstart', handleLocalVideoDragStart, { passive: false });
+}
+window.addEventListener('mousemove', handleLocalVideoDragMove);
+window.addEventListener('touchmove', handleLocalVideoDragMove, { passive: false });
+window.addEventListener('mouseup', handleLocalVideoDragEnd);
+window.addEventListener('touchend', handleLocalVideoDragEnd);
 
 // --- Audio Recording Logic ---
 micBtn.addEventListener('click', () => {
