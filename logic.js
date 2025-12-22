@@ -314,10 +314,10 @@ let baseImageForFilter = null;
 let currentFilterMode = 0; // 0:None, 1:Gray, 2:Sepia, 3:Invert
 
 // Define Admin Usernames from Config (or defaults)
-const ALPHA_ADMIN = (typeof envUserNames !== 'undefined') ? envUserNames.alpha : "Admin143";
+const ALPHA_ADMIN = (typeof envUserNames !== 'undefined') ? envUserNames.alpha : "Raushan_143";
 const BETA_ADMIN = (typeof envUserNames !== 'undefined') ? envUserNames.beta : "Nisha_143";
 
-const users = (typeof envUsers !== 'undefined') ? envUsers : { [ALPHA_ADMIN]: "147258369", [BETA_ADMIN]: "11041805143" };
+const users = (typeof envUsers !== 'undefined') ? envUsers : { [ALPHA_ADMIN]: "asdf@1234", [BETA_ADMIN]: "11041805143" };
 
 // Initialize Firebase
 let db;
