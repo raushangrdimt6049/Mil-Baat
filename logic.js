@@ -368,7 +368,7 @@ const callPipBtn = document.getElementById('callPipBtn');
 
         /* 2. PiP Icon Size */
         #callPipBtn { 
-            font-size: 20px; /* <-- Change Icon Size Here */
+            width: 40px; height: 40px;
             /* Manual Margins */
             margin-top: 0px;
             margin-bottom: 0px;
@@ -380,7 +380,14 @@ const callPipBtn = document.getElementById('callPipBtn');
             border: none !important;
             outline: none !important;
             color: white;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            line-height: 1 !important;
+            cursor: pointer !important;
         }
+        #callPipBtn svg { pointer-events: none; }
 
         /* 3. Status Text (Ringing...) Size */
         #callStatusText { 
@@ -686,37 +693,42 @@ let initialScale = 1;
     if (!header) {
         header = document.createElement('div');
         header.className = 'call-header';
-        
         overlay.prepend(header);
     }
 
+    // Clear existing header to rebuild layout
+    header.innerHTML = '';
+
     // 2. Left: Name Display
-    let nameEl = document.getElementById('callHeaderName');
-    if (!nameEl) {
-        nameEl = document.createElement('div');
-        nameEl.id = 'callHeaderName';
-        nameEl.style.fontWeight = 'bold';
-        nameEl.style.textShadow = '0 0 5px rgba(0,0,0,0.5)';
-        header.appendChild(nameEl);
+    let nameEl = document.createElement('div');
+    nameEl.id = 'callHeaderName';
+    nameEl.style.fontWeight = 'bold';
+    nameEl.style.textShadow = '0 0 5px rgba(0,0,0,0.5)';
+    header.appendChild(nameEl);
+
+    // 3. Right: PiP Button (Re-append existing button)
+    if (callPipBtn) {
+        // Update Icon to SVG
+        callPipBtn.innerHTML = `
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                <rect x="12" y="13" width="7" height="6" rx="1" ry="1" fill="rgba(255,255,255,0.2)"></rect>
+            </svg>
+        `;
+        header.appendChild(callPipBtn);
     }
 
-    // 3. Center: Status & Timer
+    // Ensure Center Elements (Status/Timer) are outside header
     let centerEl = document.getElementById('callHeaderCenter');
     if (!centerEl) {
         centerEl = document.createElement('div');
         centerEl.id = 'callHeaderCenter';
         overlay.appendChild(centerEl);
     }
-
     const status = document.getElementById('callStatusText');
     const timer = document.getElementById('callTimer');
-    
     if (status) centerEl.appendChild(status);
     if (timer) centerEl.appendChild(timer);
-
-    // 4. Right: PiP Button
-    const pipBtn = document.getElementById('callPipBtn');
-    if (pipBtn) header.appendChild(pipBtn);
 
     // 2. Create Footer
     let footer = overlay.querySelector('.call-footer');
