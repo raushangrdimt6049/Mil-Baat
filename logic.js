@@ -2148,11 +2148,7 @@ async function startCall(video, isIncoming = false) {
     callFlipBtn.innerHTML = '<img src="Camera Flip Icon.png">';
     callEndBtn.innerHTML = '<img src="Call End Icon.png">';
     
-    // Check if audio output switching is supported
-    if (typeof callRemoteAudio.setSinkId !== 'function') {
-        callAudioOutputBtn.style.display = 'none';
-    } else {
-        callAudioOutputBtn.style.display = 'flex';
+    callAudioOutputBtn.style.display = 'flex';
     }
 
     // Configure UI based on call type
