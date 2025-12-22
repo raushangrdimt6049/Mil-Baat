@@ -350,14 +350,59 @@ const callPipBtn = document.getElementById('callPipBtn');
         #call-overlay .call-header { top: 0; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
         #call-overlay .call-header > * { flex-shrink: 0; }
         #call-overlay .call-header > :nth-child(2) { flex-grow: 1; text-align: center; }
-        #call-overlay .call-footer { bottom: 0; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 10px 20px; width: 100%; box-sizing: border-box; }
-        #call-overlay .call-footer button {
-            width: clamp(30px, 10vw, 45px); height: clamp(30px, 10vw, 45px); background: transparent;
-            border: none; font-size: clamp(14px, 4vw, 18px); color: white; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; flex-shrink: 0;
+        
+        /* --- Call Footer Styling Section --- */
+        #call-overlay .call-footer { 
+            bottom: 0; 
+            border-top: 1px solid rgba(255, 255, 255, 0.1); 
+            width: 100%; 
+            box-sizing: border-box;
+            
+            /* --- Manual Layout Settings --- */
+            justify-content: center; /* Options: space-between, center, space-around */
+            gap: 15px;               /* Space between icons */
+            padding: 15px 20px;      /* Footer padding */
         }
+
+        /* Base Button Style */
+        #call-overlay .call-footer button {
+            border: none; 
+            color: white; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            cursor: pointer; 
+            flex-shrink: 0; 
+            box-sizing: border-box;
+            transition: transform 0.1s;
+            
+            /* --- Manual Default Icon Settings --- */
+            width: 50px;             /* Button Width */
+            height: 50px;            /* Button Height */
+            border-radius: 50%;      /* Circular: 50%, Rounded: 10-20px */
+            background: rgba(184, 211, 75, 1); /* Default Background */
+            padding: 2px;           /* Icon padding inside button */
+        }
+        
+        #call-overlay .call-footer button:active { transform: scale(0.95); }
         #call-overlay .call-footer button img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-        #callEndBtn { background-color: transparent !important; }
+
+        /* --- Individual Icon Customization --- */
+        #callAudioOutputBtn { background-color: rgba(255, 255, 255, 0.15); }
+        #callMuteBtn { background-color: rgba(255, 255, 255, 0.15); }
+        #callVideoMuteBtn { background-color: rgba(255, 255, 255, 0.15); }
+        #callFlipBtn { background-color: rgba(255, 255, 255, 0.15); }
+        
+        /* --- Call End Button Styling Section --- */
+        #callEndBtn { 
+            /* Manual Settings */
+            background-color: #ff4757 !important; /* Red background */
+            width: 50px !important;  /* Match others */
+            height: 50px !important; /* Match others */
+            padding: 2px !important; /* Icon padding */
+            box-shadow: 0 4px 15px rgba(118, 187, 197, 0.4);
+        }
+
         #callRemoteVideo { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
         #callLocalVideo {
             position: absolute; top: 80px; right: 15px;
@@ -372,7 +417,6 @@ const callPipBtn = document.getElementById('callPipBtn');
             background: rgba(245, 245, 245, 0.8); color: #333; border-color: rgba(0, 0, 0, 0.1);
         }
         body.light-mode #call-overlay .call-footer button { background: transparent; color: #333; }
-        body.light-mode #callEndBtn { background-color: transparent !important; color: white !important; }
         body.light-mode #callLocalVideo { border-color: rgba(0, 0, 0, 0.4); }
 
         /* Custom PiP View Styles */
@@ -393,14 +437,12 @@ const callPipBtn = document.getElementById('callPipBtn');
             cursor: move;
         }
         #custom-pip-view .pip-control-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 5px; }
-        #custom-pip-view .pip-end-call { background: #ff4757; width: 35px; height: 35px; border-radius: 50%; font-size: 16px; display: flex; align-items: center; justify-content: center; }
         #pip-header, #pip-footer { background: rgba(0,0,0,0.3); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); flex-shrink: 0; }
         
         /* Light Theme for PiP */
         body.light-mode #custom-pip-view { background-color: #f1f2f6; border-color: rgba(0,0,0,0.1); }
         body.light-mode #pip-header, body.light-mode #pip-footer { background: rgba(255,255,255,0.7); color: #333; }
         body.light-mode #custom-pip-view .pip-control-btn { color: #333; }
-        body.light-mode #custom-pip-view .pip-end-call { background: #e74c3c; color: white; }
     `;
     document.head.appendChild(callStyle);
 })();
@@ -2092,12 +2134,9 @@ async function startCall(video, isIncoming = false) {
     isCallMuted = false;
     isVideoMuted = false;
     callMuteBtn.innerHTML = '<img src="Mic Icon.png">';
-    callMuteBtn.style.background = 'transparent';
     callVideoMuteBtn.innerHTML = '<img src="Camera Icon.png">';
-    callVideoMuteBtn.style.background = 'transparent';
     isSpeakerOn = false;
     callAudioOutputBtn.innerHTML = '<img src="Speaker Icon.png">';
-    callAudioOutputBtn.style.background = 'transparent';
     callFlipBtn.innerHTML = '<img src="Camera Flip Icon.png">';
     callEndBtn.innerHTML = '<img src="Call End Icon.png">';
     
@@ -2504,7 +2543,6 @@ callMuteBtn.addEventListener('click', (e) => {
             track.enabled = !isCallMuted;
             callMuteBtn.innerHTML = isCallMuted ? '<img src="Audio Mute Icon.png">' : '<img src="Mic Icon.png">';
             syncPipControls();
-            callMuteBtn.style.background = 'transparent';
         }
     }
 });
@@ -2517,7 +2555,6 @@ callVideoMuteBtn.addEventListener('click', (e) => {
             isVideoMuted = !isVideoMuted;
             track.enabled = !isVideoMuted;
             callVideoMuteBtn.innerHTML = isVideoMuted ? '<img src="Video Mute Icon.png">' : '<img src="Camera Icon.png">';
-            callVideoMuteBtn.style.background = 'transparent';
         }
     }
 });
@@ -2628,7 +2665,6 @@ async function updateAudioOutput(isManual = false) {
         
         await element.setSinkId(targetId);
         callAudioOutputBtn.innerHTML = isSpeakerOn ? '<img src="Ear Piece Icon.png">' : '<img src="Speaker Icon.png">';
-        callAudioOutputBtn.style.background = 'transparent';
         syncPipControls();
     } catch(e) { console.error(e); }
 }
