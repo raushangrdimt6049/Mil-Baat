@@ -383,6 +383,7 @@ const callPipBtn = document.getElementById('callPipBtn');
             /* For draggable positioning */
             bottom: 75px; right: 15px; top: auto; left: auto;
             transition: left 0.3s ease, top 0.3s ease, right 0.3s ease, bottom 0.3s ease;
+            cursor: move;
         }
         #custom-pip-view .pip-control-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 5px; }
         #custom-pip-view .pip-end-call { background: #ff4757; width: 35px; height: 35px; border-radius: 50%; font-size: 16px; display: flex; align-items: center; justify-content: center; }
@@ -652,7 +653,6 @@ let initialScale = 1;
     // Draggable Logic
     let isDragging = false;
     let startX, startY, initialX, initialY;
-    const dragHandle = document.getElementById('pip-header');
 
     function dragStart(e) {
         if (e.target.tagName === 'BUTTON') return;
@@ -695,11 +695,11 @@ let initialScale = 1;
         }
     }
 
-    dragHandle.addEventListener('mousedown', dragStart);
+    pipView.addEventListener('mousedown', dragStart);
     window.addEventListener('mousemove', dragMove);
     window.addEventListener('mouseup', dragEnd);
     
-    dragHandle.addEventListener('touchstart', dragStart, { passive: false });
+    pipView.addEventListener('touchstart', dragStart, { passive: false });
     window.addEventListener('touchmove', dragMove, { passive: false });
     window.addEventListener('touchend', dragEnd);
 })();
