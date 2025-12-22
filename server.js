@@ -29,8 +29,8 @@ const server = http.createServer((req, res) => {
     if (req.url === '/config.js') {
         res.writeHead(200, { 'Content-Type': 'application/javascript' });
         
-        const alphaUser = process.env.ALPHA_ADMIN || env.ALPHA_ADMIN;
-        const betaUser = process.env.BETA_ADMIN || env.BETA_ADMIN;
+        const alphaUser = process.env.ALPHA_USER || env.ALPHA_USER;
+        const betaUser = process.env.BETA_USER || env.BETA_USER;
 
         const usersConfig = { 
             [alphaUser]: process.env.ALPHA_PASS || env.ALPHA_PASS, 
