@@ -351,6 +351,9 @@ const callPipBtn = document.getElementById('callPipBtn');
         #call-overlay .call-header > * { flex-shrink: 0; }
         #call-overlay .call-header > :nth-child(2) { flex-grow: 1; text-align: center; }
         
+        .blink-anim { animation: blinkText 1.5s infinite; }
+        @keyframes blinkText { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
         /* --- Call Footer Styling Section --- */
         #call-overlay .call-footer { 
             bottom: 0; 
@@ -632,16 +635,37 @@ let initialScale = 1;
         header = document.createElement('div');
         header.className = 'call-header';
         
-        const status = document.getElementById('callStatusText');
-        const timer = document.getElementById('callTimer');
-        const pipBtn = document.getElementById('callPipBtn');
-        
-        if (status) header.appendChild(status);
-        if (timer) header.appendChild(timer);
-        if (pipBtn) header.appendChild(pipBtn);
-        
         overlay.prepend(header);
     }
+
+    // 2. Left: Name Display
+    let nameEl = document.getElementById('callHeaderName');
+    if (!nameEl) {
+        nameEl = document.createElement('div');
+        nameEl.id = 'callHeaderName';
+        nameEl.style.fontWeight = 'bold';
+        nameEl.style.fontSize = '16px';
+        nameEl.style.textShadow = '0 0 5px rgba(0,0,0,0.5)';
+        header.appendChild(nameEl);
+    }
+
+    // 3. Center: Status & Timer
+    let centerEl = document.getElementById('callHeaderCenter');
+    if (!centerEl) {
+        centerEl = document.createElement('div');
+        centerEl.id = 'callHeaderCenter';
+        header.appendChild(centerEl);
+    }
+
+    const status = document.getElementById('callStatusText');
+    const timer = document.getElementById('callTimer');
+    
+    if (status) centerEl.appendChild(status);
+    if (timer) centerEl.appendChild(timer);
+
+    // 4. Right: PiP Button
+    const pipBtn = document.getElementById('callPipBtn');
+    if (pipBtn) header.appendChild(pipBtn);
 
     // 2. Create Footer
     let footer = overlay.querySelector('.call-footer');
@@ -2150,6 +2174,12 @@ async function startCall(video, isIncoming = false) {
     
     callAudioOutputBtn.style.display = 'flex';
 
+    // Set Header Name
+    const targetUser = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
+    const targetDisplayName = targetUser === ALPHA_ADMIN ? "💎_Alpha_💎" : "💎_Beta_💎";
+    const nameEl = document.getElementById('callHeaderName');
+    if (nameEl) nameEl.innerText = targetDisplayName;
+
     // Configure UI based on call type
     if (video) {
         callVideoContainer.style.display = 'block';
@@ -2168,7 +2198,6 @@ async function startCall(video, isIncoming = false) {
         if (callLocalVideo) callLocalVideo.style.display = 'none';
 
         // Fetch and display target user's profile picture
-        const targetUser = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
         const targetRole = getUserRole(targetUser);
         
         db.ref(`Profile Pic/${targetRole}_Profile_Pic`).once('value').then(snap => {
@@ -2180,7 +2209,11 @@ async function startCall(video, isIncoming = false) {
         });
     }
 
-    callStatusText.innerText = isIncoming ? "Connecting..." : "Ringing...";
+    callStatusText.innerText = isIncoming ? "Connecting..." : "Ringing";
+    callStatusText.style.display = 'block';
+    callStatusText.classList.add('blink-anim');
+    
+    callTimer.style.display = 'none';
     callTimer.innerText = "00:00";
 
     // 2. Get Local Media
@@ -2503,6 +2536,12 @@ function endCall(remoteEnded = false) {
 
 function startCallTimer() {
     if (callInterval) clearInterval(callInterval);
+    
+    // Switch from Ringing to Timer
+    callStatusText.style.display = 'none';
+    callStatusText.classList.remove('blink-anim');
+    callTimer.style.display = 'block';
+
     let seconds = 0;
     callTimer.innerText = "00:00";
     callInterval = setInterval(() => {
