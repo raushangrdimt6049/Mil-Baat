@@ -1035,6 +1035,62 @@ let initialScale = 1;
     }
 })();
 
+// --- Dynamic Preview UI Setup ---
+(function setupPreviewUI() {
+    const overlay = document.getElementById('image-preview-overlay');
+    if (!overlay) return;
+
+    // 1. Create/Find Footer
+    let footer = overlay.querySelector('.preview-footer');
+    if (!footer) {
+        footer = document.createElement('div');
+        footer.className = 'preview-footer';
+        
+        // Find existing buttons and move them
+        const buttons = [retakeBtn, cropBtn, filterBtn, sendImageBtn];
+        buttons.forEach(btn => {
+            if (btn && btn.parentNode) {
+                footer.appendChild(btn);
+            }
+        });
+        overlay.appendChild(footer);
+    }
+
+    // 2. Update Icons
+    if (retakeBtn) retakeBtn.innerHTML = '<img src="retake Icon.png">';
+    if (cropBtn) cropBtn.innerHTML = '<img src="Crop Icon.png">';
+    if (filterBtn) filterBtn.innerHTML = '<img src="Filter Icon.png">';
+    if (sendImageBtn) sendImageBtn.innerHTML = '<img src="Send Icon.png">';
+    
+    // 3. Inject Styles
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .preview-footer {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            display: flex; align-items: center; justify-content: space-evenly;
+            padding: 50px 0;
+            background: transparent;
+            z-index: 1002;
+            min-height: 40px;
+        }
+        .preview-footer button {
+            width: 50px; height: 50px;
+            border: none !important;
+            background: transparent !important;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; padding: 2px;
+            transition: transform 0.2s;
+            color: white; font-size: 0; box-sizing: border-box;
+            flex-shrink: 0;
+        }
+        .preview-footer button img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+        .preview-footer button:active { transform: scale(0.95); }
+        #filterBtn { font-size: 0; }
+        #cropBtn.apply-mode { font-size: 14px !important; font-weight: bold; background: #28c76f !important; }
+    `;
+    document.head.appendChild(style);
+})();
+
 function triggerShake(element) {
     element.classList.add('shake');
     setTimeout(() => {
@@ -3390,8 +3446,9 @@ retakeBtn.addEventListener('click', () => {
 });
 
 function resetCropButton() {
-    cropBtn.innerText = "Crop";
-    cropBtn.style.background = "#ff9f43";
+    cropBtn.innerHTML = '<img src="Crop Icon.png">';
+    cropBtn.classList.remove('apply-mode');
+    cropBtn.style.background = "";
     filterBtn.style.display = ''; // Show filter button
     sendImageBtn.style.display = 'flex';
     retakeBtn.style.display = '';
@@ -3407,7 +3464,7 @@ cropBtn.addEventListener('click', () => {
             toggleDragModeOnDblclick: false,
         });
         cropBtn.innerText = "Apply";
-        cropBtn.style.background = "#28c76f"; // Green
+        cropBtn.classList.add('apply-mode');
         filterBtn.style.display = 'none'; // Hide filter button while cropping
         sendImageBtn.style.display = 'none';
         retakeBtn.style.display = 'none';
