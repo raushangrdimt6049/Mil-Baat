@@ -2364,15 +2364,9 @@ async function startCameraStream() {
         });
         cameraVideo.srcObject = cameraStream;
 
-        // Handle Flash Button Visibility
-        const track = cameraStream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-        
-        if (capabilities.torch) {
-            flashCameraBtn.style.display = 'flex';
-        } else {
-            flashCameraBtn.style.display = 'none';
-        }
+        // Always show the flash button. The click handler will manage availability.
+        flashCameraBtn.style.display = 'flex';
+
         isFlashOn = false;
         flashCameraBtn.style.color = 'white';
     } catch (err) {
@@ -2390,14 +2384,23 @@ flipCameraBtn.addEventListener('click', () => {
 flashCameraBtn.addEventListener('click', () => {
     if (cameraStream) {
         const track = cameraStream.getVideoTracks()[0];
-        isFlashOn = !isFlashOn;
-        track.applyConstraints({
-            advanced: [{ torch: isFlashOn }]
-        }).then(() => {
-            flashCameraBtn.style.color = isFlashOn ? '#ffd700' : 'white';
-        }).catch(err => {
-            console.error("Flash error:", err);
-        });
+        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+
+        // Only attempt to use torch if the device reports it's available
+        if (capabilities.torch) {
+            isFlashOn = !isFlashOn;
+            track.applyConstraints({
+                advanced: [{ torch: isFlashOn }]
+            }).then(() => {
+                flashCameraBtn.style.color = isFlashOn ? '#ffd700' : 'white';
+            }).catch(err => {
+                console.error("Flash error:", err);
+                isFlashOn = false; // Reset state on failure
+                flashCameraBtn.style.color = 'white';
+            });
+        } else {
+            showToast("Flash not available for this camera");
+        }
     }
 });
 
