@@ -646,7 +646,7 @@ if (!bgOverlay) {
     bgOverlay.id = 'blur-bg-overlay';
     bgOverlay.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
-        filter: blur(8px); transform: scale(1.1);
+        filter: blur(0px); transform: scale(1.1);
     `;
 
     document.body.appendChild(bgOverlay);
@@ -658,7 +658,7 @@ if (!bgImage && bgOverlay) {
     bgImage.id = 'theme-bg-image';
     bgImage.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;';
     bgOverlay.appendChild(bgImage);
-    bgImage.src = 'Dark Theme.jpg';
+    bgImage.src = 'Dark Theme.png';
 }
 
 const rtcConfig = {
@@ -2004,7 +2004,7 @@ themeToggleBtn.addEventListener('click', () => {
         }
 
         bgOverlay.style.backgroundImage = 'none';
-        bgImage.src = isLight ? 'Light Theme.jpg' : 'Dark Theme.jpg';
+        bgImage.src = isLight ? 'Light Theme.png' : 'Dark Theme.png';
     }
 });
 
