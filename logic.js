@@ -346,6 +346,38 @@ const callPipBtn = document.getElementById('callPipBtn');
             z-index: 5;
             position: relative;
         }
+
+        /* --- Message Options Modal Theme --- */
+        #message-options-modal .modal-box {
+            gap: 8px; /* Adds space between buttons */
+        }
+        #message-options-modal button {
+            background-color: rgba(255, 255, 255, 0.08) !important;
+            color: #f1f1f1 !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        }
+        #downloadMsgOptionBtn {
+            background-color: rgba(46, 204, 113, 0.15) !important;
+            color: #2ecc71 !important;
+            border-color: rgba(46, 204, 113, 0.2) !important;
+        }
+        #deleteMsgOptionBtn {
+            background-color: rgba(255, 82, 82, 0.15) !important;
+            color: #ff5252 !important;
+            border-color: rgba(255, 82, 82, 0.2) !important;
+        }
+
+        /* Light Mode for Message Options */
+        body.light-mode #message-options-modal button {
+            background-color: #f0f2f5 !important;
+            color: #333 !important;
+            border-color: #e0e0e0 !important;
+        }
+        body.light-mode #downloadMsgOptionBtn, body.light-mode #deleteMsgOptionBtn {
+            background-color: #fff !important; /* Use a clean white background for special buttons in light mode */
+        }
+        body.light-mode #downloadMsgOptionBtn { color: #28a745 !important; border-color: #28a74544 !important; }
+        body.light-mode #deleteMsgOptionBtn { color: #dc3545 !important; border-color: #dc354544 !important; }
     `;
     document.head.appendChild(style);
 
@@ -1140,10 +1172,7 @@ function addLongPressHandler(element, id) {
                 downloadBtn.className = pinMsgBtn.className;
                 downloadBtn.style.marginBottom = '10px';
                 downloadBtn.style.width = '100%';
-                downloadBtn.style.background = 'rgba(46, 204, 113, 0.15)';
-                downloadBtn.style.color = '#2ecc71';
-                downloadBtn.style.border = '1px solid rgba(46, 204, 113, 0.3)';
-                
+
                 pinMsgBtn.parentNode.insertBefore(downloadBtn, pinMsgBtn);
                 
                 downloadBtn.addEventListener('click', async () => {
