@@ -765,6 +765,144 @@ let initialScale = 1;
     }
 })();
 
+// --- Dynamic Camera UI Setup ---
+(function setupCameraUI() {
+    const overlay = document.getElementById('camera-live-overlay');
+    if (!overlay) return;
+
+    // 1. Create Header for Top Controls (Flash, Label, Close)
+    let header = overlay.querySelector('.camera-header');
+    if (!header) {
+        header = document.createElement('div');
+        header.className = 'camera-header';
+        overlay.prepend(header);
+    }
+
+    // Create Label
+    let camLabel = document.getElementById('cameraFacingLabel');
+    if (!camLabel) {
+        camLabel = document.createElement('span');
+        camLabel.id = 'cameraFacingLabel';
+        camLabel.innerText = 'Back Cam';
+    }
+
+    // Append in order: Flash (Left), Label (Center - Absolute), Close (Right)
+    if (flashCameraBtn) header.appendChild(flashCameraBtn);
+    header.appendChild(camLabel);
+    if (closeCameraBtn) header.appendChild(closeCameraBtn);
+
+    // 2. Create Footer for Bottom Controls (Flip, Capture, Gallery)
+    let footer = overlay.querySelector('.camera-footer');
+    if (!footer) {
+        footer = document.createElement('div');
+        footer.className = 'camera-footer';
+        overlay.appendChild(footer);
+
+        // Create Filter Button (Right) - Replaces Gallery
+        const filterBtn = document.createElement('button');
+        filterBtn.id = 'cameraFilterBtn';
+        filterBtn.innerHTML = '🎨';
+        filterBtn.onclick = () => {
+            const video = document.getElementById('cameraVideo');
+            let fIdx = parseInt(video.dataset.filterIndex || '0');
+            fIdx = (fIdx + 1) % 4;
+            video.dataset.filterIndex = fIdx;
+            const filters = ['none', 'grayscale(100%)', 'sepia(100%)', 'invert(100%)'];
+            video.style.filter = filters[fIdx];
+        };
+        
+        // Move Buttons to Footer in order: Left (Flip), Center (Capture), Right (Filter)
+        if (flipCameraBtn) footer.appendChild(flipCameraBtn);
+        if (captureCameraBtn) footer.appendChild(captureCameraBtn);
+        footer.appendChild(filterBtn);
+    }
+
+    // 3. Inject Styles
+    const style = document.createElement('style');
+    style.innerHTML = `
+        #camera-live-overlay {
+            display: none; /* Default hidden */
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .camera-header {
+            position: absolute; top: 0; left: 0; width: 100%; padding: 15px 20px;
+            display: flex; align-items: center; z-index: 10; box-sizing: border-box;
+            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(5px);
+        }
+
+        body.light-mode .camera-header {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        #cameraFacingLabel {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            font-size: 1.2rem; font-weight: 600; color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5); pointer-events: none;
+        }
+        body.light-mode #cameraFacingLabel {
+            color: #333; text-shadow: none;
+        }
+
+        #closeCameraBtn { margin-left: auto; }
+
+        .camera-footer {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 90px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 30px;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(10px);
+            z-index: 10; padding-bottom: 10px; box-sizing: border-box;
+        }
+        
+        /* Light Theme Footer */
+        body.light-mode .camera-footer {
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        /* General Button Styles */
+        .camera-footer button, .camera-header button {
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            border: 2px solid #4eb5dbff !important; /* Requested Border Color */
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; outline: none; padding: 0;
+            transition: transform 0.2s;
+        }
+        
+        .camera-footer button:active, .camera-header button:active { transform: scale(0.95); }
+        
+        /* Light Mode Icons */
+        body.light-mode .camera-footer button, body.light-mode .camera-header button {
+            color: #333;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Capture Button (Center) */
+        #captureCameraBtn {
+            width: 70px; height: 70px;
+            border: 4px solid #4eb5dbff !important;
+            background: transparent !important;
+        }
+        #captureCameraBtn::after {
+            content: ''; display: block;
+            width: 55px; height: 55px;
+            background: white; border-radius: 50%;
+        }
+        #captureCameraBtn img { display: none; } /* Hide icon if any */
+        #captureCameraBtn { font-size: 0; }
+
+        /* Filter Button (Right) */
+        #cameraFilterBtn {
+            background-color: rgba(0,0,0,0.5) !important;
+            font-size: 20px;
+        }
+    `;
+    document.head.appendChild(style);
+})();
+
 // --- Dynamic Custom PiP View ---
 (function createCustomPipView() {
     if (document.getElementById('custom-pip-view')) return;
@@ -2132,6 +2270,9 @@ async function startCameraStream() {
         cameraVideo.style.transform = 'none';
     }
 
+    const label = document.getElementById('cameraFacingLabel');
+    if (label) label.innerText = currentFacingMode === 'user' ? 'Front Cam' : 'Back Cam';
+
     try {
         cameraStream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: currentFacingMode }
@@ -2181,6 +2322,8 @@ function stopCamera() {
         cameraStream = null;
     }
     cameraLiveOverlay.style.display = 'none';
+    cameraVideo.style.filter = 'none';
+    cameraVideo.dataset.filterIndex = '0';
 }
 
 closeCameraBtn.addEventListener('click', stopCamera);
@@ -2197,6 +2340,11 @@ captureCameraBtn.addEventListener('click', () => {
         ctx.scale(-1, 1);
     }
     
+    // Apply Filter from Live View
+    const fIdx = parseInt(cameraVideo.dataset.filterIndex || '0');
+    const filters = ['none', 'grayscale(100%)', 'sepia(100%)', 'invert(100%)'];
+    if (fIdx > 0) ctx.filter = filters[fIdx];
+
     ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
     
     // Get image
