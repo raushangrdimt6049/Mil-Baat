@@ -310,12 +310,12 @@ const callPipBtn = document.getElementById('callPipBtn');
     style.innerHTML = `
         /* --- Default Dark Theme --- */
         #entry-overlay { background-color: #121212 !important; color: #ffffff !important; }
-        #logout-modal > div, #change-pass-modal > div, #clear-chat-modal > div, .modal-box { background-color: #2d3436 !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.1); }
+        #logout-modal > div, #change-pass-modal > div, #clear-chat-modal > div, #message-options-modal > div, .modal-box { background-color: #2d3436 !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.1); }
         #entry-overlay input, #change-pass-modal input { background: rgba(255, 255, 255, 0.1) !important; color: white !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; }
         
         /* --- Light Theme Overrides --- */
         body.light-mode #entry-overlay { background-color: #f4f6f8 !important; color: #2c3e50 !important; }
-        body.light-mode #logout-modal > div, body.light-mode #change-pass-modal > div, body.light-mode #clear-chat-modal > div, body.light-mode .modal-box { 
+        body.light-mode #logout-modal > div, body.light-mode #change-pass-modal > div, body.light-mode #clear-chat-modal > div, body.light-mode #message-options-modal > div, body.light-mode .modal-box { 
             background-color: #ffffff !important; 
             color: #2c3e50 !important; 
             border: 1px solid #e1e4e8 !important; 
@@ -334,6 +334,18 @@ const callPipBtn = document.getElementById('callPipBtn');
         body.light-mode .font-option-btn { border: 1px solid #ced4da !important; background: #f8f9fa !important; color: #333 !important; }
         #font-modal-close { color: rgba(255,255,255,0.7) !important; }
         body.light-mode #font-modal-close { color: #333 !important; }
+
+        /* Message Highlight Animation */
+        @keyframes highlightPulse {
+            0% { box-shadow: 0 0 0px transparent; transform: scale(1); filter: brightness(1); }
+            50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); transform: scale(1.02); filter: brightness(1.2); }
+            100% { box-shadow: 0 0 0px transparent; transform: scale(1); filter: brightness(1); }
+        }
+        .msg-highlight {
+            animation: highlightPulse 1.5s ease-in-out;
+            z-index: 5;
+            position: relative;
+        }
     `;
     document.head.appendChild(style);
 
@@ -370,13 +382,13 @@ const callPipBtn = document.getElementById('callPipBtn');
         #callPipBtn { 
             width: 40px; height: 40px;
             /* Manual Margins */
-            margin-top: 0px;
+            margin-top: -10px;
             margin-bottom: 0px;
             margin-left: 0px;
             margin-right: 0px;
             
             /* Remove Border/Background */
-            background: transparent !important;
+            background-color: #1bb5c3ff !important; 
             border: none !important;
             outline: none !important;
             color: white;
@@ -392,7 +404,7 @@ const callPipBtn = document.getElementById('callPipBtn');
         /* 3. Status Text (Ringing...) Size */
         #callStatusText { 
             font-size: 2px; /* <-- Change Status Size Here */
-            font-weight: 200; margin-bottom: 2px; letter-spacing: 0.5px; 
+            font-weight: 50; margin-bottom: 2px; letter-spacing: 0.5px; 
         }
 
         /* 4. Timer Text Size */
@@ -455,15 +467,15 @@ const callPipBtn = document.getElementById('callPipBtn');
         #call-overlay .call-footer button img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 
         /* --- Individual Icon Customization --- */
-        #callAudioOutputBtn { background-color: rgba(255, 255, 255, 0.15); }
-        #callMuteBtn { background-color: rgba(255, 255, 255, 0.15); }
-        #callVideoMuteBtn { background-color: rgba(255, 255, 255, 0.15); }
-        #callFlipBtn { background-color: rgba(255, 255, 255, 0.15); }
+        #callAudioOutputBtn { background-color: rgba(112, 184, 192, 1); }
+        #callMuteBtn { background-color: rgba(112, 184, 192, 1); }
+        #callVideoMuteBtn { background-color: rgba(112, 184, 192, 1); }
+        #callFlipBtn { background-color: rgba(112, 184, 192, 1); }
         
         /* --- Call End Button Styling Section --- */
         #callEndBtn { 
             /* Manual Settings */
-            background-color: #ff4757 !important; /* Red background */
+            background-color: #4eb5dbff !important; /* Red background */
             width: 50px !important;  /* Match others */
             height: 50px !important; /* Match others */
             padding: 2px !important; /* Icon padding */
@@ -765,11 +777,14 @@ let initialScale = 1;
             <span>Video Call</span>
             <button id="pip-expand-btn" title="Expand" style="background:none; border:none; color:white; font-size:14px; cursor:pointer;">&#x26F6;</button>
         </div>
-        <video id="pip-remote-video" playsinline autoplay style="width: 100%; min-height: 0; object-fit: cover; flex-grow: 1; background: #111;"></video>
-        <div id="pip-footer" style="display: flex; justify-content: space-around; align-items: center; padding: 5px 8px;">
-            <button id="pip-speaker-btn" class="pip-control-btn">🔊</button>
-            <button id="pip-end-btn" class="pip-control-btn pip-end-call">📞</button>
-            <button id="pip-mute-btn" class="pip-control-btn">🎤</button>
+        <div style="position: relative; flex: 1; display: flex; align-items: center; justify-content: center; background: #2d3436; overflow: hidden;">
+            <video id="pip-remote-video" playsinline autoplay style="width: 100%; height: 100%; object-fit: cover;"></video>
+            <img id="pip-profile-pic" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; position: absolute; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+        </div>
+        <div id="pip-footer" style="display: flex; justify-content: space-around; align-items: center; padding: 8px 5px; background: rgba(0,0,0,0.6);">
+            <button id="pip-speaker-btn" class="pip-control-btn" style="width: 35px; height: 35px; padding: 5px;"><img src="Speaker Icon.png" style="width: 100%; height: 100%; object-fit: contain;"></button>
+            <button id="pip-end-btn" class="pip-control-btn pip-end-call" style="width: 40px; height: 40px; padding: 8px; background: #ff4757; border-radius: 50%;"><img src="Call End Icon.png" style="width: 100%; height: 100%; object-fit: contain;"></button>
+            <button id="pip-mute-btn" class="pip-control-btn" style="width: 35px; height: 35px; padding: 5px;"><img src="Mic Icon.png" style="width: 100%; height: 100%; object-fit: contain;"></button>
         </div>
     `;
     document.body.appendChild(pipView);
@@ -1331,6 +1346,7 @@ function renderChat(history) {
         const msgDiv = document.createElement('div');
         const isSent = msg.sender === currentUser;
         msgDiv.classList.add('message-bubble', isSent ? 'msg-sent' : 'msg-received');
+        if (msg.id) msgDiv.id = 'msg-' + msg.id;
 
         // Render Reply Context if exists
         if (msg.replyTo) {
@@ -1340,6 +1356,23 @@ function renderChat(history) {
                 <span class="replied-sender">${msg.replyTo.sender === currentUser ? 'You' : msg.replyTo.sender}</span>
                 <span class="replied-text">${msg.replyTo.text}</span>
             `;
+            
+            replyDiv.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (msg.replyTo.id) {
+                    const target = document.getElementById('msg-' + msg.replyTo.id);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        target.classList.remove('msg-highlight');
+                        void target.offsetWidth; // Trigger reflow
+                        target.classList.add('msg-highlight');
+                        setTimeout(() => target.classList.remove('msg-highlight'), 1500);
+                    } else {
+                        showToast("Message not found");
+                    }
+                }
+            });
+            
             msgDiv.appendChild(replyDiv);
         }
         
@@ -2051,6 +2084,7 @@ sendMsgBtn.addEventListener('click', () => {
             replyTo: replyToMsg ? (() => {
                 const rText = replyToMsg.text || (replyToMsg.image ? '📷 Image' : (replyToMsg.video ? '🎥 Video' : (replyToMsg.audio ? '🎤 Audio' : (replyToMsg.file ? '📄 File' : 'Message'))));
                 return {
+                    id: replyToMsg.id,
                     sender: replyToMsg.sender,
                     text: rText
                 };
@@ -2714,10 +2748,10 @@ function syncPipControls() {
     const pipSpeakerBtn = document.getElementById('pip-speaker-btn');
 
     if (pipMuteBtn) {
-        pipMuteBtn.innerText = isCallMuted ? '🔇' : '🎤';
+        pipMuteBtn.innerHTML = isCallMuted ? '<img src="Audio Mute Icon.png" style="width: 100%; height: 100%; object-fit: contain;">' : '<img src="Mic Icon.png" style="width: 100%; height: 100%; object-fit: contain;">';
     }
     if (pipSpeakerBtn) {
-        pipSpeakerBtn.innerText = isSpeakerOn ? '👂' : '🔊';
+        pipSpeakerBtn.innerHTML = isSpeakerOn ? '<img src="Ear Piece Icon.png" style="width: 100%; height: 100%; object-fit: contain;">' : '<img src="Speaker Icon.png" style="width: 100%; height: 100%; object-fit: contain;">';
     }
 }
 
@@ -2796,7 +2830,11 @@ callAudioOutputBtn.addEventListener('click', (e) => {
 // --- PiP Mode Logic ---
 callPipBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (!isVideoCall) return;
+    
+    if (!isCallConnected) {
+        showToast("Call not connected yet");
+        return;
+    }
 
     // Hide full screen call & show chat
     callOverlay.style.display = 'none';
@@ -2806,9 +2844,27 @@ callPipBtn.addEventListener('click', (e) => {
     // Show and configure custom PiP view
     const pipView = document.getElementById('custom-pip-view');
     const pipVideo = document.getElementById('pip-remote-video');
+    const pipHeader = document.querySelector('#pip-header span');
+    const pipProfilePic = document.getElementById('pip-profile-pic');
 
     pipView.style.display = 'flex';
-    pipVideo.srcObject = callRemoteVideo.srcObject;
+    
+    if (isVideoCall) {
+        pipVideo.style.display = 'block';
+        if (pipProfilePic) pipProfilePic.style.display = 'none';
+        pipVideo.srcObject = callRemoteVideo.srcObject;
+        if (pipHeader) pipHeader.innerText = "Video Call";
+    } else {
+        pipVideo.style.display = 'none';
+        if (pipProfilePic) {
+            pipProfilePic.style.display = 'block';
+            const mainImg = document.querySelector('#callAudioContainer img');
+            if (mainImg) pipProfilePic.src = mainImg.src;
+        }
+        pipVideo.srcObject = callRemoteAudio.srcObject;
+        if (pipHeader) pipHeader.innerText = "Audio Call";
+    }
+
     pipVideo.play().catch(e => console.error("PiP Play Error:", e));
     
     syncPipControls();
