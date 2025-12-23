@@ -1089,7 +1089,7 @@ let initialScale = 1;
     }
 
     // 2. Update Icons
-    if (retakeBtn) retakeBtn.innerHTML = '<img src="retake Icon.png">';
+    if (retakeBtn) retakeBtn.innerHTML = '<img src="Retake Icon.png">';
     if (cropBtn) cropBtn.innerHTML = '<img src="Crop Icon.png">';
     if (filterBtn) filterBtn.innerHTML = '<img src="Filter Icon.png">';
     if (sendImageBtn) sendImageBtn.innerHTML = '<img src="Send Icon.png">';
@@ -2364,8 +2364,8 @@ async function startCameraStream() {
         });
         cameraVideo.srcObject = cameraStream;
 
-        // Always show the flash button. The click handler will manage availability.
-        flashCameraBtn.style.display = 'flex';
+        // Show flash only for back camera
+        flashCameraBtn.style.display = (currentFacingMode === 'environment') ? 'flex' : 'none';
 
         isFlashOn = false;
         flashCameraBtn.style.color = 'white';
@@ -2453,6 +2453,7 @@ captureCameraBtn.addEventListener('click', () => {
     // Show image controls (Crop & Filter) just like attachment preview
     cropBtn.style.display = 'flex';
     filterBtn.style.display = 'flex';
+    retakeBtn.style.display = 'flex';
 
     // Hide file/video elements if they were visible
     const info = document.getElementById('file-preview-info');
@@ -3346,6 +3347,7 @@ function handleFileSelect(event) {
                 // Show image controls
                 cropBtn.style.display = 'flex';
                 filterBtn.style.display = 'flex';
+                retakeBtn.style.display = 'flex';
                 
                 // Hide file info if exists
                 const info = document.getElementById('file-preview-info');
@@ -3377,6 +3379,7 @@ function handleFileSelect(event) {
                 
                 // Ensure send button is visible
                 sendImageBtn.style.display = 'flex';
+                retakeBtn.style.display = 'flex';
 
                 // Show Video Preview
                 let vidPreview = document.getElementById('previewVideo');
@@ -3412,6 +3415,7 @@ function handleFileSelect(event) {
                 previewImage.style.display = 'none';
                 cropBtn.style.display = 'none';
                 filterBtn.style.display = 'none';
+                retakeBtn.style.display = 'flex';
                 
                 let info = document.getElementById('file-preview-info');
                 if(!info) {
