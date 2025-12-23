@@ -299,7 +299,7 @@ const callPipBtn = document.getElementById('callPipBtn');
     const msgStyle = document.createElement('style');
     msgStyle.id = 'dynamic-msg-style';
     // Default Dark Theme (Gray)
-    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; }`;
+    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; } .msg-selected { background-color: #28c76f !important; transition: background-color 0.2s; }`;
     document.head.appendChild(msgStyle);
 })();
 
@@ -635,6 +635,8 @@ let amICaller = false;
 let ringingTimeout = null;
 let isCallConnected = false;
 let toastTimeout = null;
+let selectedMsgIds = new Set();
+let isSelectionMode = false;
 
 // --- Set Custom Background ---
 body.style.background = "none";
@@ -660,6 +662,93 @@ if (!bgImage && bgOverlay) {
     bgOverlay.appendChild(bgImage);
     bgImage.src = 'Dark Theme.png';
 }
+
+// --- Dynamic Selection Header Setup ---
+(function setupSelectionHeader() {
+    let header = document.getElementById('selection-header');
+    if (!header) {
+        header = document.createElement('div');
+        header.id = 'selection-header';
+        document.body.prepend(header);
+    }
+
+    // Style: Match main header but hidden initially
+    header.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 65px;
+        display: none; align-items: center; justify-content: flex-end; padding: 0 15px;
+        background: rgba(18, 18, 18, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border-bottom: 3px solid rgba(255, 255, 255, 0.08); z-index: 1001; box-sizing: border-box;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); color: white; gap: 20px;
+    `;
+
+    // Icons Sequence: Back, Pin, Edit, Unsend, Delete
+    const icons = ['Back Icon.png', 'Pin Icon.png', 'Edit Icon.png', 'Unsend Icon.png', 'Delete Icon.png'];
+    const ids = ['selBackBtn', 'selPinBtn', 'selEditBtn', 'selUnsendBtn', 'selDeleteBtn'];
+
+    // Back Button (Left Aligned)
+    const backBtn = document.createElement('img');
+    backBtn.src = icons[0];
+    backBtn.id = ids[0];
+    backBtn.style.cssText = 'height: 24px; width: 24px; object-fit: contain; cursor: pointer; margin-right: auto;';
+    header.appendChild(backBtn);
+
+    // Action Buttons (Right Aligned)
+    for (let i = 1; i < icons.length; i++) {
+        const btn = document.createElement('img');
+        btn.src = icons[i];
+        btn.id = ids[i];
+        btn.style.cssText = 'height: 24px; width: 24px; object-fit: contain; cursor: pointer;';
+        header.appendChild(btn);
+    }
+
+    // Handlers
+    backBtn.onclick = exitSelectionMode;
+
+    document.getElementById('selPinBtn').onclick = () => {
+        if (selectedMsgIds.size !== 1) return showToast("Select 1 message to pin");
+        const id = Array.from(selectedMsgIds)[0];
+        const msg = currentChatHistory.find(m => m.id === id);
+        if (msg) db.ref('pinned_message').set(msg);
+        exitSelectionMode();
+    };
+
+    document.getElementById('selEditBtn').onclick = () => {
+        if (selectedMsgIds.size !== 1) return showToast("Select 1 message to edit");
+        const id = Array.from(selectedMsgIds)[0];
+        selectedMsgId = id; // Set for modal
+        const msg = currentChatHistory.find(m => m.id === id);
+        if (msg && msg.sender === currentUser && msg.text) {
+            const editModal = document.getElementById('edit-msg-modal');
+            const editInput = document.getElementById('editMsgInput');
+            if (editModal && editInput) {
+                editInput.value = msg.text;
+                editModal.style.display = 'flex';
+                mainContent.classList.add('blur-content');
+            }
+        } else {
+            showToast("Cannot edit this message");
+        }
+        exitSelectionMode();
+    };
+
+    document.getElementById('selUnsendBtn').onclick = () => {
+        selectedMsgIds.forEach(id => {
+            const msg = currentChatHistory.find(m => m.id === id);
+            if (msg && msg.sender === currentUser && msg.status === 'seen') {
+                const table = getMessageTable(msg.sender);
+                db.ref(`messages/${table}/${msg.id}/status`).set('sent');
+                db.ref(`messages/${table}/${msg.id}/seenTimestamp`).remove();
+            }
+        });
+        exitSelectionMode();
+    };
+
+    document.getElementById('selDeleteBtn').onclick = () => {
+        if (selectedMsgIds.size === 0) return;
+        deleteMsgModal.style.display = 'flex';
+        mainContent.classList.add('blur-content');
+    };
+})();
 
 const rtcConfig = {
     iceServers: [
@@ -1153,6 +1242,34 @@ function getFormattedDate(dateObj) {
     return `${dayName}, ${datePart}`;
 }
 
+function toggleSelection(id) {
+    if (selectedMsgIds.has(id)) {
+        selectedMsgIds.delete(id);
+    } else {
+        selectedMsgIds.add(id);
+    }
+    
+    const el = document.getElementById('msg-' + id);
+    if (el) el.classList.toggle('msg-selected');
+    
+    const header = document.getElementById('selection-header');
+    if (selectedMsgIds.size > 0) {
+        isSelectionMode = true;
+        if (header) header.style.display = 'flex';
+    } else {
+        exitSelectionMode();
+    }
+    if (navigator.vibrate) navigator.vibrate(20);
+}
+
+function exitSelectionMode() {
+    isSelectionMode = false;
+    selectedMsgIds.clear();
+    document.querySelectorAll('.msg-selected').forEach(el => el.classList.remove('msg-selected'));
+    const header = document.getElementById('selection-header');
+    if (header) header.style.display = 'none';
+}
+
 // Helper for long press to delete
 function addLongPressHandler(element, id) {
     let pressTimer;
@@ -1160,151 +1277,7 @@ function addLongPressHandler(element, id) {
         pressTimer = setTimeout(() => {
             selectedMsgId = id;
             
-            const msg = currentChatHistory.find(m => m.id === id);
-
-            // --- Download Button Logic ---
-            let downloadBtn = document.getElementById('downloadMsgOptionBtn');
-            
-            if (!downloadBtn && pinMsgBtn && pinMsgBtn.parentNode) {
-                downloadBtn = document.createElement('button');
-                downloadBtn.id = 'downloadMsgOptionBtn';
-                downloadBtn.innerHTML = '💾 Save File';
-                downloadBtn.className = pinMsgBtn.className;
-                downloadBtn.style.marginBottom = '10px';
-                downloadBtn.style.width = '100%';
-
-                pinMsgBtn.parentNode.insertBefore(downloadBtn, pinMsgBtn);
-                
-                downloadBtn.addEventListener('click', async () => {
-                    const m = currentChatHistory.find(x => x.id === selectedMsgId);
-                    if (m) {
-                        let dUrl = '', dName = '';
-                        if (m.file) { 
-                            dUrl = m.file.data; 
-                            dName = m.file.name; 
-                        } else if (m.image) { 
-                            dUrl = m.image; 
-                            dName = `image_${Date.now()}.jpg`; 
-                        } else if (m.video) { 
-                            dUrl = m.video; 
-                            dName = `video_${Date.now()}.mp4`; 
-                        } else if (m.audio) { 
-                            dUrl = m.audio; 
-                            dName = `audio_${Date.now()}.webm`; 
-                        }
-                        
-                        if (dUrl) {
-                            let useFallback = true;
-                            if (window.showSaveFilePicker) {
-                                try {
-                                    const res = await fetch(dUrl);
-                                    const blob = await res.blob();
-                                    const handle = await window.showSaveFilePicker({
-                                        suggestedName: dName,
-                                    });
-                                    const writable = await handle.createWritable();
-                                    await writable.write(blob);
-                                    await writable.close();
-                                    useFallback = false;
-                                } catch (err) {
-                                    if (err.name === 'AbortError') useFallback = false;
-                                }
-                            }
-                            if (useFallback) {
-                                const a = document.createElement('a');
-                                a.href = dUrl;
-                                a.download = dName;
-                                document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                            }
-                        }
-                    }
-                    closeOptionsModal();
-                });
-            }
-            
-            if (downloadBtn) {
-                if (msg && (msg.file || msg.image || msg.video || msg.audio)) {
-                    downloadBtn.style.display = 'block';
-                } else {
-                    downloadBtn.style.display = 'none';
-                }
-            }
-
-            // --- Unsend Receipt Button Logic ---
-            let unsendBtn = document.getElementById('unsendMsgOptionBtn');
-            
-            if (!unsendBtn && pinMsgBtn && pinMsgBtn.parentNode) {
-                unsendBtn = document.createElement('button');
-                unsendBtn.id = 'unsendMsgOptionBtn';
-                unsendBtn.innerHTML = '👁️ Unsend Receipt';
-                unsendBtn.className = pinMsgBtn.className;
-                unsendBtn.style.marginBottom = '10px';
-                unsendBtn.style.width = '100%';
-                
-                let refNode = pinMsgBtn.nextSibling;
-                pinMsgBtn.parentNode.insertBefore(unsendBtn, refNode);
-                
-                unsendBtn.addEventListener('click', () => {
-                    const m = currentChatHistory.find(x => x.id === selectedMsgId);
-                    if (m) {
-                        const table = getMessageTable(m.sender);
-                        db.ref(`messages/${table}/${m.id}/status`).set('sent');
-                        db.ref(`messages/${table}/${m.id}/seenTimestamp`).remove();
-                    }
-                    closeOptionsModal();
-                });
-            }
-            
-            if (unsendBtn) {
-                if (msg && msg.status === 'seen' && msg.sender === currentUser) {
-                    unsendBtn.style.display = 'block';
-                } else {
-                    unsendBtn.style.display = 'none';
-                }
-            }
-
-            // --- Edit Message Button Logic ---
-            let editBtn = document.getElementById('editMsgOptionBtn');
-            
-            if (!editBtn && deleteMsgOptionBtn && deleteMsgOptionBtn.parentNode) {
-                editBtn = document.createElement('button');
-                editBtn.id = 'editMsgOptionBtn';
-                editBtn.innerHTML = '✏️ Edit Message';
-                editBtn.className = pinMsgBtn.className;
-                editBtn.style.marginBottom = '10px';
-                editBtn.style.width = '100%';
-                
-                deleteMsgOptionBtn.parentNode.insertBefore(editBtn, deleteMsgOptionBtn);
-                
-                editBtn.addEventListener('click', () => {
-                    const m = currentChatHistory.find(x => x.id === selectedMsgId);
-                    if (m) {
-                        const editModal = document.getElementById('edit-msg-modal');
-                        const editInput = document.getElementById('editMsgInput');
-                        if (editModal && editInput) {
-                            editInput.value = m.text || "";
-                            editModal.style.display = 'flex';
-                            mainContent.classList.add('blur-content');
-                        }
-                    }
-                    closeOptionsModal();
-                });
-            }
-            
-            if (editBtn) {
-                if (msg && msg.sender === currentUser && msg.text) {
-                    editBtn.style.display = 'block';
-                } else {
-                    editBtn.style.display = 'none';
-                }
-            }
-            // ---------------------------
-
-            messageOptionsModal.style.display = 'flex';
-            mainContent.classList.add('blur-content');
-            if (navigator.vibrate) navigator.vibrate(50);
+            toggleSelection(id);
         }, 600);
     };
     const cancel = () => { clearTimeout(pressTimer); };
@@ -1569,6 +1542,11 @@ function renderChat(history) {
         const msgDiv = document.createElement('div');
         const isSent = msg.sender === currentUser;
         msgDiv.classList.add('message-bubble', isSent ? 'msg-sent' : 'msg-received');
+        
+        if (selectedMsgIds.has(msg.id)) {
+            msgDiv.classList.add('msg-selected');
+        }
+
         if (msg.id) msgDiv.id = 'msg-' + msg.id;
 
         // Render Reply Context if exists
@@ -1667,6 +1645,22 @@ function renderChat(history) {
             addLongPressHandler(msgDiv, msg.id);
             addSwipeHandler(msgDiv, msg);
         }
+
+        // Selection Click Handlers
+        msgDiv.addEventListener('click', (e) => {
+            if (isSelectionMode) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleSelection(msg.id);
+            }
+        });
+        msgDiv.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!isSelectionMode) {
+                toggleSelection(msg.id);
+            }
+        });
         
         const timeSpan = document.createElement('span');
         timeSpan.className = 'msg-time';
@@ -1990,7 +1984,7 @@ themeToggleBtn.addEventListener('click', () => {
     }
     // Light Mode -> All Bubbles Blue | Dark Mode -> All Bubbles Gray
     const bubbleColor = isLight ? 'rgba(0, 123, 255, 0.85)' : 'rgba(45, 52, 54, 0.9)';
-    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: ${bubbleColor} !important; color: white !important; }`;
+    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: ${bubbleColor} !important; color: white !important; } .msg-selected { background-color: #28c76f !important; transition: background-color 0.2s; }`;
 
     // Switch background image based on theme
     if (bgOverlay) {
@@ -2082,26 +2076,28 @@ function renderPinnedMessage(pinnedMsg) {
 
 // --- Delete Message Logic ---
 confirmDeleteMsg.addEventListener('click', () => {
-    if (msgToDeleteId) {
-        const idToDelete = msgToDeleteId;
-        const msg = currentChatHistory.find(m => m.id === idToDelete);
+    const idsToDelete = isSelectionMode ? Array.from(selectedMsgIds) : (msgToDeleteId ? [msgToDeleteId] : []);
+    
+    idsToDelete.forEach(id => {
+        const msg = currentChatHistory.find(m => m.id === id);
         if (msg) {
             const table = getMessageTable(msg.sender);
-            db.ref(`messages/${table}/${idToDelete}`).remove();
+            db.ref(`messages/${table}/${id}`).remove();
+            
+            // Check if deleted message was pinned
+            db.ref('pinned_message').once('value').then(snapshot => {
+                const pinnedMsg = snapshot.val();
+                if (pinnedMsg && pinnedMsg.id === id) {
+                    db.ref('pinned_message').remove();
+                }
+            });
         }
-        
-        // Check if deleted message was pinned
-        db.ref('pinned_message').once('value').then(snapshot => {
-            const pinnedMsg = snapshot.val();
-            if (pinnedMsg && pinnedMsg.id === idToDelete) {
-                db.ref('pinned_message').remove();
-            }
-        });
+    });
 
-        deleteMsgModal.style.display = 'none';
-        mainContent.classList.remove('blur-content');
-        msgToDeleteId = null;
-    }
+    deleteMsgModal.style.display = 'none';
+    mainContent.classList.remove('blur-content');
+    msgToDeleteId = null;
+    exitSelectionMode();
 });
 
 cancelDeleteMsg.addEventListener('click', () => {
