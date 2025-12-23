@@ -309,12 +309,12 @@ const callPipBtn = document.getElementById('callPipBtn');
     style.id = 'theme-adaptive-styles';
     style.innerHTML = `
         /* --- Default Dark Theme --- */
-        #entry-overlay { background-color: #121212 !important; color: #ffffff !important; }
+        #entry-overlay { background-color: rgba(18, 18, 18, 0.5) !important; color: #ffffff !important; backdrop-filter: blur(5px); }
         #logout-modal > div, #change-pass-modal > div, #clear-chat-modal > div, #message-options-modal > div, .modal-box { background-color: #2d3436 !important; color: #ffffff !important; border: 1px solid rgba(255,255,255,0.1); }
         #entry-overlay input, #change-pass-modal input { background: rgba(255, 255, 255, 0.1) !important; color: white !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; }
         
         /* --- Light Theme Overrides --- */
-        body.light-mode #entry-overlay { background-color: #f4f6f8 !important; color: #2c3e50 !important; }
+        body.light-mode #entry-overlay { background-color: rgba(244, 246, 248, 0.5) !important; color: #2c3e50 !important; backdrop-filter: blur(5px); }
         body.light-mode #logout-modal > div, body.light-mode #change-pass-modal > div, body.light-mode #clear-chat-modal > div, body.light-mode #message-options-modal > div, body.light-mode .modal-box { 
             background-color: #ffffff !important; 
             color: #2c3e50 !important; 
@@ -2384,23 +2384,25 @@ flipCameraBtn.addEventListener('click', () => {
 flashCameraBtn.addEventListener('click', () => {
     if (cameraStream) {
         const track = cameraStream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+        
+        // Attempt to toggle torch directly. Some devices don't report 'torch' in getCapabilities()
+        // but still support the constraint.
+        const targetState = !isFlashOn;
 
-        // Only attempt to use torch if the device reports it's available
-        if (capabilities.torch) {
-            isFlashOn = !isFlashOn;
-            track.applyConstraints({
-                advanced: [{ torch: isFlashOn }]
-            }).then(() => {
-                flashCameraBtn.style.color = isFlashOn ? '#ffd700' : 'white';
-            }).catch(err => {
-                console.error("Flash error:", err);
-                isFlashOn = false; // Reset state on failure
-                flashCameraBtn.style.color = 'white';
-            });
-        } else {
+        track.applyConstraints({
+            advanced: [{ torch: targetState }]
+        }).then(() => {
+            isFlashOn = targetState;
+            flashCameraBtn.style.color = isFlashOn ? '#ffd700' : 'white';
+        }).catch(err => {
+            console.error("Flash error:", err);
             showToast("Flash not available for this camera");
-        }
+            // Reset UI if we failed to turn it on
+            if (targetState) {
+                isFlashOn = false;
+                flashCameraBtn.style.color = 'white';
+            }
+        });
     }
 });
 
