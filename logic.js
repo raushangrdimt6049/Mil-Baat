@@ -279,7 +279,7 @@ const callPipBtn = document.getElementById('callPipBtn');
                 width: 100%;
                 height: 100vh;           /* Full screen height */
                 overflow-y: auto;        /* Enable scrolling */
-                padding-top: 55px;       /* Space for Header (Adjust manually) */
+                padding-top: 70px;       /* Space for Header (Adjust manually) */
                 padding-bottom: 65px;   /* Space for Footer (Adjust manually) */
                 padding-left: 10px;      /* Left spacing */
                 padding-right: 10px;     /* Right spacing */
@@ -378,6 +378,23 @@ const callPipBtn = document.getElementById('callPipBtn');
         }
         body.light-mode #downloadMsgOptionBtn { color: #28a745 !important; border-color: #28a74544 !important; }
         body.light-mode #deleteMsgOptionBtn { color: #dc3545 !important; border-color: #dc354544 !important; }
+
+        /* --- Pinned Message Bar Styles --- */
+        #pinnedMessageBar {
+            position: fixed !important;
+            top: 65px !important;
+            left: 0 !important;
+            width: 100% !important;
+            z-index: 995 !important;
+            box-sizing: border-box !important;
+            background: rgba(30, 30, 40, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        body.light-mode #pinnedMessageBar {
+            background: rgba(245, 245, 245, 0.95);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
     `;
     document.head.appendChild(style);
 
@@ -672,27 +689,37 @@ if (!bgImage && bgOverlay) {
         document.body.prepend(header);
     }
 
-    // Style: Match main header but hidden initially
+    // Style: Light background for black icons visibility, equal spacing
     header.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 65px;
-        display: none; align-items: center; justify-content: flex-end; padding: 0 15px;
-        background: rgba(18, 18, 18, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-        border-bottom: 3px solid rgba(255, 255, 255, 0.08); z-index: 1001; box-sizing: border-box;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); color: white; gap: 20px;
+        display: none; align-items: center; justify-content: space-between; padding: 0 25px;
+        background: rgba(7, 85, 45, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1); z-index: 1001; box-sizing: border-box;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); color: black;
     `;
+    
+    // Clear to ensure correct order if re-initialized
+    header.innerHTML = '';
 
     // Icons Sequence: Back, Pin, Edit, Unsend, Delete
     const icons = ['Back Icon.png', 'Pin Icon.png', 'Edit Icon.png', 'Unsend Icon.png', 'Delete Icon.png'];
     const ids = ['selBackBtn', 'selPinBtn', 'selEditBtn', 'selUnsendBtn', 'selDeleteBtn'];
 
-    // Back Button (Left Aligned)
+    // 1. Back Button
     const backBtn = document.createElement('img');
     backBtn.src = icons[0];
     backBtn.id = ids[0];
-    backBtn.style.cssText = 'height: 24px; width: 24px; object-fit: contain; cursor: pointer; margin-right: auto;';
+    backBtn.style.cssText = 'height: 24px; width: 24px; object-fit: contain; cursor: pointer;';
     header.appendChild(backBtn);
 
-    // Action Buttons (Right Aligned)
+    // 2. Counter (New)
+    const counter = document.createElement('span');
+    counter.id = 'selCounter';
+    counter.innerText = '0';
+    counter.style.cssText = 'font-size: 20px; font-weight: bold; color: black;';
+    header.appendChild(counter);
+
+    // 3. Action Buttons
     for (let i = 1; i < icons.length; i++) {
         const btn = document.createElement('img');
         btn.src = icons[i];
@@ -717,7 +744,7 @@ if (!bgImage && bgOverlay) {
         const id = Array.from(selectedMsgIds)[0];
         selectedMsgId = id; // Set for modal
         const msg = currentChatHistory.find(m => m.id === id);
-        if (msg && msg.sender === currentUser && msg.text) {
+        if (msg && msg.sender === currentUser && msg.text && msg.status !== 'seen') {
             const editModal = document.getElementById('edit-msg-modal');
             const editInput = document.getElementById('editMsgInput');
             if (editModal && editInput) {
@@ -1242,6 +1269,48 @@ function getFormattedDate(dateObj) {
     return `${dayName}, ${datePart}`;
 }
 
+function updateSelectionHeaderIcons() {
+    const editBtn = document.getElementById('selEditBtn');
+    const unsendBtn = document.getElementById('selUnsendBtn');
+    const pinBtn = document.getElementById('selPinBtn');
+    const counter = document.getElementById('selCounter');
+    
+    if (counter) counter.innerText = selectedMsgIds.size;
+    
+    if (!editBtn || !unsendBtn || !pinBtn) return;
+
+    let canEdit = false;
+    let canUnsend = false;
+    let canPin = (selectedMsgIds.size === 1);
+
+    if (selectedMsgIds.size === 1) {
+        const id = Array.from(selectedMsgIds)[0];
+        const msg = currentChatHistory.find(m => m.id === id);
+        // Edit Criteria: Sender is Me, Has Text, Not Seen
+        if (msg && msg.sender === currentUser && msg.text && msg.status !== 'seen') {
+            canEdit = true;
+        }
+    }
+
+    // Unsend Criteria: At least one message is (Sender is Me AND Status is Seen)
+    for (let id of selectedMsgIds) {
+        const msg = currentChatHistory.find(m => m.id === id);
+        if (msg && msg.sender === currentUser && msg.status === 'seen') {
+            canUnsend = true;
+            break;
+        }
+    }
+
+    const setState = (btn, active) => {
+        btn.style.opacity = active ? '1' : '0.3';
+        btn.style.pointerEvents = active ? 'auto' : 'none';
+    };
+
+    setState(editBtn, canEdit);
+    setState(unsendBtn, canUnsend);
+    setState(pinBtn, canPin);
+}
+
 function toggleSelection(id) {
     if (selectedMsgIds.has(id)) {
         selectedMsgIds.delete(id);
@@ -1256,6 +1325,7 @@ function toggleSelection(id) {
     if (selectedMsgIds.size > 0) {
         isSelectionMode = true;
         if (header) header.style.display = 'flex';
+        updateSelectionHeaderIcons();
     } else {
         exitSelectionMode();
     }
@@ -1684,6 +1754,7 @@ function renderChat(history) {
         chatMessages.appendChild(msgDiv);
     });
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    if (isSelectionMode) updateSelectionHeaderIcons();
 }
 
 // 1. Show error if clicking password field while username is empty
@@ -2060,17 +2131,40 @@ unpinBtn.addEventListener('click', () => {
 function renderPinnedMessage(pinnedMsg) {
     if (pinnedMsg) {
         pinnedMessageBar.style.display = 'flex';
+        // Adjust chat padding so messages don't overlap (Header 65px + Pinned Bar ~50px)
+        if (chatMessages) chatMessages.style.paddingTop = '125px';
+        
         pinnedSender.innerText = pinnedMsg.sender === currentUser ? 'You' : pinnedMsg.sender;
         
         let displayText = pinnedMsg.text;
         if (!displayText) {
             if (pinnedMsg.image) displayText = '📷 Image';
+            else if (pinnedMsg.video) displayText = '🎥 Video';
             else if (pinnedMsg.audio) displayText = '🎤 Audio Message';
+            else if (pinnedMsg.file) displayText = '📄 File';
             else displayText = 'Message';
         }
         pinnedText.innerText = displayText;
+
+        // Scroll to message on click
+        pinnedMessageBar.onclick = (e) => {
+            if (e.target.closest('#unpinBtn')) return;
+            const el = document.getElementById('msg-' + pinnedMsg.id);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.remove('msg-highlight');
+                void el.offsetWidth;
+                el.classList.add('msg-highlight');
+                setTimeout(() => el.classList.remove('msg-highlight'), 1500);
+            } else {
+                showToast("Message not found");
+            }
+        };
+        pinnedMessageBar.style.cursor = 'pointer';
     } else {
         pinnedMessageBar.style.display = 'none';
+        pinnedMessageBar.onclick = null;
+        if (chatMessages) chatMessages.style.paddingTop = '70px';
     }
 }
 
