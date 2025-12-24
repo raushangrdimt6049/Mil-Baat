@@ -299,7 +299,7 @@ const callPipBtn = document.getElementById('callPipBtn');
     const msgStyle = document.createElement('style');
     msgStyle.id = 'dynamic-msg-style';
     // Default Dark Theme (Gray)
-    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; } .message-bubble.msg-selected { background-color: #ff9f43 !important; transition: background-color 0.2s; }`;
+    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; } #chatMessages .message-bubble.msg-selected, #chatMessages .msg-sent.msg-selected { background-color: #ff9f43 !important; transition: background-color 0.2s; }`;
     document.head.appendChild(msgStyle);
 })();
 
@@ -2089,7 +2089,7 @@ themeToggleBtn.addEventListener('click', () => {
     }
     // Light Mode -> All Bubbles Blue | Dark Mode -> All Bubbles Gray
     const bubbleColor = isLight ? 'rgba(0, 123, 255, 0.85)' : 'rgba(45, 52, 54, 0.9)';
-    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: ${bubbleColor} !important; color: white !important; } .message-bubble.msg-selected { background-color: #ff9f43 !important; transition: background-color 0.2s; }`;
+    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: ${bubbleColor} !important; color: white !important; } #chatMessages .message-bubble.msg-selected, #chatMessages .msg-sent.msg-selected { background-color: #ff9f43 !important; transition: background-color 0.2s; }`;
 
     // Switch background image based on theme
     if (bgOverlay) {
