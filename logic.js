@@ -693,7 +693,7 @@ if (!bgImage && bgOverlay) {
     header.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 65px;
         display: none; align-items: center; justify-content: space-between; padding: 0 25px;
-        background: rgba(7, 85, 45, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        background: rgba(18, 131, 162, 1); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
         border-bottom: 1px solid rgba(0, 0, 0, 0.1); z-index: 1001; box-sizing: border-box;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); color: black;
     `;
