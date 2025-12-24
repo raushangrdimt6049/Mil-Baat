@@ -1132,8 +1132,40 @@ let initialScale = 1;
             background-color: rgba(0,0,0,0.5) !important;
             font-size: 20px;
         }
+
+        /* Tap to Focus Animation */
+        .focus-ring {
+            position: absolute;
+            width: 60px; height: 60px;
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            animation: focusEffect 0.8s ease-out forwards;
+            z-index: 15;
+        }
+        @keyframes focusEffect {
+            0% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; border-color: white; }
+            20% { transform: translate(-50%, -50%) scale(1); opacity: 1; border-color: #ffd700; }
+            80% { transform: translate(-50%, -50%) scale(1); opacity: 1; border-color: #ffd700; }
+            100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+        }
     `;
     document.head.appendChild(style);
+
+    // 4. Tap to Focus Listener
+    overlay.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target.closest('.camera-header') || e.target.closest('.camera-footer')) return;
+        
+        const rect = overlay.getBoundingClientRect();
+        const ring = document.createElement('div');
+        ring.className = 'focus-ring';
+        ring.style.left = (e.clientX - rect.left) + 'px';
+        ring.style.top = (e.clientY - rect.top) + 'px';
+        overlay.appendChild(ring);
+        setTimeout(() => ring.remove(), 800);
+    });
 })();
 
 // --- Dynamic Custom PiP View ---
@@ -1278,16 +1310,40 @@ let initialScale = 1;
     if (!footer) {
         footer = document.createElement('div');
         footer.className = 'preview-footer';
-        
-        // Find existing buttons and move them
-        const buttons = [retakeBtn, cropBtn, filterBtn, sendImageBtn];
-        buttons.forEach(btn => {
-            if (btn && btn.parentNode) {
-                footer.appendChild(btn);
-            }
-        });
         overlay.appendChild(footer);
     }
+
+    // Create Save Button (Download)
+    let saveBtn = document.getElementById('saveImageBtn');
+    if (!saveBtn) {
+        saveBtn = document.createElement('button');
+        saveBtn.id = 'saveImageBtn';
+        
+        saveBtn.onclick = () => {
+            const link = document.createElement('a');
+            if (currentImageBase64) {
+                link.href = currentImageBase64;
+                link.download = `MilBaat_Img_${Date.now()}.jpg`;
+            } else if (currentVideoBase64) {
+                link.href = currentVideoBase64;
+                link.download = `MilBaat_Vid_${Date.now()}.mp4`;
+            } else { return; }
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Saved to Gallery");
+        };
+    }
+    // Ensure Icon is correct
+    saveBtn.innerHTML = '<img src="Download Icon.png">';
+
+    // Enforce Order: Retake, Crop, Filter, Save, Send
+    if (retakeBtn) footer.appendChild(retakeBtn);
+    if (cropBtn) footer.appendChild(cropBtn);
+    if (filterBtn) footer.appendChild(filterBtn);
+    if (saveBtn) footer.appendChild(saveBtn);
+    if (sendImageBtn) footer.appendChild(sendImageBtn);
 
     // 2. Update Icons
     if (retakeBtn) retakeBtn.innerHTML = '<img src="Retake Icon.png">';
@@ -1315,6 +1371,7 @@ let initialScale = 1;
             transition: transform 0.2s;
             color: white; font-size: 0; box-sizing: border-box;
             flex-shrink: 0;
+            margin: 0;
         }
         .preview-footer button img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
         .preview-footer button:active { transform: scale(0.95); }
@@ -2578,10 +2635,21 @@ async function startCameraStream() {
     if (label) label.innerText = currentFacingMode === 'user' ? 'Front Cam' : 'Back Cam';
 
     try {
-        cameraStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: currentFacingMode }
-        });
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: currentFacingMode }
+            });
+        } catch (e) {
+            console.warn("Specific facingMode failed, trying generic video...", e);
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: true
+            });
+        }
+
         cameraVideo.srcObject = cameraStream;
+        cameraVideo.setAttribute('playsinline', 'true'); // Required for iOS
+        cameraVideo.setAttribute('autoplay', 'true');
+        await cameraVideo.play();
 
         // Show flash only for back camera
         flashCameraBtn.style.display = (currentFacingMode === 'environment') ? 'flex' : 'none';
@@ -2590,7 +2658,7 @@ async function startCameraStream() {
         flashCameraBtn.style.color = 'white';
     } catch (err) {
         console.error(err);
-        alert("Unable to access camera. Please ensure permissions are granted.");
+        alert("Unable to access camera. Ensure permissions are granted and site is HTTPS.");
         cameraLiveOverlay.style.display = 'none';
     }
 }
