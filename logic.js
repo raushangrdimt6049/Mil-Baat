@@ -575,6 +575,64 @@ const callPipBtn = document.getElementById('callPipBtn');
     document.head.appendChild(callStyle);
 })();
 
+// --- Dynamic Password Toggle Setup ---
+(function setupPasswordToggle() {
+    const pwdInput = document.getElementById('passwordInput');
+    const usrInput = document.getElementById('usernameInput');
+    if (!pwdInput) return;
+
+    // 1. Fix Size Mismatch: Ensure Username Input uses border-box like Password Input
+    if (usrInput) {
+        usrInput.style.boxSizing = 'border-box';
+        usrInput.style.width = '100%';
+    }
+
+    // Create wrapper to ensure correct positioning relative to the input box
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'relative';
+    wrapper.style.width = '100%';
+    wrapper.style.boxSizing = 'border-box';
+    
+    // 2. Transfer Margins from Input to Wrapper (Fixes Centering Issue)
+    const computedStyle = window.getComputedStyle(pwdInput);
+    wrapper.style.marginTop = computedStyle.marginTop;
+    wrapper.style.marginBottom = computedStyle.marginBottom;
+    wrapper.style.marginLeft = computedStyle.marginLeft;
+    wrapper.style.marginRight = computedStyle.marginRight;
+    
+    // Insert wrapper before input, then move input inside
+    pwdInput.parentNode.insertBefore(wrapper, pwdInput);
+    wrapper.appendChild(pwdInput);
+
+    // Reset Input Margins (now handled by wrapper)
+    pwdInput.style.margin = '0';
+
+    // Create Toggle Button
+    const toggleBtn = document.createElement('span');
+    toggleBtn.id = 'togglePasswordBtn';
+    toggleBtn.innerHTML = '👁️'; 
+    toggleBtn.style.cssText = `
+        position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+        cursor: pointer; font-size: 1.2rem; user-select: none;
+        color: rgba(255, 255, 255, 0.7); z-index: 10; display: flex; align-items: center;
+    `;
+
+    wrapper.appendChild(toggleBtn);
+
+    toggleBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const type = pwdInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        pwdInput.setAttribute('type', type);
+        toggleBtn.innerHTML = type === 'password' ? '👁️' : '🙈';
+        pwdInput.focus();
+    });
+    
+    // Adjust input padding and width
+    pwdInput.style.paddingRight = '45px';
+    pwdInput.style.width = '100%';
+    pwdInput.style.boxSizing = 'border-box';
+})();
+
 let cameraStream = null;
 let currentFacingMode = 'environment';
 let isFlashOn = false;
@@ -1791,22 +1849,59 @@ function renderChat(history) {
     if (isSelectionMode) updateSelectionHeaderIcons();
 }
 
-// 1. Show error if clicking password field while username is empty
+// --- Login Validation Logic ---
+
+// Initialize Button State
+acceptBtn.disabled = true;
+acceptBtn.style.opacity = '0.5';
+acceptBtn.style.cursor = 'not-allowed';
+
+function validateLoginState() {
+    const username = usernameInput.value;
+    const password = passwordInput.value;
+    
+    if (users[username] && users[username] === password) {
+        acceptBtn.disabled = false;
+        acceptBtn.style.opacity = '1';
+        acceptBtn.style.cursor = 'pointer';
+    } else {
+        acceptBtn.disabled = true;
+        acceptBtn.style.opacity = '0.5';
+        acceptBtn.style.cursor = 'not-allowed';
+    }
+}
+
+// 1. Password Focus: Check Username Validity
 passwordInput.addEventListener('focus', () => {
-    if (usernameInput.value.trim() === "") {
+    const username = usernameInput.value;
+    // Check if username exists in the users object
+    if (!users[username]) {
+        usernameError.innerText = "Enter Correct User Name";
         usernameError.style.display = 'block';
         triggerShake(usernameInput);
+        passwordInput.blur(); // Remove focus to prevent typing
+    } else {
+        usernameError.style.display = 'none';
     }
 });
 
-// 2. Clear errors when user starts typing
-usernameInput.addEventListener('input', () => usernameError.style.display = 'none');
-passwordInput.addEventListener('input', () => passwordError.style.display = 'none');
+// 2. Input Listeners for Real-time Validation
+usernameInput.addEventListener('input', () => {
+    usernameError.style.display = 'none';
+    validateLoginState();
+});
+
+passwordInput.addEventListener('input', () => {
+    passwordError.style.display = 'none';
+    validateLoginState();
+});
 
 // Allow pressing "Enter" to login
 function handleEnterKey(e) {
     if (e.key === 'Enter') {
-        acceptBtn.click();
+        if (!acceptBtn.disabled) {
+            acceptBtn.click();
+        }
     }
 }
 usernameInput.addEventListener('keydown', handleEnterKey);
@@ -3869,6 +3964,9 @@ confirmLogout.addEventListener('click', () => {
     overlay.style.opacity = '1';
     usernameInput.value = '';
     passwordInput.value = '';
+    acceptBtn.disabled = true;
+    acceptBtn.style.opacity = '0.5';
+    acceptBtn.style.cursor = 'not-allowed';
     body.style.overflow = 'hidden';
     body.classList.remove('user-alpha', 'user-beta');
     
