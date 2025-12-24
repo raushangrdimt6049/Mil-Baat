@@ -2652,7 +2652,15 @@ async function startCameraStream() {
         await cameraVideo.play();
 
         // Show flash only for back camera
-        flashCameraBtn.style.display = (currentFacingMode === 'environment') ? 'flex' : 'none';
+        const track = cameraStream.getVideoTracks()[0];
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        
+        // Check capabilities for torch support to ensure button only shows if working
+        if ('torch' in caps) {
+            flashCameraBtn.style.display = caps.torch ? 'flex' : 'none';
+        } else {
+            flashCameraBtn.style.display = (currentFacingMode === 'environment') ? 'flex' : 'none';
+        }
 
         isFlashOn = false;
         flashCameraBtn.style.color = 'white';
@@ -2671,9 +2679,6 @@ flipCameraBtn.addEventListener('click', () => {
 flashCameraBtn.addEventListener('click', () => {
     if (cameraStream) {
         const track = cameraStream.getVideoTracks()[0];
-        
-        // Attempt to toggle torch directly. Some devices don't report 'torch' in getCapabilities()
-        // but still support the constraint.
         const targetState = !isFlashOn;
 
         track.applyConstraints({
@@ -2683,7 +2688,7 @@ flashCameraBtn.addEventListener('click', () => {
             flashCameraBtn.style.color = isFlashOn ? '#ffd700' : 'white';
         }).catch(err => {
             console.error("Flash error:", err);
-            showToast("Flash not available for this camera");
+            showToast("Flash not supported on this device");
             // Reset UI if we failed to turn it on
             if (targetState) {
                 isFlashOn = false;
