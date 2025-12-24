@@ -299,7 +299,7 @@ const callPipBtn = document.getElementById('callPipBtn');
     const msgStyle = document.createElement('style');
     msgStyle.id = 'dynamic-msg-style';
     // Default Dark Theme (Gray)
-    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; } .msg-selected { background-color: #28c76f !important; transition: background-color 0.2s; }`;
+    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; } .message-bubble.msg-selected { background-color: #ff9f43 !important; transition: background-color 0.2s; }`;
     document.head.appendChild(msgStyle);
 })();
 
@@ -692,7 +692,7 @@ if (!bgImage && bgOverlay) {
     // Style: Light background for black icons visibility, equal spacing
     header.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 65px;
-        display: none; align-items: center; justify-content: space-between; padding: 0 25px;
+        display: none; align-items: center; justify-content: space-around; padding: 0 15px;
         background: rgba(18, 131, 162, 1); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
         border-bottom: 1px solid rgba(0, 0, 0, 0.1); z-index: 1001; box-sizing: border-box;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); color: black;
@@ -719,6 +719,13 @@ if (!bgImage && bgOverlay) {
     counter.style.cssText = 'font-size: 20px; font-weight: bold; color: black;';
     header.appendChild(counter);
 
+    // Add Copy button just after the counter
+    const copyBtn = document.createElement('img');
+    copyBtn.src = 'Copy Icon.png';
+    copyBtn.id = 'selCopyBtn';
+    copyBtn.style.cssText = 'height: 24px; width: 24px; object-fit: contain; cursor: pointer;';
+    header.appendChild(copyBtn);
+
     // 3. Action Buttons
     for (let i = 1; i < icons.length; i++) {
         const btn = document.createElement('img');
@@ -730,6 +737,26 @@ if (!bgImage && bgOverlay) {
 
     // Handlers
     backBtn.onclick = exitSelectionMode;
+
+    document.getElementById('selCopyBtn').onclick = () => {
+        if (selectedMsgIds.size !== 1) {
+            showToast("Select 1 message to copy");
+            return;
+        }
+        const id = Array.from(selectedMsgIds)[0];
+        const msg = currentChatHistory.find(m => m.id === id);
+        if (msg && msg.text) {
+            navigator.clipboard.writeText(msg.text).then(() => {
+                showToast("Message copied!");
+            }).catch(err => {
+                showToast("Failed to copy message");
+                console.error('Copy failed:', err);
+            });
+            exitSelectionMode();
+        } else {
+            showToast("Only text messages can be copied");
+        }
+    };
 
     document.getElementById('selPinBtn').onclick = () => {
         if (selectedMsgIds.size !== 1) return showToast("Select 1 message to pin");
@@ -1273,15 +1300,17 @@ function updateSelectionHeaderIcons() {
     const editBtn = document.getElementById('selEditBtn');
     const unsendBtn = document.getElementById('selUnsendBtn');
     const pinBtn = document.getElementById('selPinBtn');
+    const copyBtn = document.getElementById('selCopyBtn');
     const counter = document.getElementById('selCounter');
     
     if (counter) counter.innerText = selectedMsgIds.size;
     
-    if (!editBtn || !unsendBtn || !pinBtn) return;
+    if (!editBtn || !unsendBtn || !pinBtn || !copyBtn) return;
 
     let canEdit = false;
     let canUnsend = false;
     let canPin = (selectedMsgIds.size === 1);
+    let canCopy = false;
 
     if (selectedMsgIds.size === 1) {
         const id = Array.from(selectedMsgIds)[0];
@@ -1289,6 +1318,10 @@ function updateSelectionHeaderIcons() {
         // Edit Criteria: Sender is Me, Has Text, Not Seen
         if (msg && msg.sender === currentUser && msg.text && msg.status !== 'seen') {
             canEdit = true;
+        }
+        // Copy Criteria: Has Text
+        if (msg && msg.text) {
+            canCopy = true;
         }
     }
 
@@ -1309,6 +1342,7 @@ function updateSelectionHeaderIcons() {
     setState(editBtn, canEdit);
     setState(unsendBtn, canUnsend);
     setState(pinBtn, canPin);
+    setState(copyBtn, canCopy);
 }
 
 function toggleSelection(id) {
@@ -2055,7 +2089,7 @@ themeToggleBtn.addEventListener('click', () => {
     }
     // Light Mode -> All Bubbles Blue | Dark Mode -> All Bubbles Gray
     const bubbleColor = isLight ? 'rgba(0, 123, 255, 0.85)' : 'rgba(45, 52, 54, 0.9)';
-    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: ${bubbleColor} !important; color: white !important; } .msg-selected { background-color: #28c76f !important; transition: background-color 0.2s; }`;
+    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: ${bubbleColor} !important; color: white !important; } .message-bubble.msg-selected { background-color: #ff9f43 !important; transition: background-color 0.2s; }`;
 
     // Switch background image based on theme
     if (bgOverlay) {
