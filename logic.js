@@ -2957,6 +2957,12 @@ function endCall(remoteEnded = false) {
     incomingCallModal.style.display = 'none';
     mainContent.classList.remove('blur-content');
     
+    // Restore main content and chat bar in case they were hidden (e.g. by PiP expansion)
+    if (currentUser) {
+        if (mainContent) mainContent.style.display = 'flex';
+        if (chatInputBar) chatInputBar.style.display = 'flex';
+    }
+
     // 6. Clear Media Elements
     callRemoteVideo.srcObject = null;
     callRemoteAudio.srcObject = null;
