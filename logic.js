@@ -586,7 +586,7 @@ let baseImageForFilter = null;
 let currentFilterMode = 0; // 0:None, 1:Gray, 2:Sepia, 3:Invert
 
 // Define Admin Usernames from Config (or defaults)
-const ALPHA_ADMIN = (typeof envUserNames !== 'undefined') ? envUserNames.alpha : "Admin";
+const ALPHA_ADMIN = (typeof envUserNames !== 'undefined') ? envUserNames.alpha : "Admin_123";
 const BETA_ADMIN = (typeof envUserNames !== 'undefined') ? envUserNames.beta : "Nisha_143";
 
 const users = (typeof envUsers !== 'undefined') ? envUsers : { [ALPHA_ADMIN]: "asdf@1234", [BETA_ADMIN]: "11041805143" };
