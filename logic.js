@@ -3900,6 +3900,153 @@ sendImageBtn.addEventListener('click', () => {
     }
 });
 
+// --- Dynamic Image Viewer Header Setup ---
+(function setupImageViewerHeader() {
+    const modal = document.getElementById('image-viewer-modal');
+    if (!modal) return;
+
+    // Create Header Container
+    let header = modal.querySelector('.viewer-header');
+    if (!header) {
+        header = document.createElement('div');
+        header.className = 'viewer-header';
+        header.style.cssText = `
+            position: absolute; top: 0; left: 0; width: 100%; height: 60px;
+            display: flex; align-items: center; justify-content: center; padding: 0 15px;
+            background: rgba(7, 94, 137, 1); z-index: 1002;
+            box-sizing: border-box; gap: 40px;
+        `;
+        modal.prepend(header);
+    }
+    
+    // Clear to ensure correct order
+    header.innerHTML = '';
+
+    const createIconBtn = (src, onClick) => {
+        const btn = document.createElement('button');
+        btn.style.cssText = `
+            background: transparent; border: none; cursor: pointer;
+            width: 30px; height: 30px; padding: 0; display: flex;
+            align-items: center; justify-content: center;
+        `;
+        const img = document.createElement('img');
+        img.src = src;
+        img.style.cssText = 'width: 100%; height: 100%; object-fit: contain; pointer-events: none;';
+        btn.appendChild(img);
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onClick();
+        });
+        return btn;
+    };
+
+    // 1. Download Icon
+    header.appendChild(createIconBtn('Download Icon.png', () => {
+        downloadViewerMedia('download');
+    }));
+
+    // 2. Share Icon
+    header.appendChild(createIconBtn('Share Icon.png', () => {
+        shareViewerMedia();
+    }));
+
+    // 3. Save Gallery Icon
+    header.appendChild(createIconBtn('Save Gallery Icon.png', () => {
+        downloadViewerMedia('gallery');
+    }));
+
+    // 4. Close Icon
+    header.appendChild(createIconBtn('Close Icon.png', () => {
+        const modal = document.getElementById('image-viewer-modal');
+        if (modal) modal.style.display = 'none';
+        const v = document.getElementById('viewerVideoElement');
+        if(v) {
+            v.pause();
+            v.src = '';
+        }
+        // Reset Zoom
+        if (typeof viewerScale !== 'undefined') {
+            viewerScale = 1;
+            viewerTranslateX = 0;
+            viewerTranslateY = 0;
+            if (typeof updateViewerTransform === 'function') updateViewerTransform();
+        }
+    }));
+
+    // Hide original close button if exists
+    const oldClose = document.getElementById('closeViewerBtn');
+    if (oldClose) oldClose.style.display = 'none';
+})();
+
+function downloadViewerMedia(mode) {
+    const img = document.getElementById('viewerImage');
+    const video = document.getElementById('viewerVideoElement');
+    let src = null;
+    let ext = 'jpg';
+
+    if (img && img.style.display !== 'none') {
+        src = img.src;
+    } else if (video && video.style.display !== 'none') {
+        src = video.src;
+        ext = 'mp4';
+    }
+
+    if (src) {
+        const link = document.createElement('a');
+        link.href = src;
+        link.download = `MilBaat_${Date.now()}.${ext}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        if (mode === 'gallery') {
+            showToast("Saved to Gallery");
+        } else {
+            showToast("Downloading...");
+        }
+    }
+}
+
+async function shareViewerMedia() {
+    const img = document.getElementById('viewerImage');
+    const video = document.getElementById('viewerVideoElement');
+    let src = null;
+    let type = 'image/jpeg';
+    let ext = 'jpg';
+
+    if (img && img.style.display !== 'none') {
+        src = img.src;
+    } else if (video && video.style.display !== 'none') {
+        src = video.src;
+        type = 'video/mp4';
+        ext = 'mp4';
+    }
+
+    if (!src) {
+        showToast("No media to share.");
+        return;
+    }
+
+    if (!navigator.share || !navigator.canShare) {
+        showToast("Sharing is not supported on your browser.");
+        return;
+    }
+
+    try {
+        const response = await fetch(src);
+        const blob = await response.blob();
+        const file = new File([blob], `MilBaat_Media.${ext}`, { type });
+        
+        if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'Shared from Mil Baat' });
+        } else {
+            showToast("This file type cannot be shared.");
+        }
+    } catch (error) {
+        if (error.name !== 'AbortError') console.error('Share error:', error);
+    }
+}
+
 // --- Image Viewer Logic (Zoom & Pan) ---
 
 // Open Viewer
@@ -3950,6 +4097,11 @@ closeViewerBtn.addEventListener('click', () => {
 
 // Update Transform
 function updateViewerTransform() {
+    if (viewerScale <= 1) {
+        viewerScale = 1;
+        viewerTranslateX = 0;
+        viewerTranslateY = 0;
+    }
     viewerImage.style.transform = `translate(${viewerTranslateX}px, ${viewerTranslateY}px) scale(${viewerScale})`;
     zoomSlider.value = viewerScale;
 }
