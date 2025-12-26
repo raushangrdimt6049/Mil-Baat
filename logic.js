@@ -705,8 +705,6 @@ let pipStartX = 0;
 let peerConnection = null;
 let incomingSignalData = null;
 let currentChatHistory = [];
-let allMessagesRaw = [];
-let currentChatPartner = null;
 let candidateQueue = [];
 let amICaller = false;
 let ringingTimeout = null;
@@ -1569,39 +1567,26 @@ function getUserRole(username) {
     return username === ALPHA_ADMIN ? 'Alpha' : 'Beta';
 }
 
-function filterAndRenderChat() {
-    if (!allMessagesRaw) return;
-    
-    let history = allMessagesRaw.filter(msg => msg && typeof msg === 'object' && msg.timestamp);
-    
-    if (currentUser && currentChatPartner) {
-        history = history.filter(msg => {
-            const p1 = msg.sender === currentUser && msg.recipient === currentChatPartner;
-            const p2 = msg.sender === currentChatPartner && msg.recipient === currentUser;
-            return p1 || p2;
-        });
-    }
-    
-    history.sort((a, b) => {
-        return (a.rawDate || "") < (b.rawDate || "") ? -1 : 1;
-    });
-    currentChatHistory = history;
-    renderChat(history);
-}
-
 // --- Chat History Logic ---
 function setupFirebaseListeners() {
     // 1. Chat Messages Listener
     db.ref('messages').on('value', snapshot => {
         try {
             const data = snapshot.val();
-            let raw = [];
+            let history = [];
             if (data) {
-                if (data.alpha && typeof data.alpha === 'object') raw = raw.concat(Object.values(data.alpha));
-                if (data.beta && typeof data.beta === 'object') raw = raw.concat(Object.values(data.beta));
+                if (data.alpha && typeof data.alpha === 'object') history = history.concat(Object.values(data.alpha));
+                if (data.beta && typeof data.beta === 'object') history = history.concat(Object.values(data.beta));
             }
-            allMessagesRaw = raw;
-            filterAndRenderChat();
+            // Filter out any invalid entries
+            history = history.filter(msg => msg && typeof msg === 'object' && msg.timestamp);
+            
+            // Sort messages by date to ensure correct order
+            history.sort((a, b) => {
+                return (a.rawDate || "") < (b.rawDate || "") ? -1 : 1;
+            });
+            currentChatHistory = history;
+            renderChat(history);
         } catch (e) {
             console.error("Error processing chat data:", e);
         }
@@ -1626,9 +1611,6 @@ function setupFirebaseListeners() {
                 const isVideo = (cType === 'Video');
                 let shouldEnd = false;
 
-                // Filter by recipient if data exists
-                if (data && data.recipient && data.recipient !== currentUser) return;
-
                 // 1. I am the Caller (or active participant)
                 if (callStream && isVideoCall === isVideo) {
                     shouldEnd = true;
@@ -1649,7 +1631,6 @@ function setupFirebaseListeners() {
 
             // Handle Offer (Incoming Call)
             if (data.type === 'offer' && data.sender !== currentUser) {
-                if (data.recipient && data.recipient !== currentUser) return;
                 handleIncomingSignal({
                     type: 'offer',
                     sender: data.sender,
@@ -1659,7 +1640,6 @@ function setupFirebaseListeners() {
             }
             // Handle Answer (Call Accepted)
             else if (data.type === 'answer' && data.sender !== currentUser) {
-                if (data.recipient && data.recipient !== currentUser) return;
                 handleIncomingSignal({
                     type: 'answer',
                     sender: data.sender,
@@ -1674,7 +1654,6 @@ function setupFirebaseListeners() {
     db.ref(`signals/${myRole}_candidates`).on('child_added', snapshot => {
         const val = snapshot.val();
         if (val && val.sender !== currentUser) {
-            if (val.recipient && val.recipient !== currentUser) return;
             handleIncomingSignal({
                 type: 'candidate',
                 sender: val.sender,
@@ -1683,80 +1662,66 @@ function setupFirebaseListeners() {
         }
     });
 
-    // 4. Status Listener (Other User)
-    const otherUser = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
-    
+    // 4. Status & Typing Listeners
     let otherUserHeartbeat = 0;
     let otherUserLastSeen = null;
     let isOtherUserTyping = false;
 
     db.ref('status').on('value', snapshot => {
         const data = snapshot.val() || {};
-        let targetUser = null;
+        let statusTargetKey = null; // e.g., 'Alpha', 'Beta', 'saurav'
 
-        
         if (currentUser === ALPHA_ADMIN) {
-            // If I am Alpha, find who is online (Beta or New User)
-            if (data[`${BETA_ADMIN} Online`]) {
-                targetUser = BETA_ADMIN;
-            } else {
-                const onlineKey = Object.keys(data).find(k => k.endsWith(' Online') && data[k] === true && !k.startsWith(ALPHA_ADMIN));
-                targetUser = onlineKey ? onlineKey.replace(' Online', '') : BETA_ADMIN;
-            // Alpha Logic: Check Beta first, then any other online user
-            let targetKey = 'Beta';
+            // For Alpha, prioritize Beta's status, then any other online user.
             const now = Date.now() + serverTimeOffset;
-            const betaHb = data['Beta Heartbeat'] || 0;
-            
-            // If Beta is not online, look for other users
-            if ((now - betaHb) >= 2000) {
-                for (const key in data) {
-                    if (key.endsWith(' Online') && data[key] === true) {
-                        const userKey = key.replace(' Online', '');
-                        if (userKey !== 'Alpha' && userKey !== 'Beta') {
-                            const hb = data[`${userKey} Heartbeat`] || 0;
-                            if ((now - hb) < 2000) {
-                                targetKey = userKey;
-                                break;
-                            }
-                        }
-                    }
+            const betaIsOnline = data['Beta Online'] === true && (now - (data['Beta Heartbeat'] || 0) < 2000);
+
+            if (betaIsOnline) {
+                statusTargetKey = 'Beta';
+            } else {
+                // Find the first available online user who is not Alpha.
+                const onlineUserKey = Object.keys(data).find(key => {
+                    if (!key.endsWith(' Online') || key === 'Alpha Online') return false;
+                    const userKey = key.replace(' Online', '');
+                    return data[key] === true && (now - (data[`${userKey} Heartbeat`] || 0) < 2000);
+                });
+
+                if (onlineUserKey) {
+                    statusTargetKey = onlineUserKey.replace(' Online', '');
+                } else {
+                    // If no one is online, default to showing Beta's last seen status.
+                    statusTargetKey = 'Beta';
                 }
             }
-            otherUserHeartbeat = data[`${targetKey} Heartbeat`] || 0;
-            otherUserLastSeen = data[`${targetKey} Last Seen`];
         } else {
-            // If I am Beta or New User, I watch Alpha
-            targetUser = ALPHA_ADMIN;
-            // Everyone else (Beta/New Users) watches Alpha
-            otherUserHeartbeat = data['Alpha Heartbeat'] || 0;
-            otherUserLastSeen = data['Alpha Last Seen'];
+            // Beta and all other users always see Alpha's status.
+            statusTargetKey = 'Alpha';
         }
 
-        if (targetUser) {
-            otherUserHeartbeat = data[`${targetUser} Heartbeat`] || 0;
-            otherUserLastSeen = data[`${targetUser} Last Seen`];
+        if (statusTargetKey) {
+            otherUserHeartbeat = data[`${statusTargetKey} Heartbeat`] || 0;
+            otherUserLastSeen = data[`${statusTargetKey} Last Seen`];
+        } else {
+            otherUserHeartbeat = 0;
+            otherUserLastSeen = null;
         }
     });
 
     if (statusCheckInterval) clearInterval(statusCheckInterval);
     statusCheckInterval = setInterval(() => {
         const estimatedServerTime = Date.now() + serverTimeOffset;
-        const isOnline = (estimatedServerTime - otherUserHeartbeat) < 2000; // Online if heartbeat within 2 sec
+        const isOnline = (estimatedServerTime - otherUserHeartbeat) < 2000;
         
         let displayLastSeen = otherUserLastSeen;
-        // If timed out but DB still says "Active", use the last heartbeat time
         if (!isOnline && displayLastSeen === "Active") {
             displayLastSeen = otherUserHeartbeat;
         }
         updateStatusUI(isOnline, displayLastSeen, isOtherUserTyping);
     }, 500);
 
-    // 5. Typing Listener (Other User)
-    const otherUser = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
-    db.ref(`typing/${otherUser}`).on('value', snapshot => {
-        isOtherUserTyping = snapshot.val();
-    });
+    // 5. Typing Listener
     if (currentUser === ALPHA_ADMIN) {
+        // Alpha watches all users for typing.
         db.ref('typing').on('value', snapshot => {
             const data = snapshot.val() || {};
             // Check if any user (except me) is typing
@@ -1764,9 +1729,9 @@ function setupFirebaseListeners() {
             isOtherUserTyping = !!typingUser;
         });
     } else {
-        // Non-admin users watch the Admin
+        // Non-admin users only watch the Admin for typing.
         db.ref(`typing/${ALPHA_ADMIN}`).on('value', snapshot => {
-            isOtherUserTyping = snapshot.val();
+            isOtherUserTyping = snapshot.val() || false;
         });
     }
 
@@ -2061,9 +2026,6 @@ acceptBtn.addEventListener('click', async (e) => {
         if (isAlpha) body.classList.add('user-alpha');
         if (isBeta) body.classList.add('user-beta');
         
-        if (isAlpha) currentChatPartner = BETA_ADMIN;
-        else currentChatPartner = ALPHA_ADMIN;
-        
         // Store custom data for session if needed
         if (customData) {
             currentUserData = customData; // Global variable to hold extra data like uniqueCode
@@ -2088,14 +2050,13 @@ acceptBtn.addEventListener('click', async (e) => {
     // 1. Check Hardcoded Users
     if (users[username] && users[username] === password) {
         let displayName = username;
-        let isAlpha = false;
-        let isBeta = false;
-        if (currentUser === ALPHA_ADMIN) {
+        let isAlpha = (username === ALPHA_ADMIN);
+        let isBeta = (username === BETA_ADMIN);
+        
+        if (isAlpha) {
             displayName = '💎_Alpha_💎';
-            isAlpha = true;
-        } else if (currentUser === BETA_ADMIN) {
+        } else if (isBeta) {
             displayName = '💎_Beta_💎';
-            isBeta = true;
         }
         performLogin(username, displayName, isAlpha, isBeta);
         return;
@@ -2133,9 +2094,6 @@ let currentUserData = null; // To store extra data for new users
 
 // --- Online Status Logic ---
 function startHeartbeat() {
-    const onlineRef = db.ref(`status/${currentUser} Online`);
-    const lastSeenRef = db.ref(`status/${currentUser} Last Seen`);
-    const heartbeatRef = db.ref(`status/${currentUser} Heartbeat`);
     // Use username for status key, fallback to Alpha/Beta for admins
     let statusKey = currentUser;
     if (currentUser === ALPHA_ADMIN) statusKey = 'Alpha';
@@ -2693,7 +2651,7 @@ sendMsgBtn.addEventListener('click', () => {
 
         const table = getMessageTable(currentUser);
         const newMsgRef = db.ref(`messages/${table}`).push();
-        const recipient = currentChatPartner;
+        const recipient = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
         const newMsg = {
             id: newMsgRef.key,
             sender: currentUser,
@@ -3074,7 +3032,7 @@ function createPeerConnection(isInitiator) {
 
 function sendSignal(type, data) {
     const myRole = getUserRole(currentUser);
-    const targetUser = currentChatPartner;
+    const targetUser = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
     const targetRole = getUserRole(targetUser);
     const callType = isVideoCall ? 'Video' : 'Audio';
     
@@ -3088,7 +3046,6 @@ function sendSignal(type, data) {
         ref.set({
             type: 'offer',
             sender: currentUser,
-            recipient: targetUser,
             sdp: JSON.parse(JSON.stringify(data)),
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
@@ -3098,15 +3055,13 @@ function sendSignal(type, data) {
         db.ref(incomingPath).set({
             type: 'answer',
             sender: currentUser,
-            recipient: targetUser,
             sdp: JSON.parse(JSON.stringify(data)),
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
     } else if (type === 'candidate') {
         db.ref(candidatePath).push({
             candidate: JSON.parse(JSON.stringify(data)),
-            sender: currentUser,
-            recipient: targetUser
+            sender: currentUser
         });
     } else if (type === 'end') {
         // Remove all signal nodes for this call type
@@ -3334,7 +3289,7 @@ function sendMissedCallMessage(isVideo) {
 
     const table = getMessageTable(currentUser);
     const newMsgRef = db.ref(`messages/${table}`).push();
-    const recipient = currentChatPartner;
+    const recipient = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
     
     newMsgRef.set({
         id: newMsgRef.key,
@@ -3737,7 +3692,7 @@ function sendAudioMessage(base64Audio) {
 
     const table = getMessageTable(currentUser);
     const newMsgRef = db.ref(`messages/${table}`).push();
-    const recipient = currentChatPartner;
+    const recipient = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
     newMsgRef.set({
         id: newMsgRef.key,
         sender: currentUser,
@@ -3985,7 +3940,7 @@ sendImageBtn.addEventListener('click', () => {
 
         const table = getMessageTable(currentUser);
         const newMsgRef = db.ref(`messages/${table}`).push();
-        const recipient = currentChatPartner;
+        const recipient = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
         
         const msgData = {
             id: newMsgRef.key,
@@ -4324,21 +4279,9 @@ confirmLogout.addEventListener('click', () => {
     // Update status one last time before clearing
     if (currentUser && db) {
         const userRole = currentUser === ALPHA_ADMIN ? 'Alpha' : 'Beta';
-        db.ref(`status/${userRole} Online`).set(false);
-        db.ref(`status/${userRole} Last Seen`).set(firebase.database.ServerValue.TIMESTAMP);
-        let statusKey = currentUser;
-        if (currentUser === ALPHA_ADMIN) statusKey = 'Alpha';
-        else if (currentUser === BETA_ADMIN) statusKey = 'Beta';
-        
-        db.ref(`status/${statusKey} Online`).set(false);
-        db.ref(`status/${statusKey} Last Seen`).set(firebase.database.ServerValue.TIMESTAMP);
-
-        // Detach all listeners to prevent data leaking to next user
-        const otherUser = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
         db.ref('messages').off();
         db.ref('pinned_message').off();
         db.ref('status').off();
-        db.ref(`typing/${otherUser}`).off();
         
         if (currentUser === ALPHA_ADMIN) {
             db.ref('typing').off();
@@ -4625,198 +4568,4 @@ window.addEventListener('popstate', () => {
             });
         }
     });
-})();
-
-// --- Friend System Logic ---
-(function setupFriendSystem() {
-    // 1. Create Modals
-    const createModal = (id, title) => {
-        if (document.getElementById(id)) return document.getElementById(id);
-        const modal = document.createElement('div');
-        modal.id = id;
-        modal.className = 'modal-overlay';
-        modal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10001; align-items: center; justify-content: center; backdrop-filter: blur(5px);';
-        modal.innerHTML = `
-            <div class="modal-box" style="background: #2d3436; padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; color: white; display: flex; flex-direction: column; gap: 15px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-height: 80vh; overflow-y: auto;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h3 style="margin:0;">${title}</h3>
-                    <button class="close-modal-btn" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer;">✖</button>
-                </div>
-                <div class="modal-content" style="display:flex; flex-direction:column; gap:10px;"></div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        modal.querySelector('.close-modal-btn').onclick = () => {
-            modal.style.display = 'none';
-            if (mainContent) mainContent.classList.remove('blur-content');
-        };
-        return modal;
-    };
-
-    createModal('add-friend-modal', 'Add Friend');
-    createModal('friends-list-modal', 'My Friends');
-    createModal('pending-req-modal', 'Pending Requests');
-
-    // 2. Add Menu Items
-    const menu = document.getElementById('menuOptions');
-    if (menu) {
-        const createMenuBtn = (id, text, onClick) => {
-            const btn = document.createElement('button');
-            btn.id = id;
-            btn.innerHTML = text;
-            btn.style.cssText = "display: none; width: 100%; padding: 12px 15px; text-align: left; background: none; border: none; color: white; cursor: pointer; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.1);";
-            btn.onmouseover = () => btn.style.background = 'rgba(255,255,255,0.1)';
-            btn.onmouseout = () => btn.style.background = 'none';
-            btn.onclick = () => {
-                menu.style.display = 'none';
-                document.getElementById('menuIconBtn').classList.remove('rotate');
-                onClick();
-            };
-            return btn;
-        };
-
-        const addFriendBtn = createMenuBtn('menuAddFriendBtn', '➕ Add Friends', openAddFriendModal);
-        const friendsBtn = createMenuBtn('menuFriendsBtn', '👥 Friends', openFriendsListModal);
-        const pendingBtn = createMenuBtn('menuPendingBtn', '🔔 Pending Requests', openPendingReqModal);
-        const backToBetaBtn = createMenuBtn('menuBackToBetaBtn', '🔙 Back to Beta', () => {
-            if (currentChatPartner === BETA_ADMIN) {
-                alert("Already in Beta user...");
-            } else {
-                currentChatPartner = BETA_ADMIN;
-                const logo = document.querySelector('.logo');
-                if(logo) logo.innerText = "💎_Beta_💎";
-                filterAndRenderChat();
-                showToast("Back to Beta Chat");
-            }
-        });
-
-        // Insert at top
-        menu.insertBefore(backToBetaBtn, menu.firstChild);
-        menu.insertBefore(pendingBtn, menu.firstChild);
-        menu.insertBefore(friendsBtn, menu.firstChild);
-        menu.insertBefore(addFriendBtn, menu.firstChild);
-    }
-
-    // 3. Logic Functions
-    document.getElementById('menuIconBtn').addEventListener('click', () => {
-        const isAlpha = (currentUser === ALPHA_ADMIN);
-        const addBtn = document.getElementById('menuAddFriendBtn');
-        const frBtn = document.getElementById('menuFriendsBtn');
-        const pendBtn = document.getElementById('menuPendingBtn');
-        const backBtn = document.getElementById('menuBackToBetaBtn');
-        
-        if (addBtn) addBtn.style.display = isAlpha ? 'block' : 'none';
-        if (frBtn) frBtn.style.display = isAlpha ? 'block' : 'none';
-        if (pendBtn) pendBtn.style.display = !isAlpha ? 'block' : 'none';
-        if (backBtn) backBtn.style.display = isAlpha ? 'block' : 'none';
-    });
-
-    function openAddFriendModal() {
-        const modal = document.getElementById('add-friend-modal');
-        const content = modal.querySelector('.modal-content');
-        content.innerHTML = `
-            <div style="display:flex; gap:10px;">
-                <input type="text" id="friendSearchInput" placeholder="Enter Unique ID" style="flex:1; padding:10px; border-radius:5px; border:none; background:rgba(0,0,0,0.2); color:white;">
-                <button id="friendSearchBtn" style="padding:10px; border-radius:5px; border:none; background:#0984e3; color:white; cursor:pointer;">Search</button>
-            </div>
-            <div id="friendSearchResult" style="margin-top:15px;"></div>
-        `;
-        
-        document.getElementById('friendSearchBtn').onclick = () => {
-            const code = document.getElementById('friendSearchInput').value.trim().toUpperCase();
-            if(!code) return;
-            const resDiv = document.getElementById('friendSearchResult');
-            resDiv.innerHTML = 'Searching...';
-            
-            db.ref('Other User Table').orderByChild('uniqueCode').equalTo(code).once('value').then(snap => {
-                if(snap.exists()) {
-                    const uid = Object.keys(snap.val())[0];
-                    const user = snap.val()[uid];
-                    if (uid === currentUser) { resDiv.innerHTML = '<p style="color:orange;">That is you!</p>'; return; }
-
-                    resDiv.innerHTML = `
-                        <div style="display:flex; align-items:center; gap:15px; background:rgba(255,255,255,0.1); padding:10px; border-radius:10px;">
-                            <img src="${user.profilePic || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;">
-                            <div style="flex:1;">
-                                <div style="font-weight:bold;">${user.name}</div>
-                            </div>
-                            <button id="sendReqBtn" style="padding:8px 12px; border-radius:5px; border:none; background:#00b894; color:white; cursor:pointer;">Add Friend</button>
-                        </div>
-                    `;
-                    document.getElementById('sendReqBtn').onclick = () => {
-                        db.ref(`friend_requests/${uid}/${currentUser}`).set({ sender: currentUser, timestamp: firebase.database.ServerValue.TIMESTAMP })
-                            .then(() => resDiv.innerHTML = '<p style="color:#00b894;">Friend Request Sent!</p>');
-                    };
-                } else { resDiv.innerHTML = '<p style="color:#ff7675;">User not found.</p>'; }
-            });
-        };
-        modal.style.display = 'flex';
-        if (mainContent) mainContent.classList.add('blur-content');
-    }
-
-    function openPendingReqModal() {
-        const modal = document.getElementById('pending-req-modal');
-        const content = modal.querySelector('.modal-content');
-        content.innerHTML = 'Loading...';
-        
-        db.ref(`friend_requests/${currentUser}`).once('value').then(snap => {
-            content.innerHTML = '';
-            if(!snap.exists()) { content.innerHTML = '<p style="text-align:center; opacity:0.7;">No pending requests.</p>'; return; }
-            
-            snap.forEach(child => {
-                const req = child.val();
-                const senderId = req.sender;
-                const senderRole = (senderId === ALPHA_ADMIN) ? 'Alpha' : 'Beta';
-                db.ref(`Profile Pic/${senderRole}_Profile_Pic`).once('value').then(picSnap => {
-                    const pic = picSnap.val() || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
-                    const name = (senderId === ALPHA_ADMIN) ? '💎_Alpha_💎' : senderId;
-                    const item = document.createElement('div');
-                    item.style.cssText = 'display:flex; align-items:center; gap:15px; background:rgba(255,255,255,0.1); padding:10px; border-radius:10px; margin-bottom:10px;';
-                    item.innerHTML = `<img src="${pic}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;"><div style="flex:1;"><div style="font-weight:bold;">${name}</div></div><button class="confirm-req-btn" style="padding:8px 12px; border-radius:5px; border:none; background:#0984e3; color:white; cursor:pointer;">Confirm</button>`;
-                    item.querySelector('.confirm-req-btn').onclick = () => {
-                        db.ref(`friends/${senderId}/${currentUser}`).set({ since: firebase.database.ServerValue.TIMESTAMP });
-                        db.ref(`friend_requests/${currentUser}/${senderId}`).remove();
-                        item.innerHTML = '<p style="color:#00b894; width:100%; text-align:center;">Request Accepted!</p>';
-                        setTimeout(() => item.remove(), 2000);
-                    };
-                    content.appendChild(item);
-                });
-            });
-        });
-        modal.style.display = 'flex';
-        if (mainContent) mainContent.classList.add('blur-content');
-    }
-
-    function openFriendsListModal() {
-        const modal = document.getElementById('friends-list-modal');
-        const content = modal.querySelector('.modal-content');
-        content.innerHTML = 'Loading...';
-        db.ref(`friends/${currentUser}`).once('value').then(snap => {
-            content.innerHTML = '';
-            if(!snap.exists()) { content.innerHTML = '<p style="text-align:center; opacity:0.7;">No friends yet.</p>'; return; }
-            snap.forEach(child => {
-                const friendId = child.key;
-                db.ref(`Other User Table/${friendId}`).once('value').then(userSnap => {
-                    let name = friendId, pic = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
-                    if(userSnap.exists()) { const u = userSnap.val(); name = u.name; if (u.profilePic) pic = u.profilePic; }
-                    const item = document.createElement('div');
-                    item.style.cssText = 'display:flex; align-items:center; gap:15px; background:rgba(255,255,255,0.1); padding:10px; border-radius:10px; margin-bottom:10px;';
-                    item.innerHTML = `<img src="${pic}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;"><div style="flex:1;"><div style="font-weight:bold;">${name}</div></div><button class="start-chat-btn" style="padding:8px 12px; border-radius:5px; border:none; background:#6c5ce7; color:white; cursor:pointer;">Start Chatting</button>`;
-                    item.querySelector('.start-chat-btn').onclick = () => {
-                        modal.style.display = 'none';
-                        if (mainContent) mainContent.classList.remove('blur-content');
-                        
-                        currentChatPartner = friendId;
-                        const logo = document.querySelector('.logo');
-                        if(logo) logo.innerText = name;
-                        filterAndRenderChat();
-                        showToast(`Chatting with ${name}`);
-                    };
-                    content.appendChild(item);
-                });
-            });
-        });
-        modal.style.display = 'flex';
-        if (mainContent) mainContent.classList.add('blur-content');
-    }
 })();
