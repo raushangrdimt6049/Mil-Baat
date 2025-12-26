@@ -705,6 +705,8 @@ let pipStartX = 0;
 let peerConnection = null;
 let incomingSignalData = null;
 let currentChatHistory = [];
+let allMessagesRaw = [];
+let currentChatPartner = null;
 let candidateQueue = [];
 let amICaller = false;
 let ringingTimeout = null;
@@ -712,6 +714,7 @@ let isCallConnected = false;
 let toastTimeout = null;
 let selectedMsgIds = new Set();
 let isSelectionMode = false;
+let blockedUsersSet = new Set();
 
 // --- Set Custom Background ---
 body.style.background = "none";
@@ -1567,26 +1570,43 @@ function getUserRole(username) {
     return username === ALPHA_ADMIN ? 'Alpha' : 'Beta';
 }
 
+function filterAndRenderChat() {
+    if (!allMessagesRaw) return;
+    
+    let history = allMessagesRaw.filter(msg => msg && typeof msg === 'object' && msg.timestamp);
+    
+    if (currentUser && currentChatPartner) {
+        history = history.filter(msg => {
+            // Don't show messages I have received from a user I have blocked
+            if (msg.recipient === currentUser && blockedUsersSet.has(msg.sender)) {
+                return false;
+            }
+            const p1 = msg.sender === currentUser && msg.recipient === currentChatPartner;
+            const p2 = msg.sender === currentChatPartner && msg.recipient === currentUser;
+            return p1 || p2;
+        });
+    }
+    
+    history.sort((a, b) => {
+        return (a.rawDate || "") < (b.rawDate || "") ? -1 : 1;
+    });
+    currentChatHistory = history;
+    renderChat(history);
+}
+
 // --- Chat History Logic ---
 function setupFirebaseListeners() {
     // 1. Chat Messages Listener
     db.ref('messages').on('value', snapshot => {
         try {
             const data = snapshot.val();
-            let history = [];
+            let raw = [];
             if (data) {
-                if (data.alpha && typeof data.alpha === 'object') history = history.concat(Object.values(data.alpha));
-                if (data.beta && typeof data.beta === 'object') history = history.concat(Object.values(data.beta));
+                if (data.alpha && typeof data.alpha === 'object') raw = raw.concat(Object.values(data.alpha));
+                if (data.beta && typeof data.beta === 'object') raw = raw.concat(Object.values(data.beta));
             }
-            // Filter out any invalid entries
-            history = history.filter(msg => msg && typeof msg === 'object' && msg.timestamp);
-            
-            // Sort messages by date to ensure correct order
-            history.sort((a, b) => {
-                return (a.rawDate || "") < (b.rawDate || "") ? -1 : 1;
-            });
-            currentChatHistory = history;
-            renderChat(history);
+            allMessagesRaw = raw;
+            filterAndRenderChat();
         } catch (e) {
             console.error("Error processing chat data:", e);
         }
@@ -1611,6 +1631,9 @@ function setupFirebaseListeners() {
                 const isVideo = (cType === 'Video');
                 let shouldEnd = false;
 
+                // Filter by recipient if data exists
+                if (data && data.recipient && data.recipient !== currentUser) return;
+
                 // 1. I am the Caller (or active participant)
                 if (callStream && isVideoCall === isVideo) {
                     shouldEnd = true;
@@ -1631,6 +1654,7 @@ function setupFirebaseListeners() {
 
             // Handle Offer (Incoming Call)
             if (data.type === 'offer' && data.sender !== currentUser) {
+                if (data.recipient && data.recipient !== currentUser) return;
                 handleIncomingSignal({
                     type: 'offer',
                     sender: data.sender,
@@ -1640,6 +1664,7 @@ function setupFirebaseListeners() {
             }
             // Handle Answer (Call Accepted)
             else if (data.type === 'answer' && data.sender !== currentUser) {
+                if (data.recipient && data.recipient !== currentUser) return;
                 handleIncomingSignal({
                     type: 'answer',
                     sender: data.sender,
@@ -1654,6 +1679,7 @@ function setupFirebaseListeners() {
     db.ref(`signals/${myRole}_candidates`).on('child_added', snapshot => {
         const val = snapshot.val();
         if (val && val.sender !== currentUser) {
+            if (val.recipient && val.recipient !== currentUser) return;
             handleIncomingSignal({
                 type: 'candidate',
                 sender: val.sender,
@@ -1752,6 +1778,30 @@ function setupFirebaseListeners() {
             localStorage.setItem('appFont', font);
         }
     });
+
+    // 8. Blocked Users Listener
+    db.ref(`blocked_users/${currentUser}`).on('value', snapshot => {
+        blockedUsersSet.clear();
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                blockedUsersSet.add(child.key);
+            });
+        }
+        // Re-render chat in case a currently viewed user was blocked/unblocked
+        filterAndRenderChat();
+    });
+
+    // 9. Friend Request Listener (for notification badge)
+    if (currentUser !== ALPHA_ADMIN) {
+        db.ref(`friend_requests/${currentUser}`).on('value', snapshot => {
+            const badge = document.getElementById('pending-req-badge');
+            if (badge) {
+                const count = snapshot.numChildren();
+                badge.innerText = count;
+                badge.style.display = count > 0 ? 'inline-block' : 'none';
+            }
+        });
+    }
 }
 
 function renderChat(history) {
@@ -2025,6 +2075,9 @@ acceptBtn.addEventListener('click', async (e) => {
         body.classList.remove('user-alpha', 'user-beta');
         if (isAlpha) body.classList.add('user-alpha');
         if (isBeta) body.classList.add('user-beta');
+        
+        if (isAlpha) currentChatPartner = BETA_ADMIN;
+        else currentChatPartner = ALPHA_ADMIN;
         
         // Store custom data for session if needed
         if (customData) {
@@ -2651,7 +2704,7 @@ sendMsgBtn.addEventListener('click', () => {
 
         const table = getMessageTable(currentUser);
         const newMsgRef = db.ref(`messages/${table}`).push();
-        const recipient = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
+        const recipient = currentChatPartner;
         const newMsg = {
             id: newMsgRef.key,
             sender: currentUser,
@@ -3032,7 +3085,7 @@ function createPeerConnection(isInitiator) {
 
 function sendSignal(type, data) {
     const myRole = getUserRole(currentUser);
-    const targetUser = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
+    const targetUser = currentChatPartner;
     const targetRole = getUserRole(targetUser);
     const callType = isVideoCall ? 'Video' : 'Audio';
     
@@ -3046,6 +3099,7 @@ function sendSignal(type, data) {
         ref.set({
             type: 'offer',
             sender: currentUser,
+            recipient: targetUser,
             sdp: JSON.parse(JSON.stringify(data)),
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
@@ -3055,13 +3109,15 @@ function sendSignal(type, data) {
         db.ref(incomingPath).set({
             type: 'answer',
             sender: currentUser,
+            recipient: targetUser,
             sdp: JSON.parse(JSON.stringify(data)),
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
     } else if (type === 'candidate') {
         db.ref(candidatePath).push({
             candidate: JSON.parse(JSON.stringify(data)),
-            sender: currentUser
+            sender: currentUser,
+            recipient: targetUser
         });
     } else if (type === 'end') {
         // Remove all signal nodes for this call type
@@ -3073,6 +3129,12 @@ function sendSignal(type, data) {
 }
 
 function handleIncomingSignal(signal) {
+    // At the very top, ignore signals from blocked users.
+    if (blockedUsersSet.has(signal.sender)) {
+        console.log(`Ignoring signal from blocked user: ${signal.sender}`);
+        return;
+    }
+
     // 1. Offer (Incoming Call)
     if (signal.type === 'offer') {
         incomingSignalData = signal;
@@ -3289,7 +3351,7 @@ function sendMissedCallMessage(isVideo) {
 
     const table = getMessageTable(currentUser);
     const newMsgRef = db.ref(`messages/${table}`).push();
-    const recipient = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
+    const recipient = currentChatPartner;
     
     newMsgRef.set({
         id: newMsgRef.key,
@@ -3692,7 +3754,7 @@ function sendAudioMessage(base64Audio) {
 
     const table = getMessageTable(currentUser);
     const newMsgRef = db.ref(`messages/${table}`).push();
-    const recipient = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
+    const recipient = currentChatPartner;
     newMsgRef.set({
         id: newMsgRef.key,
         sender: currentUser,
@@ -3940,7 +4002,7 @@ sendImageBtn.addEventListener('click', () => {
 
         const table = getMessageTable(currentUser);
         const newMsgRef = db.ref(`messages/${table}`).push();
-        const recipient = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
+        const recipient = currentChatPartner;
         
         const msgData = {
             id: newMsgRef.key,
@@ -4283,6 +4345,12 @@ confirmLogout.addEventListener('click', () => {
         db.ref('pinned_message').off();
         db.ref('status').off();
         
+        // Detach friend/block listeners
+        db.ref(`blocked_users/${currentUser}`).off();
+        if (currentUser !== ALPHA_ADMIN) {
+            db.ref(`friend_requests/${currentUser}`).off();
+        }
+
         if (currentUser === ALPHA_ADMIN) {
             db.ref('typing').off();
         } else {
@@ -4568,4 +4636,232 @@ window.addEventListener('popstate', () => {
             });
         }
     });
+})();
+
+// --- Friend System Logic ---
+(function setupFriendSystem() {
+    // 1. Create Modals
+    const createModal = (id, title) => {
+        if (document.getElementById(id)) return document.getElementById(id);
+        const modal = document.createElement('div');
+        modal.id = id;
+        modal.className = 'modal-overlay';
+        modal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10001; align-items: center; justify-content: center; backdrop-filter: blur(5px);';
+        modal.innerHTML = `
+            <div class="modal-box" style="background: #2d3436; padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; color: white; display: flex; flex-direction: column; gap: 15px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-height: 80vh; overflow-y: auto;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3 style="margin:0;">${title}</h3>
+                    <button class="close-modal-btn" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer;">✖</button>
+                </div>
+                <div class="modal-content" style="display:flex; flex-direction:column; gap:10px;"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.querySelector('.close-modal-btn').onclick = () => {
+            modal.style.display = 'none';
+            if (mainContent) mainContent.classList.remove('blur-content');
+        };
+        return modal;
+    };
+
+    createModal('add-friend-modal', 'Add Friend');
+    createModal('friends-list-modal', 'My Friends');
+    createModal('pending-req-modal', 'Pending Requests');
+
+    // 2. Add Menu Items
+    const menu = document.getElementById('menuOptions');
+    if (menu) {
+        const createMenuBtn = (id, text, onClick) => {
+            const btn = document.createElement('button');
+            btn.id = id;
+            btn.innerHTML = text;
+            btn.style.cssText = "display: none; width: 100%; padding: 12px 15px; text-align: left; background: none; border: none; color: white; cursor: pointer; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.1);";
+            btn.onmouseover = () => btn.style.background = 'rgba(255,255,255,0.1)';
+            btn.onmouseout = () => btn.style.background = 'none';
+            btn.onclick = () => {
+                menu.style.display = 'none';
+                document.getElementById('menuIconBtn').classList.remove('rotate');
+                onClick();
+            };
+            return btn;
+        };
+
+        const addFriendBtn = createMenuBtn('menuAddFriendBtn', '➕ Add Friends', openAddFriendModal);
+        const friendsBtn = createMenuBtn('menuFriendsBtn', '👥 Friends', openFriendsListModal);
+        const pendingBtn = createMenuBtn('menuPendingBtn', `🔔 Pending Requests <span id="pending-req-badge" style="background-color: #ff4757; color: white; border-radius: 10px; padding: 2px 6px; font-size: 12px; font-weight: bold; display: none; margin-left: 8px;"></span>`, openPendingReqModal);
+        const backToBetaBtn = createMenuBtn('menuBackToBetaBtn', '🔙 Back to Beta', () => {
+            if (currentChatPartner === BETA_ADMIN) {
+                alert("Already in Beta user...");
+            } else {
+                currentChatPartner = BETA_ADMIN;
+                const logo = document.querySelector('.logo');
+                if(logo) logo.innerText = "💎_Beta_💎";
+                filterAndRenderChat();
+                showToast("Back to Beta Chat");
+            }
+        });
+
+        // Insert at top
+        menu.insertBefore(backToBetaBtn, menu.firstChild);
+        menu.insertBefore(pendingBtn, menu.firstChild);
+        menu.insertBefore(friendsBtn, menu.firstChild);
+        menu.insertBefore(addFriendBtn, menu.firstChild);
+    }
+
+    // 3. Logic Functions
+    document.getElementById('menuIconBtn').addEventListener('click', () => {
+        const isAlpha = (currentUser === ALPHA_ADMIN);
+        const addBtn = document.getElementById('menuAddFriendBtn');
+        const frBtn = document.getElementById('menuFriendsBtn');
+        const pendBtn = document.getElementById('menuPendingBtn');
+        const backBtn = document.getElementById('menuBackToBetaBtn');
+        
+        if (addBtn) addBtn.style.display = isAlpha ? 'block' : 'none';
+        if (frBtn) frBtn.style.display = isAlpha ? 'block' : 'none';
+        if (pendBtn) pendBtn.style.display = !isAlpha ? 'flex' : 'none';
+        if (backBtn) backBtn.style.display = isAlpha ? 'block' : 'none';
+    });
+
+    function openAddFriendModal() {
+        const modal = document.getElementById('add-friend-modal');
+        const content = modal.querySelector('.modal-content');
+        content.innerHTML = `
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="friendSearchInput" placeholder="Enter Unique ID" style="flex:1; padding:10px; border-radius:5px; border:none; background:rgba(0,0,0,0.2); color:white;">
+                <button id="friendSearchBtn" style="padding:10px; border-radius:5px; border:none; background:#0984e3; color:white; cursor:pointer;">Search</button>
+            </div>
+            <div id="friendSearchResult" style="margin-top:15px;"></div>
+        `;
+        
+        document.getElementById('friendSearchBtn').onclick = () => {
+            const code = document.getElementById('friendSearchInput').value.trim().toUpperCase();
+            if(!code) return;
+            const resDiv = document.getElementById('friendSearchResult');
+            resDiv.innerHTML = 'Searching...';
+            
+            db.ref('Other User Table').orderByChild('uniqueCode').equalTo(code).once('value').then(snap => {
+                if(snap.exists()) {
+                    const uid = Object.keys(snap.val())[0];
+                    const user = snap.val()[uid];
+                    if (uid === currentUser) { resDiv.innerHTML = '<p style="color:orange;">That is you!</p>'; return; }
+
+                    resDiv.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:15px; background:rgba(255,255,255,0.1); padding:10px; border-radius:10px;">
+                            <img src="${user.profilePic || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;">
+                            <div style="flex:1;">
+                                <div style="font-weight:bold;">${user.name}</div>
+                            </div>
+                            <button id="sendReqBtn" style="padding:8px 12px; border-radius:5px; border:none; background:#00b894; color:white; cursor:pointer;">Add Friend</button>
+                        </div>
+                    `;
+                    document.getElementById('sendReqBtn').onclick = () => {
+                        db.ref(`friend_requests/${uid}/${currentUser}`).set({ sender: currentUser, timestamp: firebase.database.ServerValue.TIMESTAMP })
+                            .then(() => resDiv.innerHTML = '<p style="color:#00b894;">Friend Request Sent!</p>');
+                    };
+                } else { resDiv.innerHTML = '<p style="color:#ff7675;">User not found.</p>'; }
+            });
+        };
+        modal.style.display = 'flex';
+        if (mainContent) mainContent.classList.add('blur-content');
+    }
+
+    function openPendingReqModal() {
+        const modal = document.getElementById('pending-req-modal');
+        const content = modal.querySelector('.modal-content');
+        content.innerHTML = 'Loading...';
+        
+        db.ref(`friend_requests/${currentUser}`).once('value').then(snap => {
+            content.innerHTML = '';
+            if(!snap.exists()) { content.innerHTML = '<p style="text-align:center; opacity:0.7;">No pending requests.</p>'; return; }
+            
+            snap.forEach(child => {
+                const req = child.val();
+                const senderId = req.sender;
+                const senderRole = (senderId === ALPHA_ADMIN) ? 'Alpha' : 'Beta';
+                db.ref(`Profile Pic/${senderRole}_Profile_Pic`).once('value').then(picSnap => {
+                    const pic = picSnap.val() || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+                    const name = (senderId === ALPHA_ADMIN) ? '💎_Alpha_💎' : senderId;
+                    const item = document.createElement('div');
+                    item.style.cssText = 'display:flex; align-items:center; gap:15px; background:rgba(255,255,255,0.1); padding:10px; border-radius:10px; margin-bottom:10px;';
+                    item.innerHTML = `<img src="${pic}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;"><div style="flex:1;"><div style="font-weight:bold;">${name}</div></div><button class="confirm-req-btn" style="padding:8px 12px; border-radius:5px; border:none; background:#0984e3; color:white; cursor:pointer;">Confirm</button>`;
+                    item.querySelector('.confirm-req-btn').onclick = () => {
+                        db.ref(`friends/${senderId}/${currentUser}`).set({ since: firebase.database.ServerValue.TIMESTAMP });
+                        db.ref(`friend_requests/${currentUser}/${senderId}`).remove();
+                        item.innerHTML = '<p style="color:#00b894; width:100%; text-align:center;">Request Accepted!</p>';
+                        setTimeout(() => item.remove(), 2000);
+                    };
+                    content.appendChild(item);
+                });
+            });
+        });
+        modal.style.display = 'flex';
+        if (mainContent) mainContent.classList.add('blur-content');
+    }
+
+    function openFriendsListModal() {
+        const modal = document.getElementById('friends-list-modal');
+        const content = modal.querySelector('.modal-content');
+        content.innerHTML = 'Loading...';
+        db.ref(`friends/${currentUser}`).once('value').then(snap => {
+            content.innerHTML = '';
+            if(!snap.exists()) { content.innerHTML = '<p style="text-align:center; opacity:0.7;">No friends yet.</p>'; return; }
+            snap.forEach(child => {
+                const friendId = child.key;
+                db.ref(`Other User Table/${friendId}`).once('value').then(userSnap => {
+                    let name = friendId, pic = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+                    if(userSnap.exists()) { const u = userSnap.val(); name = u.name; if (u.profilePic) pic = u.profilePic; }
+                    const item = document.createElement('div');
+                    item.style.cssText = 'display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.1); padding:10px; border-radius:10px; margin-bottom:10px;';
+                    
+                    const isBlocked = blockedUsersSet.has(friendId);
+
+                    item.innerHTML = `
+                        <img src="${pic}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;">
+                        <div style="flex:1;"><div style="font-weight:bold;">${name}</div></div>
+                        <button class="start-chat-btn" style="padding:8px 12px; border-radius:5px; border:none; background:#6c5ce7; color:white; cursor:pointer;">Start Chatting</button>
+                        <button class="block-friend-btn" data-friend-id="${friendId}" style="padding:8px 12px; border-radius:5px; border:none; background:${isBlocked ? '#2ecc71' : '#ff4757'}; color:white; cursor:pointer;">
+                            ${isBlocked ? 'Unblock' : 'Block'}
+                        </button>
+                    `;
+
+                    item.querySelector('.block-friend-btn').onclick = (e) => {
+                        const currentlyBlocked = blockedUsersSet.has(friendId);
+                        if (currentlyBlocked) {
+                            db.ref(`blocked_users/${currentUser}/${friendId}`).remove().then(() => showToast(`${name} unblocked.`));
+                        } else {
+                            db.ref(`blocked_users/${currentUser}/${friendId}`).set(true).then(() => showToast(`${name} blocked.`));
+                        }
+                    };
+
+                    item.querySelector('.start-chat-btn').onclick = () => {
+                        modal.style.display = 'none';
+                        if (mainContent) mainContent.classList.remove('blur-content');
+                        
+                        currentChatPartner = friendId;
+                        const logo = document.querySelector('.logo');
+                        if(logo) logo.innerText = name;
+                        filterAndRenderChat();
+                        showToast(`Chatting with ${name}`);
+                    };
+                    content.appendChild(item);
+                });
+            });
+        });
+        modal.style.display = 'flex';
+        if (mainContent) mainContent.classList.add('blur-content');
+
+        // Add a listener to update block buttons if the modal is open
+        const blockListener = db.ref(`blocked_users/${currentUser}`).on('value', snap => {
+            const blocked = snap.val() || {};
+            const friendItems = content.querySelectorAll('.block-friend-btn');
+            friendItems.forEach(btn => {
+                const fId = btn.dataset.friendId;
+                const isBlocked = !!blocked[fId];
+                btn.innerText = isBlocked ? 'Unblock' : 'Block';
+                btn.style.background = isBlocked ? '#2ecc71' : '#ff4757';
+            });
+        });
+        // When modal closes, remove this specific listener
+        modal.querySelector('.close-modal-btn').addEventListener('click', () => db.ref(`blocked_users/${currentUser}`).off('value', blockListener), { once: true });
+    }
 })();
