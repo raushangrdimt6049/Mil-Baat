@@ -1664,7 +1664,6 @@ function setupFirebaseListeners() {
 
     // 4. Status Listener (Other User)
     const otherUser = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
-    const otherRole = currentUser === ALPHA_ADMIN ? 'Beta' : 'Alpha';
     
     let otherUserHeartbeat = 0;
     let otherUserLastSeen = null;
@@ -1672,8 +1671,25 @@ function setupFirebaseListeners() {
 
     db.ref('status').on('value', snapshot => {
         const data = snapshot.val() || {};
-        otherUserHeartbeat = data[`${otherRole} Heartbeat`] || 0;
-        otherUserLastSeen = data[`${otherRole} Last Seen`];
+        let targetUser = null;
+
+        if (currentUser === ALPHA_ADMIN) {
+            // If I am Alpha, find who is online (Beta or New User)
+            if (data[`${BETA_ADMIN} Online`]) {
+                targetUser = BETA_ADMIN;
+            } else {
+                const onlineKey = Object.keys(data).find(k => k.endsWith(' Online') && data[k] === true && !k.startsWith(ALPHA_ADMIN));
+                targetUser = onlineKey ? onlineKey.replace(' Online', '') : BETA_ADMIN;
+            }
+        } else {
+            // If I am Beta or New User, I watch Alpha
+            targetUser = ALPHA_ADMIN;
+        }
+
+        if (targetUser) {
+            otherUserHeartbeat = data[`${targetUser} Heartbeat`] || 0;
+            otherUserLastSeen = data[`${targetUser} Last Seen`];
+        }
     });
 
     if (statusCheckInterval) clearInterval(statusCheckInterval);
@@ -1914,10 +1930,10 @@ acceptBtn.style.opacity = '0.5';
 acceptBtn.style.cursor = 'not-allowed';
 
 function validateLoginState() {
-    const username = usernameInput.value;
-    const password = passwordInput.value;
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
     
-    if (users[username] && users[username] === password) {
+    if (username !== "" && password !== "") {
         acceptBtn.disabled = false;
         acceptBtn.style.opacity = '1';
         acceptBtn.style.cursor = 'pointer';
@@ -1930,16 +1946,7 @@ function validateLoginState() {
 
 // 1. Password Focus: Check Username Validity
 passwordInput.addEventListener('focus', () => {
-    const username = usernameInput.value;
-    // Check if username exists in the users object
-    if (!users[username]) {
-        usernameError.innerText = "Enter Correct User Name";
-        usernameError.style.display = 'block';
-        triggerShake(usernameInput);
-        passwordInput.blur(); // Remove focus to prevent typing
-    } else {
-        usernameError.style.display = 'none';
-    }
+    usernameError.style.display = 'none';
 });
 
 // 2. Input Listeners for Real-time Validation
@@ -1964,18 +1971,19 @@ function handleEnterKey(e) {
 usernameInput.addEventListener('keydown', handleEnterKey);
 passwordInput.addEventListener('keydown', handleEnterKey);
 
-acceptBtn.addEventListener('click', () => {
-    const username = usernameInput.value;
-    const password = passwordInput.value;
+acceptBtn.addEventListener('click', async (e) => {
+    if(e) e.preventDefault();
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
     let hasError = false;
 
     // Check empty fields
-    if (username.trim() === "") {
+    if (username === "") {
         usernameError.style.display = 'block';
         triggerShake(usernameInput);
         hasError = true;
     }
-    if (password.trim() === "") {
+    if (password === "") {
         passwordError.innerText = "Please Enter Password"; // Reset text
         passwordError.style.display = 'block';
         triggerShake(passwordInput);
@@ -1983,58 +1991,88 @@ acceptBtn.addEventListener('click', () => {
     }
     if (hasError) return;
 
-    if (users[username] && users[username] === password) {
-        currentUser = username;
-        profileUsernameDisplay.innerText = currentUser;
+    // Helper function for successful login
+    const performLogin = (user, displayName, isAlpha, isBeta, customData = null) => {
+        currentUser = user;
+        profileUsernameDisplay.innerText = displayName;
+        logoDisplay.innerText = displayName;
 
-        if (currentUser === ALPHA_ADMIN) {
-            profileUsernameDisplay.innerText = '💎_Alpha_💎';
-            logoDisplay.innerText = '💎_Alpha_💎';
-            body.classList.add('user-alpha');
-            body.classList.remove('user-beta');
-        } else if (currentUser === BETA_ADMIN) {
-            profileUsernameDisplay.innerText = '💎_Beta_💎';
-            logoDisplay.innerText = '💎_Beta_💎';
-            body.classList.add('user-beta');
-            body.classList.remove('user-alpha');
-        }
+        body.classList.remove('user-alpha', 'user-beta');
+        if (isAlpha) body.classList.add('user-alpha');
+        if (isBeta) body.classList.add('user-beta');
         
-        // Push state to history to trap back button
-        history.pushState({ loggedIn: true }, "", window.location.href);
+        // Store custom data for session if needed
+        if (customData) {
+            currentUserData = customData; // Global variable to hold extra data like uniqueCode
+        }
 
+        history.pushState({ loggedIn: true }, "", window.location.href);
         setupFirebaseListeners();
         startHeartbeat();
 
-        // 1. Fade out the overlay
         overlay.style.opacity = '0';
         overlay.style.visibility = 'hidden';
-
-        // 2. Enable scrolling on body
         body.style.overflow = 'auto';
-
-        // 3. Reveal the main content
         mainContent.style.display = 'flex';
         chatInputBar.style.display = 'flex';
 
-        // Small timeout to allow the display:block to render before changing opacity for transition
         setTimeout(() => {
             mainContent.style.opacity = '1';
             mainContent.style.transform = 'translateY(0)';
         }, 50);
+    };
+
+    // 1. Check Hardcoded Users
+    if (users[username] && users[username] === password) {
+        let displayName = username;
+        let isAlpha = false;
+        let isBeta = false;
+        if (currentUser === ALPHA_ADMIN) {
+            displayName = '💎_Alpha_💎';
+            isAlpha = true;
+        } else if (currentUser === BETA_ADMIN) {
+            displayName = '💎_Beta_💎';
+            isBeta = true;
+        }
+        performLogin(username, displayName, isAlpha, isBeta);
+        return;
+    } 
+    
+    // 2. Check Firebase "Other User Table"
+    if (db) {
+        try {
+            const snapshot = await db.ref('Other User Table/' + username).once('value');
+            if (snapshot.exists()) {
+                const userData = snapshot.val();
+                // Ensure password comparison is robust
+                if (userData && String(userData.password) === String(password)) {
+                    performLogin(username, userData.name, false, true, userData); // Treat as Beta role for chat compatibility
+                    return;
+                }
+            }
+        } catch (e) {
+            console.error("Login Error:", e);
+            alert("Login Error: " + e.message);
+            return;
+        }
     } else {
-        passwordError.innerText = "Incorrect Username or Password";
-        passwordError.style.display = 'block';
-        triggerShake(usernameInput);
-        triggerShake(passwordInput);
+        alert("Database not connected. Please refresh the page.");
+        return;
     }
+
+    passwordError.innerText = "Incorrect Username or Password";
+    passwordError.style.display = 'block';
+    triggerShake(usernameInput);
+    triggerShake(passwordInput);
 });
+
+let currentUserData = null; // To store extra data for new users
 
 // --- Online Status Logic ---
 function startHeartbeat() {
-    const userRole = currentUser === ALPHA_ADMIN ? 'Alpha' : 'Beta';
-    const onlineRef = db.ref(`status/${userRole} Online`);
-    const lastSeenRef = db.ref(`status/${userRole} Last Seen`);
-    const heartbeatRef = db.ref(`status/${userRole} Heartbeat`);
+    const onlineRef = db.ref(`status/${currentUser} Online`);
+    const lastSeenRef = db.ref(`status/${currentUser} Last Seen`);
+    const heartbeatRef = db.ref(`status/${currentUser} Heartbeat`);
 
     onlineRef.set(true);
     lastSeenRef.set("Active");
@@ -2443,6 +2481,20 @@ profileBtn.addEventListener('click', () => {
     closeProfileBtn.style.top = '15px';
     closeProfileBtn.style.right = '15px';
     closeProfileBtn.innerHTML = '❌';
+
+    // --- Unique Code Display ---
+    let uniqueCodeDisplay = document.getElementById('userUniqueCodeDisplay');
+    if (!uniqueCodeDisplay) {
+        uniqueCodeDisplay = document.createElement('div');
+        uniqueCodeDisplay.id = 'userUniqueCodeDisplay';
+        uniqueCodeDisplay.style.cssText = 'margin-top: 10px; font-size: 1rem; color: #00d2ff; font-weight: bold; letter-spacing: 1px;';
+        // Insert after profile image
+        if (profileImageDisplay && profileImageDisplay.parentNode) {
+            profileImageDisplay.parentNode.insertBefore(uniqueCodeDisplay, profileImageDisplay.nextSibling);
+        }
+    }
+    // Display code if available (for new users)
+    uniqueCodeDisplay.innerText = (currentUserData && currentUserData.uniqueCode) ? currentUserData.uniqueCode : '';
 
     // --- Fresh Button Logic (Change & Save) ---
     if (uploadTriggerBtn) {
@@ -4241,3 +4293,249 @@ window.addEventListener('popstate', () => {
         mainContent.classList.add('blur-content');
     }
 });
+
+// --- Create New User & Forgot Password Logic ---
+(function setupAuthUI() {
+    // 1. Inject Links below Password Input
+    const pwdInput = document.getElementById('passwordInput');
+    if (!pwdInput) return;
+    
+    // Find the wrapper created by setupPasswordToggle
+    const wrapper = pwdInput.closest('div') || pwdInput.parentNode;
+    
+    // Container for links
+    const linksContainer = document.createElement('div');
+    linksContainer.style.cssText = 'display: flex; justify-content: space-between; margin-top: 10px; margin-bottom: 15px; width: 100%; box-sizing: border-box; padding: 0 5px;';
+
+    // Forgot Password Link
+    const forgotLink = document.createElement('span');
+    forgotLink.id = 'forgotPassLink';
+    forgotLink.innerText = 'Forgot Password?';
+    forgotLink.style.cssText = 'color: #ff6b6b; cursor: pointer; font-size: 0.85rem; text-decoration: underline;';
+    
+    // Create User Link
+    const createLink = document.createElement('span');
+    createLink.id = 'createUserLink';
+    createLink.innerText = 'Create New User?';
+    createLink.style.cssText = 'color: #00d2ff; cursor: pointer; font-size: 0.85rem; text-decoration: underline;';
+
+    linksContainer.appendChild(forgotLink);
+    linksContainer.appendChild(createLink);
+
+    if (wrapper.parentNode) wrapper.parentNode.insertBefore(linksContainer, wrapper.nextSibling);
+
+    // 2. Create User Modal
+    const createModal = document.createElement('div');
+    createModal.id = 'create-user-modal';
+    createModal.className = 'modal-overlay';
+    // Fix: Increased z-index to 10001 to ensure it's on top of everything
+    createModal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10001; align-items: center; justify-content: center; backdrop-filter: blur(5px);';
+    
+    createModal.innerHTML = `
+        <div class="modal-box" style="background: #2d3436; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; color: white; display: flex; flex-direction: column; gap: 15px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <h2 style="text-align: center; margin: 0 0 10px 0;">Create New User</h2>
+            
+            <input type="text" id="newUsername" placeholder="Username (Login ID)" style="padding: 10px; border-radius: 5px; border: 1px solid #555; background: rgba(0,0,0,0.2); color: white;">
+            <input type="text" id="newName" placeholder="Display Name" style="padding: 10px; border-radius: 5px; border: 1px solid #555; background: rgba(0,0,0,0.2); color: white;">
+            <div style="position: relative; width: 100%;">
+                <input type="password" id="newPass" placeholder="Password" style="width: 100%; box-sizing: border-box; padding: 10px; padding-right: 40px; border-radius: 5px; border: 1px solid #555; background: rgba(0,0,0,0.2); color: white;">
+                <span id="toggleNewPass" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: rgba(255,255,255,0.7);">👁️</span>
+            </div>
+            <div style="position: relative; width: 100%;">
+                <input type="password" id="confirmPass" placeholder="Confirm Password" style="width: 100%; box-sizing: border-box; padding: 10px; padding-right: 40px; border-radius: 5px; border: 1px solid #555; background: rgba(0,0,0,0.2); color: white;">
+                <span id="toggleConfirmPass" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: rgba(255,255,255,0.7);">👁️</span>
+            </div>
+            <input type="text" id="passkeyInput" placeholder="Passkey" style="padding: 10px; border-radius: 5px; border: 1px solid #555; background: rgba(0,0,0,0.2); color: white;">
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                <button id="cancelCreateBtn" style="padding: 10px 20px; border: none; border-radius: 5px; background: #ff4757; color: white; cursor: pointer;">Cancel</button>
+                <button id="createAccountBtn" disabled style="padding: 10px 20px; border: none; border-radius: 5px; background: #555; color: rgba(255,255,255,0.5); cursor: not-allowed;">Create</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(createModal);
+
+    // 3. Forgot Password Modal
+    const forgotModal = document.createElement('div');
+    forgotModal.id = 'forgot-pass-modal';
+    forgotModal.className = 'modal-overlay';
+    forgotModal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10001; align-items: center; justify-content: center; backdrop-filter: blur(5px);';
+    
+    forgotModal.innerHTML = `
+        <div class="modal-box" style="background: #2d3436; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; color: white; display: flex; flex-direction: column; gap: 15px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <h2 style="text-align: center; margin: 0 0 10px 0;">Reset Password</h2>
+            
+            <input type="text" id="resetUsername" placeholder="Username" style="padding: 10px; border-radius: 5px; border: 1px solid #555; background: rgba(0,0,0,0.2); color: white;">
+            <input type="text" id="resetUniqueCode" placeholder="Unique Code (e.g. MILBAAT...)" style="padding: 10px; border-radius: 5px; border: 1px solid #555; background: rgba(0,0,0,0.2); color: white;">
+            <input type="text" id="resetPasskey" placeholder="Passkey" style="padding: 10px; border-radius: 5px; border: 1px solid #555; background: rgba(0,0,0,0.2); color: white;">
+            <div style="position: relative; width: 100%;">
+                <input type="password" id="resetNewPass" placeholder="New Password" style="width: 100%; box-sizing: border-box; padding: 10px; padding-right: 40px; border-radius: 5px; border: 1px solid #555; background: rgba(0,0,0,0.2); color: white;">
+                <span id="toggleResetNewPass" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: rgba(255,255,255,0.7);">👁️</span>
+            </div>
+            <div style="position: relative; width: 100%;">
+                <input type="password" id="resetConfirmPass" placeholder="Confirm New Password" style="width: 100%; box-sizing: border-box; padding: 10px; padding-right: 40px; border-radius: 5px; border: 1px solid #555; background: rgba(0,0,0,0.2); color: white;">
+                <span id="toggleResetConfirmPass" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: rgba(255,255,255,0.7);">👁️</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                <button id="cancelResetBtn" style="padding: 10px 20px; border: none; border-radius: 5px; background: #ff4757; color: white; cursor: pointer;">Cancel</button>
+                <button id="confirmResetBtn" disabled style="padding: 10px 20px; border: none; border-radius: 5px; background: #555; color: rgba(255,255,255,0.5); cursor: not-allowed;">Reset</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(forgotModal);
+
+    // --- Password Toggle Logic ---
+    const setupToggle = (inputId, toggleId) => {
+        const input = document.getElementById(inputId);
+        const toggle = document.getElementById(toggleId);
+        if (input && toggle) {
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+                input.setAttribute('type', type);
+                toggle.innerHTML = type === 'password' ? '👁️' : '🙈';
+            });
+        }
+    };
+    setupToggle('newPass', 'toggleNewPass');
+    setupToggle('confirmPass', 'toggleConfirmPass');
+    setupToggle('resetNewPass', 'toggleResetNewPass');
+    setupToggle('resetConfirmPass', 'toggleResetConfirmPass');
+
+    // --- Create User Logic ---
+    const createInputs = ['newUsername', 'newName', 'newPass', 'confirmPass', 'passkeyInput'].map(id => document.getElementById(id));
+    const [uUser, uName, uPass, uConf, uKey] = createInputs;
+    const createBtn = document.getElementById('createAccountBtn');
+    const cancelCreateBtn = document.getElementById('cancelCreateBtn');
+
+    createLink.addEventListener('click', () => {
+        createModal.style.display = 'flex';
+        createInputs.forEach(i => i.value = '');
+        validateCreate();
+    });
+
+    cancelCreateBtn.addEventListener('click', () => createModal.style.display = 'none');
+
+    function validateCreate() {
+        const isValid = uUser.value.trim() && uName.value.trim() && uPass.value && uConf.value && uKey.value === 'Raushan_Mil_Baat_143' && (uPass.value === uConf.value);
+        
+        if (isValid) {
+            createBtn.disabled = false;
+            createBtn.style.background = '#00d2ff';
+            createBtn.style.color = 'white';
+            createBtn.style.cursor = 'pointer';
+        } else {
+            createBtn.disabled = true;
+            createBtn.style.background = '#555';
+            createBtn.style.color = 'rgba(255,255,255,0.5)';
+            createBtn.style.cursor = 'not-allowed';
+        }
+    }
+
+    createInputs.forEach(i => i.addEventListener('input', validateCreate));
+
+    createBtn.addEventListener('click', () => {
+        if (createBtn.disabled) return;
+        
+        const username = uUser.value.trim();
+        // Validate username for invalid Firebase key characters
+        if (/[.$#[\]/]/.test(username)) {
+            alert("Username cannot contain '.', '$', '#', '[', ']', or '/'");
+            return;
+        }
+
+        const uniqueCode = "MILBAAT" + Math.floor(10000000 + Math.random() * 90000000);
+        const userData = {
+            username: username,
+            name: uName.value.trim(),
+            password: uPass.value,
+            uniqueCode: uniqueCode,
+            profilePic: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+        };
+
+        if (db) {
+            db.ref('Other User Table/' + userData.username).set(userData).then(() => {
+                alert("User Creation successfully");
+                createModal.style.display = 'none';
+                
+                // Auto Login
+                usernameInput.value = userData.username;
+                passwordInput.value = userData.password;
+                acceptBtn.click();
+            }).catch(e => {
+                console.error("Create User Error:", e);
+                // Show detailed error message
+                alert("Error creating user: " + e.message + "\n\n(If PERMISSION_DENIED, check Firebase Database Rules)");
+            });
+        } else {
+            alert("Database not connected. Please check your configuration.");
+        }
+    });
+
+    // --- Forgot Password Logic ---
+    const resetInputs = ['resetUsername', 'resetUniqueCode', 'resetPasskey', 'resetNewPass', 'resetConfirmPass'].map(id => document.getElementById(id));
+    const [rUser, rCode, rKey, rPass, rConf] = resetInputs;
+    const resetBtn = document.getElementById('confirmResetBtn');
+    const cancelResetBtn = document.getElementById('cancelResetBtn');
+
+    // Auto Uppercase for Unique Code
+    if (rCode) {
+        rCode.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+    }
+
+    forgotLink.addEventListener('click', () => {
+        forgotModal.style.display = 'flex';
+        resetInputs.forEach(i => i.value = '');
+        validateReset();
+    });
+
+    cancelResetBtn.addEventListener('click', () => forgotModal.style.display = 'none');
+
+    function validateReset() {
+        const isValid = rUser.value.trim() && rCode.value.trim() && rKey.value === 'Raushan_Mil_Baat_143' && rPass.value && (rPass.value === rConf.value);
+        
+        if (isValid) {
+            resetBtn.disabled = false;
+            resetBtn.style.background = '#00d2ff';
+            resetBtn.style.color = 'white';
+            resetBtn.style.cursor = 'pointer';
+        } else {
+            resetBtn.disabled = true;
+            resetBtn.style.background = '#555';
+            resetBtn.style.color = 'rgba(255,255,255,0.5)';
+            resetBtn.style.cursor = 'not-allowed';
+        }
+    }
+
+    resetInputs.forEach(i => i.addEventListener('input', validateReset));
+
+    resetBtn.addEventListener('click', () => {
+        if (resetBtn.disabled) return;
+
+        if (db) {
+            const username = rUser.value.trim();
+            db.ref('Other User Table/' + username).once('value').then(snapshot => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    if (data.uniqueCode === rCode.value.trim()) {
+                        // Update Password
+                        db.ref('Other User Table/' + username + '/password').set(rPass.value).then(() => {
+                            alert("Password Reset Successfully! Please Login.");
+                            forgotModal.style.display = 'none';
+                        });
+                    } else {
+                        alert("Invalid Unique Code for this user.");
+                    }
+                } else {
+                    alert("User not found.");
+                }
+            }).catch(e => {
+                console.error(e);
+                alert("Error resetting password.");
+            });
+        }
+    });
+})();
