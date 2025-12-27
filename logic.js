@@ -1696,32 +1696,11 @@ function setupFirebaseListeners() {
     db.ref('status').on('value', snapshot => {
         const data = snapshot.val() || {};
         let statusTargetKey = null; // e.g., 'Alpha', 'Beta', 'saurav'
-
-        if (currentUser === ALPHA_ADMIN) {
-            // For Alpha, prioritize Beta's status, then any other online user.
-            const now = Date.now() + serverTimeOffset;
-            const betaIsOnline = data['Beta Online'] === true && (now - (data['Beta Heartbeat'] || 0) < 2000);
-
-            if (betaIsOnline) {
-                statusTargetKey = 'Beta';
-            } else {
-                // Find the first available online user who is not Alpha.
-                const onlineUserKey = Object.keys(data).find(key => {
-                    if (!key.endsWith(' Online') || key === 'Alpha Online') return false;
-                    const userKey = key.replace(' Online', '');
-                    return data[key] === true && (now - (data[`${userKey} Heartbeat`] || 0) < 2000);
-                });
-
-                if (onlineUserKey) {
-                    statusTargetKey = onlineUserKey.replace(' Online', '');
-                } else {
-                    // If no one is online, default to showing Beta's last seen status.
-                    statusTargetKey = 'Beta';
-                }
-            }
-        } else {
-            // Beta and all other users always see Alpha's status.
-            statusTargetKey = 'Alpha';
+        
+        if (currentChatPartner) {
+            if (currentChatPartner === ALPHA_ADMIN) statusTargetKey = 'Alpha';
+            else if (currentChatPartner === BETA_ADMIN) statusTargetKey = 'Beta';
+            else statusTargetKey = currentChatPartner;
         }
 
         if (statusTargetKey) {
@@ -1746,20 +1725,14 @@ function setupFirebaseListeners() {
     }, 500);
 
     // 5. Typing Listener
-    if (currentUser === ALPHA_ADMIN) {
-        // Alpha watches all users for typing.
-        db.ref('typing').on('value', snapshot => {
-            const data = snapshot.val() || {};
-            // Check if any user (except me) is typing
-            const typingUser = Object.keys(data).find(key => key !== currentUser && data[key] === true);
-            isOtherUserTyping = !!typingUser;
-        });
-    } else {
-        // Non-admin users only watch the Admin for typing.
-        db.ref(`typing/${ALPHA_ADMIN}`).on('value', snapshot => {
-            isOtherUserTyping = snapshot.val() || false;
-        });
-    }
+    db.ref('typing').on('value', snapshot => {
+        const data = snapshot.val() || {};
+        if (currentChatPartner && data[currentChatPartner] === true) {
+            isOtherUserTyping = true;
+        } else {
+            isOtherUserTyping = false;
+        }
+    });
 
     // 6. Profile Picture Listener (Load saved photo)
     const userRole = getUserRole(currentUser);
