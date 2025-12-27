@@ -715,6 +715,7 @@ let toastTimeout = null;
 let selectedMsgIds = new Set();
 let isSelectionMode = false;
 let blockedUsersSet = new Set();
+let lastStatusKey = null;
 
 // --- Set Custom Background ---
 body.style.background = "none";
@@ -1695,21 +1696,21 @@ function setupFirebaseListeners() {
 
     db.ref('status').on('value', snapshot => {
         const data = snapshot.val() || {};
-        let statusTargetKey = null; // e.g., 'Alpha', 'Beta', 'saurav'
         
+        let myName = currentUser === ALPHA_ADMIN ? 'Alpha' : (currentUser === BETA_ADMIN ? 'Beta' : currentUser);
+        let partnerName = 'Alpha';
+
         if (currentChatPartner) {
-            if (currentChatPartner === ALPHA_ADMIN) statusTargetKey = 'Alpha';
-            else if (currentChatPartner === BETA_ADMIN) statusTargetKey = 'Beta';
-            else statusTargetKey = currentChatPartner;
+            if (currentChatPartner === ALPHA_ADMIN) partnerName = 'Alpha';
+            else if (currentChatPartner === BETA_ADMIN) partnerName = 'Beta';
+            else partnerName = currentChatPartner;
         }
 
-        if (statusTargetKey) {
-            otherUserHeartbeat = data[`${statusTargetKey} Heartbeat`] || 0;
-            otherUserLastSeen = data[`${statusTargetKey} Last Seen`];
-        } else {
-            otherUserHeartbeat = 0;
-            otherUserLastSeen = null;
-        }
+        // Check if Partner is online with Me (Partner_Me)
+        const targetKey = `${partnerName}_${myName}`;
+        
+        otherUserHeartbeat = data[`${targetKey} Heartbeat`] || 0;
+        otherUserLastSeen = data[`${targetKey} Last Seen`];
     });
 
     if (statusCheckInterval) clearInterval(statusCheckInterval);
@@ -2120,10 +2121,29 @@ let currentUserData = null; // To store extra data for new users
 
 // --- Online Status Logic ---
 function startHeartbeat() {
-    // Use username for status key, fallback to Alpha/Beta for admins
-    let statusKey = currentUser;
-    if (currentUser === ALPHA_ADMIN) statusKey = 'Alpha';
-    else if (currentUser === BETA_ADMIN) statusKey = 'Beta';
+    if (!currentUser || !db) return;
+
+    let myName = currentUser === ALPHA_ADMIN ? 'Alpha' : (currentUser === BETA_ADMIN ? 'Beta' : currentUser);
+    let partnerName = 'Alpha';
+    
+    if (currentChatPartner) {
+        if (currentChatPartner === ALPHA_ADMIN) partnerName = 'Alpha';
+        else if (currentChatPartner === BETA_ADMIN) partnerName = 'Beta';
+        else partnerName = currentChatPartner;
+    } else {
+        partnerName = (currentUser === ALPHA_ADMIN) ? 'Beta' : 'Alpha';
+    }
+
+    const statusKey = `${myName}_${partnerName}`;
+
+    if (lastStatusKey && lastStatusKey !== statusKey) {
+        db.ref(`status/${lastStatusKey} Online`).set(false);
+        db.ref(`status/${lastStatusKey} Last Seen`).set(firebase.database.ServerValue.TIMESTAMP);
+        db.ref(`status/${lastStatusKey} Online`).onDisconnect().cancel();
+        db.ref(`status/${lastStatusKey} Last Seen`).onDisconnect().cancel();
+        db.ref(`status/${lastStatusKey} Heartbeat`).onDisconnect().cancel();
+    }
+    lastStatusKey = statusKey;
 
     const onlineRef = db.ref(`status/${statusKey} Online`);
     const lastSeenRef = db.ref(`status/${statusKey} Last Seen`);
@@ -2138,7 +2158,7 @@ function startHeartbeat() {
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
         heartbeatRef.set(firebase.database.ServerValue.TIMESTAMP);
-    }, 500);
+    }, 1000);
 }
 
 function updateStatusUI(isOnline, lastSeen, isTyping) {
@@ -2293,6 +2313,36 @@ menuIconBtn.addEventListener('click', (e) => {
         menuOptions.style.display = 'none';
         menuIconBtn.classList.remove('rotate');
     } else {
+        // --- Menu Reordering & Visibility Logic ---
+        const isAlpha = (currentUser === ALPHA_ADMIN);
+        const isBeta = (currentUser === BETA_ADMIN);
+        
+        const order = [
+            'profileBtn', 'themeToggleBtn', 'menuBackToBetaBtn', 
+            'menuPendingBtn', 'menuAddFriendBtn', 'menuFriendsBtn', 
+            'clearChatBtn', 'changePassBtn', 'changeFontBtn', 'logoutBtn'
+        ];
+
+        order.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                // Determine Visibility
+                let isVisible = true;
+                if (id === 'menuBackToBetaBtn') {
+                    isVisible = (isAlpha && currentChatPartner !== BETA_ADMIN);
+                } else if (id === 'menuAddFriendBtn' || id === 'menuFriendsBtn') {
+                    isVisible = isAlpha;
+                } else if (id === 'menuPendingBtn') {
+                    isVisible = (!isAlpha && !isBeta);
+                }
+
+                el.style.display = isVisible ? (id === 'menuPendingBtn' ? 'flex' : 'block') : 'none';
+                
+                // Re-append to enforce order
+                menuOptions.appendChild(el);
+            }
+        });
+
         menuOptions.style.display = 'flex';
         menuIconBtn.classList.add('rotate');
         
@@ -4671,29 +4721,16 @@ window.addEventListener('popstate', () => {
                 if(logo) logo.innerText = "💎_Beta_💎";
                 filterAndRenderChat();
                 showToast("Back to Beta Chat");
+                startHeartbeat();
             }
         });
 
-        // Insert at top
-        menu.insertBefore(backToBetaBtn, menu.firstChild);
-        menu.insertBefore(pendingBtn, menu.firstChild);
-        menu.insertBefore(friendsBtn, menu.firstChild);
-        menu.insertBefore(addFriendBtn, menu.firstChild);
+        // Append to menu (Order is handled by menuIconBtn click handler)
+        menu.appendChild(backToBetaBtn);
+        menu.appendChild(pendingBtn);
+        menu.appendChild(friendsBtn);
+        menu.appendChild(addFriendBtn);
     }
-
-    // 3. Logic Functions
-    document.getElementById('menuIconBtn').addEventListener('click', () => {
-        const isAlpha = (currentUser === ALPHA_ADMIN);
-        const addBtn = document.getElementById('menuAddFriendBtn');
-        const frBtn = document.getElementById('menuFriendsBtn');
-        const pendBtn = document.getElementById('menuPendingBtn');
-        const backBtn = document.getElementById('menuBackToBetaBtn');
-        
-        if (addBtn) addBtn.style.display = isAlpha ? 'block' : 'none';
-        if (frBtn) frBtn.style.display = isAlpha ? 'block' : 'none';
-        if (pendBtn) pendBtn.style.display = !isAlpha ? 'flex' : 'none';
-        if (backBtn) backBtn.style.display = isAlpha ? 'block' : 'none';
-    });
 
     function openAddFriendModal() {
         const modal = document.getElementById('add-friend-modal');
@@ -4815,6 +4852,7 @@ window.addEventListener('popstate', () => {
                         if(logo) logo.innerText = name;
                         filterAndRenderChat();
                         showToast(`Chatting with ${name}`);
+                        startHeartbeat();
                     };
                     content.appendChild(item);
                 });
