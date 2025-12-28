@@ -106,28 +106,67 @@ const acceptCallBtn = document.getElementById('acceptCallBtn');
 const rejectCallBtn = document.getElementById('rejectCallBtn');
 const callPipBtn = document.getElementById('callPipBtn');
 
+// Create Header Logout Button (for Alpha Chat)
+const headerLogoutBtn = document.createElement('img');
+headerLogoutBtn.id = 'headerLogoutBtn';
+headerLogoutBtn.src = 'Logout Icon.png';
+headerLogoutBtn.style.cssText = 'width: 35px; height: 35px; cursor: pointer; display: none;';
+headerLogoutBtn.onclick = () => {
+    if (typeof showAlphaHomeScreen === 'function') showAlphaHomeScreen();
+};
+
 // --- Dynamic Header Setup ---
 (function setupHeader() {
     let header = document.querySelector('header');
     if (!header) {
         header = document.createElement('header');
         document.body.prepend(header);
-        
-        // Move header elements into the new header container
-        const headerElements = [menuIconBtn, logoDisplay, userStatusIndicator, profileBtn];
-        headerElements.forEach(el => {
-            if (el && el.parentNode) header.appendChild(el);
-        });
     }
 
     // Style: Full width, fixed top, neutral dark glass background (works for Light/Dark themes)
     header.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 65px;
-        display: flex; align-items: center; justify-content: space-between; padding: 0 15px;
+        display: flex; align-items: center; justify-content: space-between; padding: 0 10px;
         background: rgba(18, 18, 18, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
         border-bottom: 3px solid rgba(255, 255, 255, 0.08); z-index: 1000; box-sizing: border-box;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); color: white;
     `;
+
+    // Left Container (Logo & Status)
+    const leftContainer = document.createElement('div');
+    leftContainer.style.cssText = 'display: flex; flex-direction: column; justify-content: center; align-items: flex-start; margin-left: 5px; flex: 1; overflow: hidden;';
+    if (logoDisplay) {
+        logoDisplay.style.margin = '0';
+        logoDisplay.style.lineHeight = '1.2';
+        leftContainer.appendChild(logoDisplay);
+    }
+    if (lastSeenDisplay) {
+        lastSeenDisplay.style.margin = '0';
+        lastSeenDisplay.style.lineHeight = '1.1';
+        lastSeenDisplay.style.color = 'rgba(255, 255, 255, 0.7)';
+        leftContainer.appendChild(lastSeenDisplay);
+    }
+    if (userStatusIndicator) leftContainer.appendChild(userStatusIndicator);
+    header.appendChild(leftContainer);
+
+    // Right Container (Icons)
+    const rightContainer = document.createElement('div');
+    rightContainer.style.cssText = 'display: flex; align-items: center; gap: 5px; margin-left: 5px;';
+    
+    [videoCallBtn, audioCallBtn, headerLogoutBtn, menuIconBtn].forEach(btn => {
+        if (btn) {
+            btn.style.margin = '0';
+            btn.style.border = 'none';
+            btn.style.background = 'transparent';
+            btn.style.width = '35px';
+            btn.style.height = '35px';
+            btn.style.padding = '0';
+            const img = btn.querySelector('img');
+            if (img) img.style.cssText = 'width: 100%; height: 100%; object-fit: contain; pointer-events: none;';
+            rightContainer.appendChild(btn);
+        }
+    });
+    header.appendChild(rightContainer);
 
     // Push content down so it's not hidden behind header
     if (mainContent) mainContent.style.paddingTop = '60px';
@@ -288,7 +327,9 @@ const callPipBtn = document.getElementById('callPipBtn');
                 top: 0;
                 left: 0;
                 z-index: 0;              /* Behind header/footer */
-                
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
             `;
         }
     }
@@ -299,7 +340,7 @@ const callPipBtn = document.getElementById('callPipBtn');
     const msgStyle = document.createElement('style');
     msgStyle.id = 'dynamic-msg-style';
     // Default Dark Theme (Gray)
-    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; } #chatMessages .message-bubble.msg-selected, #chatMessages .msg-sent.msg-selected, #chatMessages .msg-received.msg-selected { background: #ff9f43 !important; transition: background 0.2s; }`;
+    msgStyle.innerHTML = `.message-bubble { max-width: 75%; word-wrap: break-word; padding: 10px; border-radius: 10px; margin-bottom: 5px; } .msg-sent { align-self: flex-end; margin-left: auto; text-align: left; background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; border-bottom-right-radius: 0; } .msg-received { align-self: flex-start; margin-right: auto; text-align: left; background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; border-bottom-left-radius: 0; } #chatMessages .message-bubble.msg-selected, #chatMessages .msg-sent.msg-selected, #chatMessages .msg-received.msg-selected { background: #ff9f43 !important; transition: background 0.2s; }`;
     document.head.appendChild(msgStyle);
 })();
 
@@ -824,7 +865,10 @@ if (!bgImage && bgOverlay) {
         if (selectedMsgIds.size !== 1) return showToast("Select 1 message to pin");
         const id = Array.from(selectedMsgIds)[0];
         const msg = currentChatHistory.find(m => m.id === id);
-        if (msg) db.ref('pinned_message').set(msg);
+        if (msg && currentUser && currentChatPartner) {
+            const chatId = getChatId(currentUser, currentChatPartner);
+            db.ref(`pinned_messages/${chatId}`).set(msg);
+        }
         exitSelectionMode();
     };
 
@@ -851,7 +895,7 @@ if (!bgImage && bgOverlay) {
         selectedMsgIds.forEach(id => {
             const msg = currentChatHistory.find(m => m.id === id);
             if (msg && msg.sender === currentUser && msg.status === 'seen') {
-                const table = getMessageTable(msg.sender);
+                const table = msg._tableName || getMessageTable(msg.sender);
                 db.ref(`messages/${table}/${msg.id}/status`).set('sent');
                 db.ref(`messages/${table}/${msg.id}/seenTimestamp`).remove();
             }
@@ -922,7 +966,7 @@ let initialScale = 1;
             if (selectedMsgId && newText !== "") {
                 const m = currentChatHistory.find(x => x.id === selectedMsgId);
                 if (m) {
-                    const table = getMessageTable(m.sender);
+                    const table = m._tableName || getMessageTable(m.sender);
                     db.ref(`messages/${table}/${selectedMsgId}`).update({ text: newText });
                 }
             }
@@ -1380,7 +1424,7 @@ let initialScale = 1;
         .preview-footer button img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
         .preview-footer button:active { transform: scale(0.95); }
         #filterBtn { font-size: 0; }
-        #cropBtn.apply-mode { font-size: 14px !important; font-weight: bold; background: #28c76f !important; }
+        #cropBtn.apply-mode { font-size: 14px !important; font-weight: bold; background: #0ba622ff !important; }
     `;
     document.head.appendChild(style);
 })();
@@ -1564,33 +1608,47 @@ function startReply(msg) {
 }
 
 function getMessageTable(sender) {
-    return sender === ALPHA_ADMIN ? 'alpha' : 'beta';
+    if (sender === ALPHA_ADMIN) return 'alpha';
+    if (sender === BETA_ADMIN) return 'beta';
+    return sender;
 }
 
 function getUserRole(username) {
-    return username === ALPHA_ADMIN ? 'Alpha' : 'Beta';
+    if (username === ALPHA_ADMIN) return 'Alpha';
+    if (username === BETA_ADMIN) return 'Beta';
+    return username;
+}
+
+function getChatId(u1, u2) {
+    if (!u1 || !u2) return 'global';
+    return [u1, u2].sort().join('_');
 }
 
 function filterAndRenderChat() {
     if (!allMessagesRaw) return;
-    
-    let history = allMessagesRaw.filter(msg => msg && typeof msg === 'object' && msg.timestamp);
-    
-    if (currentUser && currentChatPartner) {
-        history = history.filter(msg => {
-            // Don't show messages I have received from a user I have blocked
-            if (msg.recipient === currentUser && blockedUsersSet.has(msg.sender)) {
-                return false;
-            }
-            const p1 = msg.sender === currentUser && msg.recipient === currentChatPartner;
-            const p2 = msg.sender === currentChatPartner && msg.recipient === currentUser;
-            return p1 || p2;
-        });
+
+    // If Alpha is on home screen, don't render a chat, just update friend list counts.
+    if (currentUser === ALPHA_ADMIN && !currentChatPartner) {
+        renderAlphaFriendList();
+        return;
     }
-    
-    history.sort((a, b) => {
-        return (a.rawDate || "") < (b.rawDate || "") ? -1 : 1;
+
+    // If not in a chat, do nothing.
+    if (!currentUser || !currentChatPartner) {
+        currentChatHistory = [];
+        if (chatMessages) chatMessages.innerHTML = '';
+        return;
+    }
+
+    let history = allMessagesRaw.filter(msg => {
+        if (!msg || typeof msg !== 'object' || !msg.timestamp) return false;
+        if (msg.recipient === currentUser && blockedUsersSet.has(msg.sender)) return false;
+        const p1 = msg.sender === currentUser && msg.recipient === currentChatPartner;
+        const p2 = msg.sender === currentChatPartner && msg.recipient === currentUser;
+        return p1 || p2;
     });
+
+    history.sort((a, b) => (a.rawDate || "") < (b.rawDate || "") ? -1 : 1);
     currentChatHistory = history;
     renderChat(history);
 }
@@ -1603,8 +1661,17 @@ function setupFirebaseListeners() {
             const data = snapshot.val();
             let raw = [];
             if (data) {
-                if (data.alpha && typeof data.alpha === 'object') raw = raw.concat(Object.values(data.alpha));
-                if (data.beta && typeof data.beta === 'object') raw = raw.concat(Object.values(data.beta));
+                Object.keys(data).forEach(key => {
+                    const msgs = data[key];
+                    if (msgs && typeof msgs === 'object') {
+                        Object.values(msgs).forEach(m => {
+                            if (m && typeof m === 'object') {
+                                m._tableName = key;
+                                raw.push(m);
+                            }
+                        });
+                    }
+                });
             }
             allMessagesRaw = raw;
             filterAndRenderChat();
@@ -1613,11 +1680,7 @@ function setupFirebaseListeners() {
         }
     });
 
-    // 2. Pinned Message Listener
-    db.ref('pinned_message').on('value', snapshot => {
-        const pinnedMsg = snapshot.val();
-        renderPinnedMessage(pinnedMsg);
-    });
+    // Pinned Message Listener is now handled dynamically in updatePinnedMessageListener()
 
     // 3. Signaling Listeners (New Structure)
     const myRole = getUserRole(currentUser);
@@ -1696,34 +1759,28 @@ function setupFirebaseListeners() {
 
     db.ref('status').on('value', snapshot => {
         const data = snapshot.val() || {};
-        
-        let myName = currentUser === ALPHA_ADMIN ? 'Alpha' : (currentUser === BETA_ADMIN ? 'Beta' : currentUser);
-        let partnerName = 'Alpha';
 
-        if (currentChatPartner) {
-            if (currentChatPartner === ALPHA_ADMIN) partnerName = 'Alpha';
-            else if (currentChatPartner === BETA_ADMIN) partnerName = 'Beta';
-            else partnerName = currentChatPartner;
+        if (currentChatPartner && data[currentChatPartner]) {
+            const partnerData = data[currentChatPartner];
+            otherUserHeartbeat = partnerData.heartbeat || 0;
+            otherUserLastSeen = partnerData.lastSeen;
+        } else {
+            otherUserHeartbeat = 0;
+            otherUserLastSeen = null;
         }
-
-        // Check if Partner is online with Me (Partner_Me)
-        const targetKey = `${partnerName}_${myName}`;
-        
-        otherUserHeartbeat = data[`${targetKey} Heartbeat`] || 0;
-        otherUserLastSeen = data[`${targetKey} Last Seen`];
     });
 
     if (statusCheckInterval) clearInterval(statusCheckInterval);
     statusCheckInterval = setInterval(() => {
         const estimatedServerTime = Date.now() + serverTimeOffset;
-        const isOnline = (estimatedServerTime - otherUserHeartbeat) < 2000;
+        const isOnline = (estimatedServerTime - otherUserHeartbeat) < 10000;
         
         let displayLastSeen = otherUserLastSeen;
         if (!isOnline && displayLastSeen === "Active") {
             displayLastSeen = otherUserHeartbeat;
         }
         updateStatusUI(isOnline, displayLastSeen, isOtherUserTyping);
-    }, 500);
+    }, 1000);
 
     // 5. Typing Listener
     db.ref('typing').on('value', snapshot => {
@@ -1789,7 +1846,7 @@ function renderChat(history) {
 
         if (msg.sender !== currentUser && msg.status !== 'seen' && msg.id) {
             // Update status in Firebase
-            const table = getMessageTable(msg.sender);
+            const table = msg._tableName || getMessageTable(msg.sender);
             db.ref(`messages/${table}/${msg.id}/status`).set('seen');
             
             const now = new Date();
@@ -2050,8 +2107,26 @@ acceptBtn.addEventListener('click', async (e) => {
         if (isAlpha) body.classList.add('user-alpha');
         if (isBeta) body.classList.add('user-beta');
         
-        if (isAlpha) currentChatPartner = BETA_ADMIN;
-        else currentChatPartner = ALPHA_ADMIN;
+        if (isAlpha) {
+            if (typeof initAlphaUI === 'function') initAlphaUI();
+            showAlphaHomeScreen();
+        } else {
+            // Ensure Alpha UI elements are hidden for non-Alpha users
+            if (typeof alphaBackBtn !== 'undefined' && alphaBackBtn) alphaBackBtn.style.display = 'none';
+            if (typeof alphaHomeHeader !== 'undefined' && alphaHomeHeader) alphaHomeHeader.style.display = 'none';
+            if (typeof alphaFriendListContainer !== 'undefined' && alphaFriendListContainer) alphaFriendListContainer.style.display = 'none';
+            if (typeof alphaAddFriendFab !== 'undefined' && alphaAddFriendFab) alphaAddFriendFab.style.display = 'none';
+
+            currentChatPartner = ALPHA_ADMIN;
+            chatInputBar.style.display = 'flex';
+        }
+        
+        updatePinnedMessageListener();
+        // Ensure mainContent is visible for everyone (Fix for Alpha user chat visibility)
+        setTimeout(() => {
+            mainContent.style.opacity = '1';
+            mainContent.style.transform = 'translateY(0)';
+        }, 50);
         
         // Store custom data for session if needed
         if (customData) {
@@ -2060,18 +2135,14 @@ acceptBtn.addEventListener('click', async (e) => {
 
         history.pushState({ loggedIn: true }, "", window.location.href);
         setupFirebaseListeners();
-        startHeartbeat();
+        if (!isAlpha) {
+            startHeartbeat();
+        }
 
         overlay.style.opacity = '0';
         overlay.style.visibility = 'hidden';
         body.style.overflow = 'auto';
         mainContent.style.display = 'flex';
-        chatInputBar.style.display = 'flex';
-
-        setTimeout(() => {
-            mainContent.style.opacity = '1';
-            mainContent.style.transform = 'translateY(0)';
-        }, 50);
     };
 
     // 1. Check Hardcoded Users
@@ -2123,80 +2194,66 @@ let currentUserData = null; // To store extra data for new users
 function startHeartbeat() {
     if (!currentUser || !db) return;
 
-    let myName = currentUser === ALPHA_ADMIN ? 'Alpha' : (currentUser === BETA_ADMIN ? 'Beta' : currentUser);
-    let partnerName = 'Alpha';
+    const statusRef = db.ref(`status/${currentUser}`);
     
-    if (currentChatPartner) {
-        if (currentChatPartner === ALPHA_ADMIN) partnerName = 'Alpha';
-        else if (currentChatPartner === BETA_ADMIN) partnerName = 'Beta';
-        else partnerName = currentChatPartner;
-    } else {
-        partnerName = (currentUser === ALPHA_ADMIN) ? 'Beta' : 'Alpha';
-    }
+    statusRef.update({
+        online: true,
+        lastSeen: "Active",
+        heartbeat: firebase.database.ServerValue.TIMESTAMP
+    });
 
-    const statusKey = `${myName}_${partnerName}`;
-
-    if (lastStatusKey && lastStatusKey !== statusKey) {
-        db.ref(`status/${lastStatusKey} Online`).set(false);
-        db.ref(`status/${lastStatusKey} Last Seen`).set(firebase.database.ServerValue.TIMESTAMP);
-        db.ref(`status/${lastStatusKey} Online`).onDisconnect().cancel();
-        db.ref(`status/${lastStatusKey} Last Seen`).onDisconnect().cancel();
-        db.ref(`status/${lastStatusKey} Heartbeat`).onDisconnect().cancel();
-    }
-    lastStatusKey = statusKey;
-
-    const onlineRef = db.ref(`status/${statusKey} Online`);
-    const lastSeenRef = db.ref(`status/${statusKey} Last Seen`);
-    const heartbeatRef = db.ref(`status/${statusKey} Heartbeat`);
-
-    onlineRef.set(true);
-    lastSeenRef.set("Active");
-
-    onlineRef.onDisconnect().set(false);
-    lastSeenRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+    statusRef.onDisconnect().update({
+        online: false,
+        lastSeen: firebase.database.ServerValue.TIMESTAMP
+    });
 
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
-        heartbeatRef.set(firebase.database.ServerValue.TIMESTAMP);
-    }, 1000);
+        statusRef.update({
+            heartbeat: firebase.database.ServerValue.TIMESTAMP
+        });
+    }, 2000);
 }
 
 function updateStatusUI(isOnline, lastSeen, isTyping) {
-    userStatusIndicator.style.display = 'none';
+    if (!lastSeenDisplay) return;
+    
+    // Hide the old signal indicator (dot in header)
+    if (userStatusIndicator) userStatusIndicator.style.display = 'none';
 
-    // Increase text size and move right
-    lastSeenDisplay.style.marginLeft = '1px';
+    lastSeenDisplay.style.marginLeft = '0';
+    lastSeenDisplay.style.fontSize = '0.75rem';
+    lastSeenDisplay.style.display = 'block';
+    lastSeenDisplay.style.marginTop = '2px';
 
     if (isTyping) {
         lastSeenDisplay.innerText = "Typing...";
-        lastSeenDisplay.style.fontSize = '0.9rem';
-        lastSeenDisplay.style.marginLeft = '34px';
-        lastSeenDisplay.style.display = 'block';
         lastSeenDisplay.style.color = '#2ecc71';
         return;
     }
 
-    if (isOnline === true || lastSeen === "Active") {
+    if (isOnline) {
         lastSeenDisplay.innerText = "Online";
-        lastSeenDisplay.style.fontSize = '0.9rem';
-        lastSeenDisplay.style.marginLeft = '34px';
-        lastSeenDisplay.style.display = 'block';
         lastSeenDisplay.style.color = '#2ecc71';
     } else {
-        lastSeenDisplay.style.color = '';
-        lastSeenDisplay.style.fontSize = '0.60rem';
-        if (typeof lastSeen === 'number') {
-            const dateObj = new Date(lastSeen);
-            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const d = String(dateObj.getDate()).padStart(2, '0');
-            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const y = dateObj.getFullYear();
-            const datePart = `${d}/${m}/${y}`;
+        lastSeenDisplay.style.color = 'rgba(255, 255, 255, 0.6)';
+        
+        if (lastSeen && typeof lastSeen === 'number') {
+            const date = new Date(lastSeen);
+            const now = new Date();
+            const isToday = date.toDateString() === now.toDateString();
+            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             
-            lastSeenDisplay.innerText = `Last seen: ${datePart} ${timeStr}`;
-            lastSeenDisplay.style.display = 'block';
+            if (isToday) {
+                lastSeenDisplay.innerText = `Last seen today at ${timeStr}`;
+            } else {
+                const d = String(date.getDate()).padStart(2, '0');
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const y = date.getFullYear();
+                lastSeenDisplay.innerText = `Last seen ${d}/${m}/${y} ${timeStr}`;
+            }
         } else {
-            lastSeenDisplay.style.display = 'none';
+            lastSeenDisplay.innerText = "Offline";
         }
     }
 }
@@ -2328,12 +2385,13 @@ menuIconBtn.addEventListener('click', (e) => {
             if (el) {
                 // Determine Visibility
                 let isVisible = true;
-                if (id === 'menuBackToBetaBtn') {
-                    isVisible = (isAlpha && currentChatPartner !== BETA_ADMIN);
-                } else if (id === 'menuAddFriendBtn' || id === 'menuFriendsBtn') {
-                    isVisible = isAlpha;
-                } else if (id === 'menuPendingBtn') {
-                    isVisible = (!isAlpha && !isBeta);
+                if (isAlpha) {
+                    // Alpha: Only Profile & Clear Chat
+                    if (id !== 'profileBtn' && id !== 'clearChatBtn') isVisible = false;
+                } else {
+                    if (id === 'menuBackToBetaBtn') isVisible = false;
+                    else if (id === 'menuAddFriendBtn' || id === 'menuFriendsBtn') isVisible = false;
+                    else if (id === 'menuPendingBtn') isVisible = (!isBeta);
                 }
 
                 el.style.display = isVisible ? (id === 'menuPendingBtn' ? 'flex' : 'block') : 'none';
@@ -2353,6 +2411,8 @@ menuIconBtn.addEventListener('click', (e) => {
             border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 10px;
             z-index: 2000; min-width: 160px; gap: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             color: white;
+            opacity: 1;
+            visibility: visible;
         `;
 
         // Ensure text is white in both modes
@@ -2384,7 +2444,7 @@ themeToggleBtn.addEventListener('click', () => {
     }
     // Light Mode -> All Bubbles Blue | Dark Mode -> All Bubbles Gray
     const bubbleColor = isLight ? 'rgba(0, 123, 255, 0.85)' : 'rgba(45, 52, 54, 0.9)';
-    msgStyle.innerHTML = `.message-bubble, .msg-sent, .msg-received { background-color: ${bubbleColor} !important; color: white !important; } #chatMessages .message-bubble.msg-selected, #chatMessages .msg-sent.msg-selected, #chatMessages .msg-received.msg-selected { background: #ff9f43 !important; transition: background 0.2s; }`;
+    msgStyle.innerHTML = `.message-bubble { max-width: 75%; word-wrap: break-word; padding: 10px; border-radius: 10px; margin-bottom: 5px; } .msg-sent { align-self: flex-end; margin-left: auto; text-align: left; background-color: ${bubbleColor} !important; color: white !important; border-bottom-right-radius: 0; } .msg-received { align-self: flex-start; margin-right: auto; text-align: left; background-color: ${bubbleColor} !important; color: white !important; border-bottom-left-radius: 0; } #chatMessages .message-bubble.msg-selected, #chatMessages .msg-sent.msg-selected, #chatMessages .msg-received.msg-selected { background: #ff9f43 !important; transition: background 0.2s; }`;
 
     // Switch background image based on theme
     if (bgOverlay) {
@@ -2411,9 +2471,20 @@ clearChatBtn.addEventListener('click', () => {
 });
 
 confirmClearChat.addEventListener('click', () => {
-    if (db) {
-        db.ref('messages').remove().catch(e => console.error(e));
-        db.ref('pinned_message').remove().catch(e => console.error(e));
+    if (db && currentChatHistory.length > 0) {
+        const updates = {};
+        currentChatHistory.forEach(msg => {
+            if (msg.id) {
+                const table = msg._tableName || getMessageTable(msg.sender);
+                updates[`messages/${table}/${msg.id}`] = null;
+            }
+        });
+        // Also clear pinned message for this chat
+        if (currentUser && currentChatPartner) {
+            const chatId = getChatId(currentUser, currentChatPartner);
+            updates[`pinned_messages/${chatId}`] = null;
+        }
+        db.ref().update(updates).catch(e => console.error(e));
     }
     clearChatModal.style.display = 'none';
     mainContent.classList.remove('blur-content');
@@ -2447,15 +2518,35 @@ deleteMsgOptionBtn.addEventListener('click', () => {
 pinMsgBtn.addEventListener('click', () => {
     // Fetch message details from DB to pin
     const msg = currentChatHistory.find(m => m.id === selectedMsgId);
-    if (msg) {
-        db.ref('pinned_message').set(msg);
+    if (msg && currentUser && currentChatPartner) {
+        const chatId = getChatId(currentUser, currentChatPartner);
+        db.ref(`pinned_messages/${chatId}`).set(msg);
     }
     closeOptionsModal();
 });
 
 unpinBtn.addEventListener('click', () => {
-    db.ref('pinned_message').remove();
+    if (currentUser && currentChatPartner) {
+        const chatId = getChatId(currentUser, currentChatPartner);
+        db.ref(`pinned_messages/${chatId}`).remove();
+    }
 });
+
+let currentPinnedRef = null;
+function updatePinnedMessageListener() {
+    if (currentPinnedRef) {
+        currentPinnedRef.off();
+        currentPinnedRef = null;
+    }
+    renderPinnedMessage(null);
+    if (currentUser && currentChatPartner && db) {
+        const chatId = getChatId(currentUser, currentChatPartner);
+        currentPinnedRef = db.ref(`pinned_messages/${chatId}`);
+        currentPinnedRef.on('value', snapshot => {
+            renderPinnedMessage(snapshot.val());
+        });
+    }
+}
 
 function renderPinnedMessage(pinnedMsg) {
     if (pinnedMsg) {
@@ -2504,14 +2595,15 @@ confirmDeleteMsg.addEventListener('click', () => {
     idsToDelete.forEach(id => {
         const msg = currentChatHistory.find(m => m.id === id);
         if (msg) {
-            const table = getMessageTable(msg.sender);
+            const table = msg._tableName || getMessageTable(msg.sender);
             db.ref(`messages/${table}/${id}`).remove();
             
             // Check if deleted message was pinned
-            db.ref('pinned_message').once('value').then(snapshot => {
+            const chatId = getChatId(currentUser, currentChatPartner);
+            db.ref(`pinned_messages/${chatId}`).once('value').then(snapshot => {
                 const pinnedMsg = snapshot.val();
                 if (pinnedMsg && pinnedMsg.id === id) {
-                    db.ref('pinned_message').remove();
+                    db.ref(`pinned_messages/${chatId}`).remove();
                 }
             });
         }
@@ -4349,6 +4441,13 @@ confirmLogout.addEventListener('click', () => {
     mainContent.style.opacity = '0';
     mainContent.style.transform = 'translateY(20px)';
     chatInputBar.style.display = 'none';
+    if (typeof alphaFriendListContainer !== 'undefined' && alphaFriendListContainer) {
+        alphaFriendListContainer.style.display = 'none';
+    }
+    if (typeof alphaAddFriendFab !== 'undefined' && alphaAddFriendFab) {
+        alphaAddFriendFab.style.display = 'none';
+    }
+    if (headerLogoutBtn) headerLogoutBtn.style.display = 'none';
     
     // Show Login Overlay & Reset
     overlay.style.visibility = 'visible';
@@ -4365,7 +4464,7 @@ confirmLogout.addEventListener('click', () => {
     if (currentUser && db) {
         const userRole = currentUser === ALPHA_ADMIN ? 'Alpha' : 'Beta';
         db.ref('messages').off();
-        db.ref('pinned_message').off();
+        if (currentPinnedRef) currentPinnedRef.off();
         db.ref('status').off();
         
         // Detach friend/block listeners
@@ -4392,6 +4491,7 @@ confirmLogout.addEventListener('click', () => {
     
     if (statusCheckInterval) clearInterval(statusCheckInterval);
     clearInterval(heartbeatInterval);
+    if (typeof alphaListInterval !== 'undefined' && alphaListInterval) clearInterval(alphaListInterval);
     userStatusIndicator.style.display = 'none';
     lastSeenDisplay.style.display = 'none';
     headerTypingIndicator.style.display = 'none';
@@ -4720,6 +4820,7 @@ window.addEventListener('popstate', () => {
                 const logo = document.querySelector('.logo');
                 if(logo) logo.innerText = "💎_Beta_💎";
                 filterAndRenderChat();
+                updatePinnedMessageListener();
                 showToast("Back to Beta Chat");
                 startHeartbeat();
             }
@@ -4787,7 +4888,7 @@ window.addEventListener('popstate', () => {
             snap.forEach(child => {
                 const req = child.val();
                 const senderId = req.sender;
-                const senderRole = (senderId === ALPHA_ADMIN) ? 'Alpha' : 'Beta';
+                const senderRole = getUserRole(senderId);
                 db.ref(`Profile Pic/${senderRole}_Profile_Pic`).once('value').then(picSnap => {
                     const pic = picSnap.val() || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
                     const name = (senderId === ALPHA_ADMIN) ? '💎_Alpha_💎' : senderId;
@@ -4851,6 +4952,7 @@ window.addEventListener('popstate', () => {
                         const logo = document.querySelector('.logo');
                         if(logo) logo.innerText = name;
                         filterAndRenderChat();
+                        updatePinnedMessageListener();
                         showToast(`Chatting with ${name}`);
                         startHeartbeat();
                     };
@@ -4876,3 +4978,404 @@ window.addEventListener('popstate', () => {
         modal.querySelector('.close-modal-btn').addEventListener('click', () => db.ref(`blocked_users/${currentUser}`).off('value', blockListener), { once: true });
     }
 })();
+
+// --- Alpha User Home Screen Logic ---
+let alphaFriendListContainer;
+let alphaBackBtn;
+let alphaHomeHeader;
+let alphaAddFriendFab;
+let alphaStatusListener = null;
+let alphaTypingListener = null;
+let alphaListInterval = null;
+
+function initAlphaUI() {
+    if (alphaFriendListContainer) return;
+
+    // 1. Friend List Container
+    alphaFriendListContainer = document.createElement('div');
+    alphaFriendListContainer.id = 'alpha-friend-list';
+    alphaFriendListContainer.style.cssText = `
+        position: fixed; top: 65px; left: 0; width: 100%; height: calc(100% - 65px);
+        background: rgba(30, 35, 40, 0.7); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); overflow-y: auto; display: none; flex-direction: column;
+        padding: 10px; box-sizing: border-box; z-index: 900;
+    `;
+    document.body.appendChild(alphaFriendListContainer);
+
+    // 2. Create Fresh Header for Alpha Home
+    alphaHomeHeader = document.createElement('div');
+    alphaHomeHeader.id = 'alpha-home-header';
+    alphaHomeHeader.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 65px;
+        display: none; align-items: center; justify-content: space-between; padding: 0 15px;
+        background: #065e0dff;
+        border-bottom: 3px solid rgba(255, 255, 255, 0.08); z-index: 1000; box-sizing: border-box;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); color: white;
+    `;
+
+    // Left: Title Container
+    const titleContainer = document.createElement('div');
+    titleContainer.id = 'alpha-header-title';
+    
+    const titleImg = document.createElement('img');
+    titleImg.src = 'Mil Baat Icon.png';
+    titleImg.style.cssText = `
+        height: 60px; width: 193px; object-fit: contain;
+    `;
+    titleContainer.appendChild(titleImg);
+    alphaHomeHeader.appendChild(titleContainer);
+
+    // Right Container
+    const rightContainer = document.createElement('div');
+    rightContainer.style.cssText = 'display: flex; align-items: center; gap: 20px;';
+
+    // Search Input
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Search...';
+    searchInput.style.cssText = 'flex: 1; margin: 0 15px; padding: 8px 5px; border-radius: 20px; border: none; outline: none; display: none; font-size: 16px; color: #333; background: rgba(255,255,255,0.9);';
+    alphaHomeHeader.appendChild(searchInput);
+
+    // Search Icon
+    const searchBtn = document.createElement('img');
+    searchBtn.src = 'Search Icon.png';
+    searchBtn.onerror = () => searchBtn.src = 'Search Icon.png';
+    searchBtn.style.cssText = 'height: 40px; width: 40px; cursor: pointer;';
+    
+    searchBtn.onclick = () => {
+        if (searchInput.style.display === 'none') {
+            titleContainer.style.display = 'none';
+            searchInput.style.display = 'block';
+            searchInput.focus();
+            searchBtn.src = 'Close Icon.png';
+        } else {
+            titleContainer.style.display = 'block';
+            searchInput.style.display = 'none';
+            searchInput.value = '';
+            searchBtn.src = 'Search Icon.png';
+            const list = document.getElementById('alpha-friend-list');
+            if(list) Array.from(list.children).forEach(c => c.style.display = 'flex');
+        }
+    };
+    
+    searchInput.addEventListener('input', (e) => {
+        const val = e.target.value.toLowerCase();
+        const list = document.getElementById('alpha-friend-list');
+        if(list) {
+            Array.from(list.children).forEach(child => {
+                const name = child.querySelector('span').innerText.toLowerCase();
+                child.style.display = name.includes(val) ? 'flex' : 'none';
+            });
+        }
+    });
+    
+    rightContainer.appendChild(searchBtn);
+
+    // Alpha Menu Icon
+    const alphaMenuBtn = document.createElement('img');
+    alphaMenuBtn.src = 'Menu Icon.png';
+    alphaMenuBtn.onerror = () => alphaMenuBtn.src = 'https://cdn-icons-png.flaticon.com/512/2311/2311524.png';
+    alphaMenuBtn.style.cssText = 'height: 40px; width: 40px; cursor: pointer;';
+    
+    alphaMenuBtn.onclick = (e) => {
+        e.stopPropagation();
+        const menuOptions = document.getElementById('menuOptions');
+        if (menuOptions && menuOptions.parentNode !== document.body) {
+            document.body.appendChild(menuOptions);
+        }
+        if (menuOptions.style.display === 'flex') {
+            menuOptions.style.display = 'none';
+        } else {
+            const alphaItems = ['profileBtn', 'themeToggleBtn', 'menuFriendsBtn', 'changePassBtn', 'changeFontBtn', 'logoutBtn'];
+            Array.from(menuOptions.children).forEach(c => c.style.display = 'none');
+            alphaItems.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.display = 'block';
+                    menuOptions.appendChild(el);
+                }
+            });
+            menuOptions.style.display = 'flex';
+            menuOptions.style.cssText = `
+                display: flex; flex-direction: column; position: fixed; top: 65px; right: 10px;
+                background: rgba(44, 62, 80, 0.9); backdrop-filter: blur(70px); -webkit-backdrop-filter: blur(90px);
+                border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 10px;
+                z-index: 2000; min-width: 160px; gap: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                color: white; opacity: 1; visibility: visible;
+            `;
+            Array.from(menuOptions.children).forEach(child => child.style.color = 'white');
+        }
+    };
+    rightContainer.appendChild(alphaMenuBtn);
+
+    
+    alphaHomeHeader.appendChild(rightContainer);
+    document.body.appendChild(alphaHomeHeader);
+
+    // 4. Add Friend FAB
+    alphaAddFriendFab = document.createElement('div');
+    alphaAddFriendFab.id = 'alpha-add-friend-fab';
+    alphaAddFriendFab.style.cssText = `
+        position: fixed; bottom: 30px; right: 30px;
+        width: 60px; height: 60px; border-radius: 50%;
+        background: #00b894; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; z-index: 1000; transition: transform 0.2s;
+    `;
+    alphaAddFriendFab.onmouseover = () => alphaAddFriendFab.style.transform = 'scale(1.1)';
+    alphaAddFriendFab.onmouseout = () => alphaAddFriendFab.style.transform = 'scale(1)';
+    
+    const fabIcon = document.createElement('img');
+    fabIcon.src = 'Add Friend Icon.png';
+    fabIcon.onerror = () => fabIcon.src = 'https://cdn-icons-png.flaticon.com/512/3018/3018447.png';
+    fabIcon.style.cssText = 'width: 30px; height: 30px; object-fit: contain; pointer-events: none; filter: brightness(0) invert(1);';
+    
+    alphaAddFriendFab.appendChild(fabIcon);
+    
+    alphaAddFriendFab.onclick = () => {
+        const btn = document.getElementById('menuAddFriendBtn');
+        if (btn) btn.click();
+    };
+    
+    document.body.appendChild(alphaAddFriendFab);
+}
+
+function showAlphaHomeScreen() {
+    if (!alphaFriendListContainer) initAlphaUI();
+
+    // Hide Chat UI
+    if (chatMessages) chatMessages.style.display = 'none';
+    if (chatInputBar) chatInputBar.style.display = 'none';
+    if (pinnedMessageBar) pinnedMessageBar.style.display = 'none';
+    
+    // Show Home UI
+    alphaFriendListContainer.style.display = 'flex';
+    if (alphaAddFriendFab) alphaAddFriendFab.style.display = 'flex';
+    if (headerLogoutBtn) headerLogoutBtn.style.display = 'none';
+    
+    currentChatPartner = null;
+    updatePinnedMessageListener();
+
+    // Stop Heartbeat (Alpha goes offline on Home Screen)
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    if (currentUser) {
+        db.ref(`status/${currentUser}`).update({
+            online: false,
+            lastSeen: firebase.database.ServerValue.TIMESTAMP
+        });
+    }
+
+    // Switch Headers
+    const defaultHeader = document.querySelector('header');
+    if (defaultHeader) defaultHeader.style.display = 'none';
+    if (alphaHomeHeader) alphaHomeHeader.style.display = 'flex';
+    
+    // Ensure the back button is hidden on the home screen
+    if (alphaBackBtn) alphaBackBtn.style.display = 'none';
+
+    renderAlphaFriendList();
+}
+
+let alphaRenderGeneration = 0;
+let latestAlphaStatusData = {};
+
+function updateAlphaListStatus() {
+    const now = Date.now() + (serverTimeOffset || 0);
+    const dots = document.querySelectorAll('[id^="status-dot-"]');
+    dots.forEach(dot => {
+        const fid = dot.id.replace('status-dot-', '');
+        const friendStatus = latestAlphaStatusData[fid] || {};
+        const heartbeat = friendStatus.heartbeat || 0;
+        const isOnline = (now - heartbeat < 10000);
+        dot.style.background = isOnline ? '#2ecc71' : '#ff0000';
+    });
+}
+
+function renderAlphaFriendList() {
+    if (!alphaFriendListContainer) return;
+    
+    alphaRenderGeneration++;
+    const thisGeneration = alphaRenderGeneration;
+    
+    const unreadCounts = {};
+    if (allMessagesRaw && currentUser === ALPHA_ADMIN) {
+        allMessagesRaw.forEach(msg => {
+            if (msg && msg.recipient === currentUser && msg.status !== 'seen') {
+                unreadCounts[msg.sender] = (unreadCounts[msg.sender] || 0) + 1;
+            }
+        });
+    }
+    
+    db.ref(`friends/${currentUser}`).once('value').then(snap => {
+        if (thisGeneration !== alphaRenderGeneration) return;
+
+        const friends = new Set();
+        if (snap.exists()) {
+            snap.forEach(child => friends.add(child.key));
+        }
+        
+        // Force add Beta if current user is Alpha (Fix for Beta not showing)
+        if (currentUser === ALPHA_ADMIN) {
+            friends.add(BETA_ADMIN);
+        }
+
+        // Handle "No friends" message
+        const noFriendsMsg = alphaFriendListContainer.querySelector('#no-friends-msg');
+        if (friends.size === 0) {
+            if (!noFriendsMsg) {
+                alphaFriendListContainer.innerHTML = '<div id="no-friends-msg" style="text-align:center; margin-top:20px; color:white;">No friends yet. Add some!</div>';
+            }
+            return;
+        } else {
+            if (noFriendsMsg) noFriendsMsg.remove();
+            // Also remove if it was added as plain text previously
+            const plainMsg = Array.from(alphaFriendListContainer.children).find(c => c.innerText && c.innerText.includes("No friends yet"));
+            if (plainMsg) plainMsg.remove();
+        }
+        
+        // 1. Remove deleted friends
+        Array.from(alphaFriendListContainer.children).forEach(row => {
+            if (row.id && row.id.startsWith('friend-row-')) {
+                const fid = row.id.replace('friend-row-', '');
+                if (!friends.has(fid)) {
+                    row.remove();
+                }
+            }
+        });
+
+        // 2. Update or Create rows
+        friends.forEach(friendId => {
+            const unreadCount = unreadCounts[friendId] || 0;
+            let row = document.getElementById(`friend-row-${friendId}`);
+
+            if (row) {
+                // Update Badge
+                let badge = row.querySelector('.unread-badge');
+                if (unreadCount > 0) {
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'unread-badge';
+                        badge.style.cssText = `background: #2ecc71; color: white; border-radius: 50%; min-width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; padding: 0 5px;`;
+                        row.appendChild(badge);
+                    }
+                    badge.innerText = unreadCount;
+                } else {
+                    if (badge) badge.remove();
+                }
+                return; // Done with this friend
+            }
+
+            // Create Row
+            let name = friendId;
+            let pic = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+            
+            db.ref(`Other User Table/${friendId}`).once('value').then(uSnap => {
+                if (thisGeneration !== alphaRenderGeneration) return;
+
+                if (uSnap.exists()) {
+                    const u = uSnap.val();
+                    name = u.name;
+                    if (u.profilePic) pic = u.profilePic;
+                } else if (friendId === BETA_ADMIN) {
+                    name = "💎_Beta_💎";
+                }
+                
+                // Double check existence
+                if (document.getElementById(`friend-row-${friendId}`)) return;
+
+                // Fetch latest profile pic
+                const picRef = (friendId === BETA_ADMIN) ? `Profile Pic/Beta_Profile_Pic` : `Profile Pic/${friendId}_Profile_Pic`;
+                db.ref(picRef).once('value').then(pSnap => {
+                    if (thisGeneration !== alphaRenderGeneration) return;
+                    if(pSnap.exists()) pic = pSnap.val();
+
+                    const newRow = document.createElement('div');
+                    newRow.id = `friend-row-${friendId}`;
+                    newRow.style.cssText = `display: flex; align-items: center; padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: background 0.2s;`;
+                    
+                    const friendStatus = latestAlphaStatusData[friendId] || {};
+                    const heartbeat = friendStatus.heartbeat || 0;
+                    const now = Date.now() + (serverTimeOffset || 0);
+                    const isOnline = (now - heartbeat < 10000);
+                    const dotColor = isOnline ? '#2ecc71' : '#ff0000';
+
+                    newRow.innerHTML = `
+                    <div style="position: relative; margin-right: 15px;">
+                        <img id="pic-${friendId}" src="${pic}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;">
+                        <div id="status-dot-${friendId}" style="position: absolute; bottom: 0; right: 0; width: 14px; height: 14px; background: ${dotColor}; border-radius: 50%; border: 2px solid #2d3436;"></div>
+                    </div>
+                    <span style="font-size: 1.1rem; font-weight: 500; color: white; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</span>
+                    `;
+
+                    if (unreadCount > 0) {
+                        const badge = document.createElement('span');
+                        badge.className = 'unread-badge';
+                        badge.style.cssText = `background: #2ecc71; color: white; border-radius: 50%; min-width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; padding: 0 5px;`;
+                        badge.innerText = unreadCount;
+                        newRow.appendChild(badge);
+                    }
+
+                    // Add Typing Indicator
+                    const typingInd = document.createElement('span');
+                    typingInd.id = `typing-${friendId}`;
+                    typingInd.innerText = 'Typing...';
+                    typingInd.style.cssText = 'color: #00d2ff; font-size: 0.8rem; font-style: italic; margin-left: 10px; display: none; animation: blinkText 1s infinite;';
+                    newRow.appendChild(typingInd);
+                    
+                    newRow.onclick = () => openAlphaChat(friendId, name);
+                    newRow.onmouseover = () => newRow.style.background = 'rgba(255,255,255,0.05)';
+                    newRow.onmouseout = () => newRow.style.background = 'transparent';
+                    
+                    alphaFriendListContainer.appendChild(newRow);
+                });
+            });
+        });
+
+        // Start Status Listener for Online/Offline Indicator
+        if (!alphaStatusListener) {
+            alphaStatusListener = db.ref('status').on('value', snapshot => {
+                latestAlphaStatusData = snapshot.val() || {};
+                const now = Date.now() + (serverTimeOffset || 0);
+                const dots = document.querySelectorAll('[id^="status-dot-"]');
+                dots.forEach(dot => {
+                    const fid = dot.id.replace('status-dot-', '');
+                    const friendStatus = latestAlphaStatusData[fid] || {};
+                    const heartbeat = friendStatus.heartbeat || 0;
+                    const isOnline = (now - heartbeat < 10000);
+                    dot.style.background = isOnline ? '#2ecc71' : '#ff0000';
+                });
+            });
+        }
+    });
+}
+
+function openAlphaChat(friendId, friendName) {
+    if (alphaStatusListener) {
+        db.ref('status').off('value', alphaStatusListener);
+        alphaStatusListener = null;
+    }
+
+    alphaFriendListContainer.style.display = 'none';
+    if (chatMessages) chatMessages.style.display = 'block';
+    if (chatInputBar) chatInputBar.style.display = 'flex';
+    currentChatPartner = friendId;
+    
+    // Switch Headers Back
+    const defaultHeader = document.querySelector('header');
+    if (defaultHeader) defaultHeader.style.display = 'flex';
+    if (alphaHomeHeader) alphaHomeHeader.style.display = 'none';
+    if (alphaAddFriendFab) alphaAddFriendFab.style.display = 'none';
+
+    // Explicitly show all necessary elements of the default header
+    if (menuIconBtn) menuIconBtn.style.display = 'block';
+
+    if (logoDisplay) {
+        logoDisplay.style.display = 'block';
+        logoDisplay.innerHTML = friendName;
+    }
+    
+    if (alphaBackBtn) alphaBackBtn.style.display = 'block';
+    if (headerLogoutBtn) headerLogoutBtn.style.display = 'block';
+    filterAndRenderChat();
+    updatePinnedMessageListener();
+    startHeartbeat();
+}
