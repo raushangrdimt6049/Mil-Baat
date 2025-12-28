@@ -1756,6 +1756,7 @@ function setupFirebaseListeners() {
     let otherUserHeartbeat = 0;
     let otherUserLastSeen = null;
     let isOtherUserTyping = false;
+    let otherUserOnlineStatus = true;
 
     db.ref('status').on('value', snapshot => {
         const data = snapshot.val() || {};
@@ -1764,16 +1765,18 @@ function setupFirebaseListeners() {
             const partnerData = data[currentChatPartner];
             otherUserHeartbeat = partnerData.heartbeat || 0;
             otherUserLastSeen = partnerData.lastSeen;
+            otherUserOnlineStatus = partnerData.online;
         } else {
             otherUserHeartbeat = 0;
             otherUserLastSeen = null;
+            otherUserOnlineStatus = false;
         }
     });
 
     if (statusCheckInterval) clearInterval(statusCheckInterval);
     statusCheckInterval = setInterval(() => {
         const estimatedServerTime = Date.now() + serverTimeOffset;
-        const isOnline = (estimatedServerTime - otherUserHeartbeat) < 10000;
+        const isOnline = (estimatedServerTime - otherUserHeartbeat) < 10000 && otherUserOnlineStatus !== false;
         
         let displayLastSeen = otherUserLastSeen;
         if (!isOnline && displayLastSeen === "Active") {
@@ -4463,6 +4466,14 @@ confirmLogout.addEventListener('click', () => {
     // Update status one last time before clearing
     if (currentUser && db) {
         const userRole = currentUser === ALPHA_ADMIN ? 'Alpha' : 'Beta';
+        
+        // Explicitly set offline status on logout
+        db.ref(`status/${currentUser}`).update({
+            online: false,
+            lastSeen: firebase.database.ServerValue.TIMESTAMP
+        });
+        db.ref(`status/${currentUser}`).onDisconnect().cancel();
+
         db.ref('messages').off();
         if (currentPinnedRef) currentPinnedRef.off();
         db.ref('status').off();
@@ -5185,7 +5196,7 @@ function updateAlphaListStatus() {
         const fid = dot.id.replace('status-dot-', '');
         const friendStatus = latestAlphaStatusData[fid] || {};
         const heartbeat = friendStatus.heartbeat || 0;
-        const isOnline = (now - heartbeat < 10000);
+        const isOnline = (now - heartbeat < 10000) && (friendStatus.online !== false);
         dot.style.background = isOnline ? '#2ecc71' : '#ff0000';
     });
 }
