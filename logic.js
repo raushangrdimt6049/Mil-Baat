@@ -5345,15 +5345,7 @@ function renderAlphaFriendList() {
         if (!alphaStatusListener) {
             alphaStatusListener = db.ref('status').on('value', snapshot => {
                 latestAlphaStatusData = snapshot.val() || {};
-                const now = Date.now() + (serverTimeOffset || 0);
-                const dots = document.querySelectorAll('[id^="status-dot-"]');
-                dots.forEach(dot => {
-                    const fid = dot.id.replace('status-dot-', '');
-                    const friendStatus = latestAlphaStatusData[fid] || {};
-                    const heartbeat = friendStatus.heartbeat || 0;
-                    const isOnline = (now - heartbeat < 10000);
-                    dot.style.background = isOnline ? '#2ecc71' : '#ff0000';
-                });
+                updateAlphaListStatus();
             });
         }
     });
