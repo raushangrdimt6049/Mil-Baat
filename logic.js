@@ -728,6 +728,10 @@ function stopNotificationSound(shouldResetDb = true) {
         currentNotificationSound.currentTime = 0; // Rewind
         currentNotificationSound = null;
     }
+    // Stop any ongoing vibration
+    if (navigator.vibrate) {
+        navigator.vibrate(0);
+    }
     if (shouldResetDb !== false && currentNotificationRef) {
         currentNotificationRef.set(false).catch(() => {});
     }
@@ -737,6 +741,13 @@ function stopNotificationSound(shouldResetDb = true) {
 document.addEventListener('click', stopNotificationSound);
 document.addEventListener('touchstart', stopNotificationSound);
 document.addEventListener('keydown', stopNotificationSound);
+
+// Handle Power Button (Screen Lock) and App Backgrounding
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') stopNotificationSound();
+});
+// Handle interruptions (like incoming calls, system dialogs, potentially volume overlay)
+window.addEventListener('blur', () => stopNotificationSound());
 
 function manageNotificationListener(username) {
     if (currentNotificationRef) {
@@ -750,6 +761,11 @@ function manageNotificationListener(username) {
     currentNotificationRef.on('value', snapshot => {
         if (snapshot.val() === true) {
             stopNotificationSound(false); // Stop any previous sound, keep DB true
+
+            // Vibrate the device with a pattern
+            if (navigator.vibrate) {
+                navigator.vibrate([200, 100, 200, 100, 200]);
+            }
 
             currentNotificationSound = new Audio('Notification.mp3');
             
