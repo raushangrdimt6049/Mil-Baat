@@ -743,7 +743,8 @@ function manageNotificationListener(username) {
         currentNotificationRef.off();
         currentNotificationRef = null;
     }
-    if (!username || !db) return;
+    // Only set up a listener if the current user is the Alpha user.
+    if (!username || !db || username !== ALPHA_ADMIN) return;
  
     currentNotificationRef = db.ref(`Notification Alert/${username}`);
     currentNotificationRef.on('value', snapshot => {
@@ -1678,7 +1679,8 @@ function getChatId(u1, u2) {
 }
 
 function sendNotificationAlert(recipient) {
-    if (db && recipient) {
+    // Only send a notification alert if the recipient is the Alpha user (Raushan_143).
+    if (db && recipient && recipient === ALPHA_ADMIN) {
         db.ref(`Notification Alert/${recipient}`).set(true).catch(e => console.error("Alert Error:", e));
     }
 }
