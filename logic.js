@@ -5247,7 +5247,7 @@ function renderAlphaFriendList() {
         const promises = friendIds.map(async (fid) => {
             let name = fid;
             let pic = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
-            let statusMsg = "Hey there! I am using Mil Baat.";
+            let statusMsg = "Hey I am using Mil Baat.";
 
             if (fid === BETA_ADMIN) {
                 name = "💎_Beta_💎";
