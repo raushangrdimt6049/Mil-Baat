@@ -720,19 +720,49 @@ let serverTimeOffset = 0;
 
 // --- Notification Manager (Persistent) ---
 let currentNotificationRef = null;
+let currentNotificationSound = null; // To hold the playing audio object
+
+function stopNotificationSound(shouldResetDb = true) {
+    if (currentNotificationSound) {
+        currentNotificationSound.pause();
+        currentNotificationSound.currentTime = 0; // Rewind
+        currentNotificationSound = null;
+    }
+    if (shouldResetDb !== false && currentNotificationRef) {
+        currentNotificationRef.set(false).catch(() => {});
+    }
+}
+
+// Add global listeners to stop the sound on any interaction
+document.addEventListener('click', stopNotificationSound);
+document.addEventListener('touchstart', stopNotificationSound);
+document.addEventListener('keydown', stopNotificationSound);
+
 function manageNotificationListener(username) {
     if (currentNotificationRef) {
         currentNotificationRef.off();
         currentNotificationRef = null;
     }
     if (!username || !db) return;
-
+ 
     currentNotificationRef = db.ref(`Notification Alert/${username}`);
     currentNotificationRef.on('value', snapshot => {
         if (snapshot.val() === true) {
-            const audio = new Audio('Notification.mp3');
-            audio.play().catch(e => console.warn("Audio play failed:", e));
-            currentNotificationRef.set(false);
+            stopNotificationSound(false); // Stop any previous sound, keep DB true
+
+            currentNotificationSound = new Audio('Notification.mp3');
+            
+            // When the sound finishes playing naturally, clear the reference
+            currentNotificationSound.onended = () => {
+                currentNotificationSound = null;
+            };
+
+            currentNotificationSound.play().catch(e => {
+                console.warn("Audio play failed:", e);
+                currentNotificationSound = null; // Clear reference on failure
+            });
+        } else {
+            stopNotificationSound(false); // Stop sound if value becomes false
         }
     });
 }
