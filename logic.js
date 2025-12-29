@@ -5207,9 +5207,6 @@ function updateAlphaListStatus() {
 function renderAlphaFriendList() {
     if (!alphaFriendListContainer) return;
     
-    // Fresh Start - Clear Container
-    alphaFriendListContainer.innerHTML = '';
-    
     const unreadCounts = {};
     if (allMessagesRaw && currentUser === ALPHA_ADMIN) {
         allMessagesRaw.forEach(msg => {
@@ -5231,14 +5228,19 @@ function renderAlphaFriendList() {
         }
 
         if (friendIds.length === 0) {
-            alphaFriendListContainer.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; color: rgba(255,255,255,0.5);">
-                    <img src="Add Friend Icon.png" style="width: 80px; opacity: 0.3; margin-bottom: 20px; filter: invert(1);">
-                    <div style="font-size: 1.2rem;">No friends yet</div>
-                    <div style="font-size: 0.9rem;">Tap the + button to add someone</div>
-                </div>
-            `;
+            if (!document.getElementById('no-friends-placeholder')) {
+                alphaFriendListContainer.innerHTML = `
+                    <div id="no-friends-placeholder" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; color: rgba(255,255,255,0.5);">
+                        <img src="Add Friend Icon.png" style="width: 80px; opacity: 0.3; margin-bottom: 20px; filter: invert(1);">
+                        <div style="font-size: 1.2rem;">No friends yet</div>
+                        <div style="font-size: 0.9rem;">Tap the + button to add someone</div>
+                    </div>
+                `;
+            }
             return;
+        } else {
+            const placeholder = document.getElementById('no-friends-placeholder');
+            if (placeholder) placeholder.remove();
         }
         
         // Use Array.map to create promises for fetching data in parallel
@@ -5278,46 +5280,101 @@ function renderAlphaFriendList() {
         // Sort: Unread first, then Alphabetical
         friendsData.sort((a, b) => b.unread - a.unread || a.name.localeCompare(b.name));
 
-        // Generate HTML using Array methods (map & join)
-        const listHTML = friendsData.map(f => {
+        // 1. Update or Create
+        friendsData.forEach(f => {
             const isOnline = (latestAlphaStatusData[f.id]?.online !== false) && 
                              ((Date.now() + (serverTimeOffset || 0) - (latestAlphaStatusData[f.id]?.heartbeat || 0)) < 10000);
             
             const statusColor = isOnline ? '#00e676' : '#ff1744';
+            const boxShadow = isOnline ? '0 0 8px rgba(0, 230, 118, 0.6)' : 'none';
             
-            return `
-            <div onclick="openAlphaChat('${f.id}', '${f.name}')" style="
-                display: flex; align-items: center; padding: 12px 15px; margin-bottom: 12px;
-                background: rgba(255, 255, 255, 0.05); border-radius: 16px;
-                border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);
-                box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s, background 0.2s;
-            " onmouseover="this.style.transform='scale(1.02)'; this.style.background='rgba(255,255,255,0.1)';" 
-              onmouseout="this.style.transform='scale(1)'; this.style.background='rgba(255,255,255,0.05)';">
-                
-                <div style="position: relative; margin-right: 15px;">
-                    <img src="${f.pic}" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.1);">
-                    <div id="status-dot-${f.id}" style="
-                        position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; 
-                        background: ${statusColor}; border-radius: 50%; border: 2px solid #1e272e;
-                        box-shadow: ${isOnline ? '0 0 8px rgba(0, 230, 118, 0.6)' : 'none'};
-                    "></div>
-                </div>
-                
-                <div style="flex: 1; overflow: hidden;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                        <span style="font-size: 1.1rem; font-weight: 600; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.name}</span>
-                        ${f.unread > 0 ? `<span style="background: #00d2ff; color: #000; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 800;">${f.unread}</span>` : ''}
-                    </div>
-                    <div style="display: flex; align-items: center;">
-                        <span id="typing-${f.id}" style="display: none; color: #00d2ff; font-size: 0.85rem; font-style: italic; animation: blinkText 1s infinite;">Typing...</span>
-                        <span class="status-text-${f.id}" style="font-size: 0.85rem; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.statusMsg}</span>
-                    </div>
-                </div>
-            </div>
-            `;
-        }).join('');
+            let card = document.getElementById(`friend-card-${f.id}`);
+            
+            if (card) {
+                // Update existing
+                const badge = document.getElementById(`unread-badge-${f.id}`);
+                if (badge) {
+                    if (f.unread > 0) {
+                        badge.innerText = f.unread;
+                        badge.style.display = 'block';
+                        badge.parentElement.style.display = 'block';
+                    } else {
+                        badge.style.display = 'none';
+                        badge.parentElement.style.display = 'none';
+                    }
+                }
 
-        alphaFriendListContainer.innerHTML = listHTML;
+                const dot = document.getElementById(`status-dot-${f.id}`);
+                if (dot) {
+                    dot.style.background = statusColor;
+                    dot.style.boxShadow = boxShadow;
+                }
+                
+                const img = card.querySelector('img');
+                if (img && img.src !== f.pic) img.src = f.pic;
+                
+                const nameSpan = card.querySelector('.friend-name');
+                if (nameSpan) nameSpan.innerText = f.name;
+
+                const statusSpan = card.querySelector(`.status-text-${f.id}`);
+                if (statusSpan) statusSpan.innerText = f.statusMsg;
+
+            } else {
+                // Create New
+                const cardHTML = `
+                <div id="friend-card-${f.id}" onclick="openAlphaChat('${f.id}', '${f.name}')" style="
+                    display: flex; align-items: center; padding: 12px 15px; margin-bottom: 12px;
+                    background: rgba(255, 255, 255, 0.05); border-radius: 16px;
+                    border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s, background 0.2s;
+                " onmouseover="this.style.transform='scale(1.02)'; this.style.background='rgba(255,255,255,0.1)';" 
+                  onmouseout="this.style.transform='scale(1)'; this.style.background='rgba(255,255,255,0.05)';">
+                    
+                    <div style="position: relative; margin-right: 15px;">
+                        <img src="${f.pic}" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.1);">
+                        <div id="status-dot-${f.id}" style="
+                            position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; 
+                            background: ${statusColor}; border-radius: 50%; border: 2px solid #1e272e;
+                            box-shadow: ${boxShadow};
+                        "></div>
+                    </div>
+                    
+                    <div style="flex: 1; overflow: hidden;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span class="friend-name" style="font-size: 1.1rem; font-weight: 600; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.name}</span>
+                            <span id="badge-container-${f.id}" style="display: ${f.unread > 0 ? 'block' : 'none'};">
+                                <span id="unread-badge-${f.id}" style="background: #00d2ff; color: #000; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 800;">${f.unread}</span>
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <span id="typing-${f.id}" style="display: none; color: #00d2ff; font-size: 0.85rem; font-style: italic; animation: blinkText 1s infinite;">Typing...</span>
+                            <span class="status-text-${f.id}" style="font-size: 0.85rem; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.statusMsg}</span>
+                        </div>
+                    </div>
+                </div>
+                `;
+                alphaFriendListContainer.insertAdjacentHTML('beforeend', cardHTML);
+            }
+        });
+
+        // 2. Re-order DOM elements
+        friendsData.forEach(f => {
+            const card = document.getElementById(`friend-card-${f.id}`);
+            if (card) {
+                alphaFriendListContainer.appendChild(card);
+            }
+        });
+
+        // 3. Cleanup removed friends
+        const currentIds = new Set(friendsData.map(f => f.id));
+        Array.from(alphaFriendListContainer.children).forEach(child => {
+            if (child.id.startsWith('friend-card-')) {
+                const id = child.id.replace('friend-card-', '');
+                if (!currentIds.has(id)) {
+                    child.remove();
+                }
+            }
+        });
 
         // Ensure status listener is active
         if (!alphaStatusListener) {
