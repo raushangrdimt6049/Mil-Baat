@@ -721,25 +721,17 @@ let serverTimeOffset = 0;
 // --- Notification Manager (Persistent) ---
 let currentNotificationRef = null;
 let currentNotificationSound = null; // To hold the playing audio object
-let vibrationInterval = null; // To hold the vibration loop
 
 function stopNotificationSound(shouldResetDb = true) {
     if (currentNotificationSound) {
         currentNotificationSound.pause();
         currentNotificationSound.currentTime = 0; // Rewind
-        currentNotificationSound.loop = false; // Stop looping
         currentNotificationSound = null;
     }
     // Stop any ongoing vibration
     if (navigator.vibrate) {
         navigator.vibrate(0);
     }
-    // Clear the vibration interval
-    if (vibrationInterval) {
-        clearInterval(vibrationInterval);
-        vibrationInterval = null;
-    }
-
     if (shouldResetDb !== false && currentNotificationRef) {
         currentNotificationRef.set(false).catch(() => {});
     }
@@ -770,25 +762,21 @@ function manageNotificationListener(username) {
         if (snapshot.val() === true) {
             stopNotificationSound(false); // Stop any previous sound, keep DB true
 
-            // Vibrate the device with a looping pattern
+            // Vibrate the device with a pattern
             if (navigator.vibrate) {
-                const vibrationPattern = [300, 150, 300]; // buzz, pause, buzz
-                // Clear any existing interval
-                if (vibrationInterval) clearInterval(vibrationInterval);
-                // Vibrate immediately
-                navigator.vibrate(vibrationPattern);
-                // Then loop it
-                vibrationInterval = setInterval(() => {
-                    navigator.vibrate(vibrationPattern);
-                }, 1000); // Repeat every 1 second
+                navigator.vibrate([200, 100, 200, 100, 200]);
             }
 
             currentNotificationSound = new Audio('Notification.mp3');
-            currentNotificationSound.loop = true; // Make the sound loop
             
+            // When the sound finishes playing naturally, clear the reference
+            currentNotificationSound.onended = () => {
+                currentNotificationSound = null;
+            };
+
             currentNotificationSound.play().catch(e => {
                 console.warn("Audio play failed:", e);
-                stopNotificationSound(false); // Clean up if play fails
+                currentNotificationSound = null; // Clear reference on failure
             });
         } else {
             stopNotificationSound(false); // Stop sound if value becomes false
@@ -837,10 +825,8 @@ let blockedUsersSet = new Set();
 let lastStatusKey = null;
 
 // Initialize Notification Listener from LocalStorage (if available)
-const isAlphaDevice = localStorage.getItem('milbaat_alpha_device');
-if (isAlphaDevice === 'true') {
-    manageNotificationListener(ALPHA_ADMIN);
-}
+const savedNotifUser = localStorage.getItem('milbaat_user');
+if (savedNotifUser) manageNotificationListener(savedNotifUser);
 
 // --- Set Custom Background ---
 body.style.background = "none";
@@ -2199,11 +2185,6 @@ acceptBtn.addEventListener('click', async (e) => {
         
         localStorage.setItem('milbaat_user', user);
         manageNotificationListener(user);
-
-        // If this is the Alpha user, permanently mark this device for notifications.
-        if (isAlpha) {
-            localStorage.setItem('milbaat_alpha_device', 'true');
-        }
 
         body.classList.remove('user-alpha', 'user-beta');
         if (isAlpha) body.classList.add('user-alpha');
@@ -4571,12 +4552,8 @@ confirmLogout.addEventListener('click', () => {
     body.style.overflow = 'hidden';
     body.classList.remove('user-alpha', 'user-beta');
     
-    localStorage.removeItem('milbaat_user'); // This is correct, it logs out the session.
-    
-    // DO NOT stop the notification listener if this is an Alpha device.
-    if (localStorage.getItem('milbaat_alpha_device') !== 'true') {
-        manageNotificationListener(null);
-    }
+    localStorage.removeItem('milbaat_user');
+    manageNotificationListener(null);
     
     // Update status one last time before clearing
     if (currentUser && db) {
