@@ -728,10 +728,6 @@ function stopNotificationSound(shouldResetDb = true) {
         currentNotificationSound.currentTime = 0; // Rewind
         currentNotificationSound = null;
     }
-    // Stop any ongoing vibration
-    if (navigator.vibrate) {
-        navigator.vibrate(0);
-    }
     if (shouldResetDb !== false && currentNotificationRef) {
         currentNotificationRef.set(false).catch(() => {});
     }
@@ -761,11 +757,6 @@ function manageNotificationListener(username) {
     currentNotificationRef.on('value', snapshot => {
         if (snapshot.val() === true) {
             stopNotificationSound(false); // Stop any previous sound, keep DB true
-
-            // Vibrate the device with a pattern
-            if (navigator.vibrate) {
-                navigator.vibrate([200, 100, 200, 100, 200]);
-            }
 
             currentNotificationSound = new Audio('Notification.mp3');
             
