@@ -757,51 +757,6 @@ let selectedMsgIds = new Set();
 let isSelectionMode = false;
 let blockedUsersSet = new Set();
 let lastStatusKey = null;
-let otherUserOnlineStatus = false;
-
-// --- Notification Alert Logic ---
-const notificationAudio = new Audio('Notification Sound.mp3'); 
-notificationAudio.loop = true;
-
-function startNotificationListener(username) {
-    if (!username || !db) return;
-    db.ref('Notification Alert/' + username).on('value', (snapshot) => {
-        if (snapshot.val() === true) {
-            // Play Ringtone
-            notificationAudio.play().catch(e => console.log("Audio play failed (interaction needed):", e));
-            if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
-        } else {
-            notificationAudio.pause();
-            notificationAudio.currentTime = 0;
-        }
-    });
-}
-
-function stopNotificationAlert() {
-    const user = currentUser || localStorage.getItem('milbaat_user');
-    if (user && db) {
-        db.ref('Notification Alert/' + user).set(false);
-    }
-    notificationAudio.pause();
-    notificationAudio.currentTime = 0;
-}
-
-// Stop alert on interaction
-['click', 'touchstart', 'keydown'].forEach(evt => 
-    document.addEventListener(evt, () => {
-        if (!notificationAudio.paused) stopNotificationAlert();
-    }, { passive: true })
-);
-
-// Check for saved user on load (for "Login or Not" requirement)
-(function initNotificationSystem() {
-    const savedUser = localStorage.getItem('milbaat_user');
-    if (savedUser && typeof firebase !== 'undefined') {
-        setTimeout(() => {
-            if (db) startNotificationListener(savedUser);
-        }, 1000);
-    }
-})();
 
 // --- Set Custom Background ---
 body.style.background = "none";
@@ -1801,6 +1756,7 @@ function setupFirebaseListeners() {
     let otherUserHeartbeat = 0;
     let otherUserLastSeen = null;
     let isOtherUserTyping = false;
+    let otherUserOnlineStatus = true;
 
     db.ref('status').on('value', snapshot => {
         const data = snapshot.val() || {};
@@ -2147,8 +2103,6 @@ acceptBtn.addEventListener('click', async (e) => {
     // Helper function for successful login
     const performLogin = (user, displayName, isAlpha, isBeta, customData = null) => {
         currentUser = user;
-        localStorage.setItem('milbaat_user', user);
-        startNotificationListener(user);
         profileUsernameDisplay.innerText = displayName;
         logoDisplay.innerText = displayName;
 
@@ -2891,11 +2845,6 @@ sendMsgBtn.addEventListener('click', () => {
             console.error("Send Error:", error);
             alert("Failed to send message: " + error.message);
         });
-
-        // Trigger Notification Alert if recipient is offline
-        if (!otherUserOnlineStatus) {
-            db.ref('Notification Alert/' + recipient).set(true);
-        }
 
         // Clear reply state
         replyToMsg = null;
@@ -3929,11 +3878,6 @@ function sendAudioMessage(base64Audio) {
     const table = getMessageTable(currentUser);
     const newMsgRef = db.ref(`messages/${table}`).push();
     const recipient = currentChatPartner;
-
-    if (!otherUserOnlineStatus) {
-        db.ref('Notification Alert/' + recipient).set(true);
-    }
-
     newMsgRef.set({
         id: newMsgRef.key,
         sender: currentUser,
@@ -4200,10 +4144,6 @@ sendImageBtn.addEventListener('click', () => {
             msgData.file = currentFileData;
         } else if (currentVideoBase64) {
             msgData.video = currentVideoBase64;
-        }
-
-        if (!otherUserOnlineStatus) {
-            db.ref('Notification Alert/' + recipient).set(true);
         }
 
         newMsgRef.set(msgData).catch(err => {
@@ -4503,11 +4443,6 @@ confirmLogout.addEventListener('click', () => {
     // Hide Modal & Remove Blur
     logoutModal.style.display = 'none';
     mainContent.classList.remove('blur-content');
-    
-    localStorage.removeItem('milbaat_user');
-    if (currentUser) db.ref('Notification Alert/' + currentUser).off();
-    notificationAudio.pause();
-    notificationAudio.currentTime = 0;
     
     // Hide Main Content & Nav
     mainContent.style.display = 'none';
