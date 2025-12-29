@@ -4940,11 +4940,26 @@ window.addEventListener('popstate', () => {
                     item.innerHTML = `
                         <img src="${pic}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;">
                         <div style="flex:1;"><div style="font-weight:bold;">${name}</div></div>
-                        <button class="start-chat-btn" style="padding:8px 12px; border-radius:5px; border:none; background:#6c5ce7; color:white; cursor:pointer;">Start Chatting</button>
+                        <button class="unfriend-btn" style="padding:8px 12px; border-radius:5px; border:none; background:#ff4757; color:white; cursor:pointer;">Unfriend</button>
                         <button class="block-friend-btn" data-friend-id="${friendId}" style="padding:8px 12px; border-radius:5px; border:none; background:${isBlocked ? '#2ecc71' : '#ff4757'}; color:white; cursor:pointer;">
                             ${isBlocked ? 'Unblock' : 'Block'}
                         </button>
                     `;
+
+                    item.querySelector('.unfriend-btn').onclick = () => {
+                        if (confirm(`Are you sure you want to unfriend ${name}?`)) {
+                            const updates = {};
+                            updates[`friends/${currentUser}/${friendId}`] = null;
+                            updates[`friends/${friendId}/${currentUser}`] = null; // Remove both ways
+
+                            db.ref().update(updates).then(() => {
+                                showToast(`You are no longer friends with ${name}.`);
+                                item.remove();
+                            }).catch(err => {
+                                showToast(`Failed to unfriend: ${err.message}`);
+                            });
+                        }
+                    };
 
                     item.querySelector('.block-friend-btn').onclick = (e) => {
                         const currentlyBlocked = blockedUsersSet.has(friendId);
@@ -4953,19 +4968,6 @@ window.addEventListener('popstate', () => {
                         } else {
                             db.ref(`blocked_users/${currentUser}/${friendId}`).set(true).then(() => showToast(`${name} blocked.`));
                         }
-                    };
-
-                    item.querySelector('.start-chat-btn').onclick = () => {
-                        modal.style.display = 'none';
-                        if (mainContent) mainContent.classList.remove('blur-content');
-                        
-                        currentChatPartner = friendId;
-                        const logo = document.querySelector('.logo');
-                        if(logo) logo.innerText = name;
-                        filterAndRenderChat();
-                        updatePinnedMessageListener();
-                        showToast(`Chatting with ${name}`);
-                        startHeartbeat();
                     };
                     content.appendChild(item);
                 });
