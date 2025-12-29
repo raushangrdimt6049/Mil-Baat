@@ -5199,15 +5199,16 @@ function updateAlphaListStatus() {
         const friendStatus = latestAlphaStatusData[fid] || {};
         const heartbeat = friendStatus.heartbeat || 0;
         const isOnline = (now - heartbeat < 10000) && (friendStatus.online !== false);
-        dot.style.background = isOnline ? '#2ecc71' : '#ff0000';
+        dot.style.background = isOnline ? '#00e676' : '#ff1744';
+        dot.style.boxShadow = isOnline ? '0 0 8px rgba(0, 230, 118, 0.6)' : 'none';
     });
 }
 
 function renderAlphaFriendList() {
     if (!alphaFriendListContainer) return;
     
-    alphaRenderGeneration++;
-    const thisGeneration = alphaRenderGeneration;
+    // Fresh Start - Clear Container
+    alphaFriendListContainer.innerHTML = '';
     
     const unreadCounts = {};
     if (allMessagesRaw && currentUser === ALPHA_ADMIN) {
@@ -5218,136 +5219,131 @@ function renderAlphaFriendList() {
         });
     }
     
-    db.ref(`friends/${currentUser}`).once('value').then(snap => {
-        if (thisGeneration !== alphaRenderGeneration) return;
-
-        const friends = new Set();
+    db.ref(`friends/${currentUser}`).once('value').then(async (snap) => {
+        let friendIds = [];
         if (snap.exists()) {
-            snap.forEach(child => friends.add(child.key));
+            friendIds = Object.keys(snap.val());
         }
         
-        // Force add Beta if current user is Alpha (Fix for Beta not showing)
-        if (currentUser === ALPHA_ADMIN) {
-            friends.add(BETA_ADMIN);
+        // Ensure Beta is always a friend for Alpha
+        if (currentUser === ALPHA_ADMIN && !friendIds.includes(BETA_ADMIN)) {
+            friendIds.push(BETA_ADMIN);
         }
 
-        // Handle "No friends" message
-        const noFriendsMsg = alphaFriendListContainer.querySelector('#no-friends-msg');
-        if (friends.size === 0) {
-            if (!noFriendsMsg) {
-                alphaFriendListContainer.innerHTML = '<div id="no-friends-msg" style="text-align:center; margin-top:20px; color:white;">No friends yet. Add some!</div>';
-            }
+        if (friendIds.length === 0) {
+            alphaFriendListContainer.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; color: rgba(255,255,255,0.5);">
+                    <img src="Add Friend Icon.png" style="width: 80px; opacity: 0.3; margin-bottom: 20px; filter: invert(1);">
+                    <div style="font-size: 1.2rem;">No friends yet</div>
+                    <div style="font-size: 0.9rem;">Tap the + button to add someone</div>
+                </div>
+            `;
             return;
-        } else {
-            if (noFriendsMsg) noFriendsMsg.remove();
-            // Also remove if it was added as plain text previously
-            const plainMsg = Array.from(alphaFriendListContainer.children).find(c => c.innerText && c.innerText.includes("No friends yet"));
-            if (plainMsg) plainMsg.remove();
         }
         
-        // 1. Remove deleted friends
-        Array.from(alphaFriendListContainer.children).forEach(row => {
-            if (row.id && row.id.startsWith('friend-row-')) {
-                const fid = row.id.replace('friend-row-', '');
-                if (!friends.has(fid)) {
-                    row.remove();
-                }
-            }
-        });
-
-        // 2. Update or Create rows
-        friends.forEach(friendId => {
-            const unreadCount = unreadCounts[friendId] || 0;
-            let row = document.getElementById(`friend-row-${friendId}`);
-
-            if (row) {
-                // Update Badge
-                let badge = row.querySelector('.unread-badge');
-                if (unreadCount > 0) {
-                    if (!badge) {
-                        badge = document.createElement('span');
-                        badge.className = 'unread-badge';
-                        badge.style.cssText = `background: #2ecc71; color: white; border-radius: 50%; min-width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; padding: 0 5px;`;
-                        row.appendChild(badge);
-                    }
-                    badge.innerText = unreadCount;
-                } else {
-                    if (badge) badge.remove();
-                }
-                return; // Done with this friend
-            }
-
-            // Create Row
-            let name = friendId;
+        // Use Array.map to create promises for fetching data in parallel
+        const promises = friendIds.map(async (fid) => {
+            let name = fid;
             let pic = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
-            
-            db.ref(`Other User Table/${friendId}`).once('value').then(uSnap => {
-                if (thisGeneration !== alphaRenderGeneration) return;
+            let statusMsg = "Hey there! I am using Mil Baat.";
 
+            if (fid === BETA_ADMIN) {
+                name = "💎_Beta_💎";
+                statusMsg = "System Admin";
+                const pSnap = await db.ref(`Profile Pic/Beta_Profile_Pic`).once('value');
+                if (pSnap.exists()) pic = pSnap.val();
+            } else {
+                const uSnap = await db.ref(`Other User Table/${fid}`).once('value');
                 if (uSnap.exists()) {
                     const u = uSnap.val();
-                    name = u.name;
+                    name = u.name || fid;
                     if (u.profilePic) pic = u.profilePic;
-                } else if (friendId === BETA_ADMIN) {
-                    name = "💎_Beta_💎";
                 }
-                
-                // Double check existence
-                if (document.getElementById(`friend-row-${friendId}`)) return;
+                // Check for updated profile pic
+                const pSnap = await db.ref(`Profile Pic/${fid}_Profile_Pic`).once('value');
+                if (pSnap.exists()) pic = pSnap.val();
+            }
 
-                // Fetch latest profile pic
-                const picRef = (friendId === BETA_ADMIN) ? `Profile Pic/Beta_Profile_Pic` : `Profile Pic/${friendId}_Profile_Pic`;
-                db.ref(picRef).once('value').then(pSnap => {
-                    if (thisGeneration !== alphaRenderGeneration) return;
-                    if(pSnap.exists()) pic = pSnap.val();
-
-                    const newRow = document.createElement('div');
-                    newRow.id = `friend-row-${friendId}`;
-                    newRow.style.cssText = `display: flex; align-items: center; padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: background 0.2s;`;
-                    
-                    const friendStatus = latestAlphaStatusData[friendId] || {};
-                    const heartbeat = friendStatus.heartbeat || 0;
-                    const now = Date.now() + (serverTimeOffset || 0);
-                    const isOnline = (now - heartbeat < 10000);
-                    const dotColor = isOnline ? '#2ecc71' : '#ff0000';
-
-                    newRow.innerHTML = `
-                    <div style="position: relative; margin-right: 15px;">
-                        <img id="pic-${friendId}" src="${pic}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;">
-                        <div id="status-dot-${friendId}" style="position: absolute; bottom: 0; right: 0; width: 14px; height: 14px; background: ${dotColor}; border-radius: 50%; border: 2px solid #2d3436;"></div>
-                    </div>
-                    <span style="font-size: 1.1rem; font-weight: 500; color: white; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</span>
-                    `;
-
-                    if (unreadCount > 0) {
-                        const badge = document.createElement('span');
-                        badge.className = 'unread-badge';
-                        badge.style.cssText = `background: #2ecc71; color: white; border-radius: 50%; min-width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; padding: 0 5px;`;
-                        badge.innerText = unreadCount;
-                        newRow.appendChild(badge);
-                    }
-
-                    // Add Typing Indicator
-                    const typingInd = document.createElement('span');
-                    typingInd.id = `typing-${friendId}`;
-                    typingInd.innerText = 'Typing...';
-                    typingInd.style.cssText = 'color: #00d2ff; font-size: 0.8rem; font-style: italic; margin-left: 10px; display: none; animation: blinkText 1s infinite;';
-                    newRow.appendChild(typingInd);
-                    
-                    newRow.onclick = () => openAlphaChat(friendId, name);
-                    newRow.onmouseover = () => newRow.style.background = 'rgba(255,255,255,0.05)';
-                    newRow.onmouseout = () => newRow.style.background = 'transparent';
-                    
-                    alphaFriendListContainer.appendChild(newRow);
-                });
-            });
+            return {
+                id: fid,
+                name: name,
+                pic: pic,
+                unread: unreadCounts[fid] || 0,
+                statusMsg: statusMsg
+            };
         });
 
-        // Start Status Listener for Online/Offline Indicator
+        const friendsData = await Promise.all(promises);
+
+        // Sort: Unread first, then Alphabetical
+        friendsData.sort((a, b) => b.unread - a.unread || a.name.localeCompare(b.name));
+
+        // Generate HTML using Array methods (map & join)
+        const listHTML = friendsData.map(f => {
+            const isOnline = (latestAlphaStatusData[f.id]?.online !== false) && 
+                             ((Date.now() + (serverTimeOffset || 0) - (latestAlphaStatusData[f.id]?.heartbeat || 0)) < 10000);
+            
+            const statusColor = isOnline ? '#00e676' : '#ff1744';
+            
+            return `
+            <div onclick="openAlphaChat('${f.id}', '${f.name}')" style="
+                display: flex; align-items: center; padding: 12px 15px; margin-bottom: 12px;
+                background: rgba(255, 255, 255, 0.05); border-radius: 16px;
+                border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);
+                box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s, background 0.2s;
+            " onmouseover="this.style.transform='scale(1.02)'; this.style.background='rgba(255,255,255,0.1)';" 
+              onmouseout="this.style.transform='scale(1)'; this.style.background='rgba(255,255,255,0.05)';">
+                
+                <div style="position: relative; margin-right: 15px;">
+                    <img src="${f.pic}" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.1);">
+                    <div id="status-dot-${f.id}" style="
+                        position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; 
+                        background: ${statusColor}; border-radius: 50%; border: 2px solid #1e272e;
+                        box-shadow: ${isOnline ? '0 0 8px rgba(0, 230, 118, 0.6)' : 'none'};
+                    "></div>
+                </div>
+                
+                <div style="flex: 1; overflow: hidden;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 1.1rem; font-weight: 600; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.name}</span>
+                        ${f.unread > 0 ? `<span style="background: #00d2ff; color: #000; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 800;">${f.unread}</span>` : ''}
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <span id="typing-${f.id}" style="display: none; color: #00d2ff; font-size: 0.85rem; font-style: italic; animation: blinkText 1s infinite;">Typing...</span>
+                        <span class="status-text-${f.id}" style="font-size: 0.85rem; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.statusMsg}</span>
+                    </div>
+                </div>
+            </div>
+            `;
+        }).join('');
+
+        alphaFriendListContainer.innerHTML = listHTML;
+
+        // Ensure status listener is active
         if (!alphaStatusListener) {
             alphaStatusListener = db.ref('status').on('value', snapshot => {
                 latestAlphaStatusData = snapshot.val() || {};
                 updateAlphaListStatus();
+            });
+        }
+        
+        // Ensure typing listener is active for the list
+        if (!alphaTypingListener) {
+            alphaTypingListener = db.ref('typing').on('value', snapshot => {
+                const typingData = snapshot.val() || {};
+                Object.keys(typingData).forEach(uid => {
+                    const typingEl = document.getElementById(`typing-${uid}`);
+                    const statusEl = document.querySelector(`.status-text-${uid}`);
+                    if (typingEl && statusEl) {
+                        if (typingData[uid]) {
+                            typingEl.style.display = 'block';
+                            statusEl.style.display = 'none';
+                        } else {
+                            typingEl.style.display = 'none';
+                            statusEl.style.display = 'block';
+                        }
+                    }
+                });
             });
         }
     });
