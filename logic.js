@@ -718,6 +718,25 @@ if (db) {
 }
 let serverTimeOffset = 0;
 
+// --- Notification Manager (Persistent) ---
+let currentNotificationRef = null;
+function manageNotificationListener(username) {
+    if (currentNotificationRef) {
+        currentNotificationRef.off();
+        currentNotificationRef = null;
+    }
+    if (!username || !db) return;
+
+    currentNotificationRef = db.ref(`Notification Alert/${username}`);
+    currentNotificationRef.on('value', snapshot => {
+        if (snapshot.val() === true) {
+            const audio = new Audio('Notification.mp3');
+            audio.play().catch(e => console.warn("Audio play failed:", e));
+            currentNotificationRef.set(false);
+        }
+    });
+}
+
 let currentUser = null;
 let msgToDeleteId = null;
 let selectedMsgId = null;
@@ -757,6 +776,10 @@ let selectedMsgIds = new Set();
 let isSelectionMode = false;
 let blockedUsersSet = new Set();
 let lastStatusKey = null;
+
+// Initialize Notification Listener from LocalStorage (if available)
+const savedNotifUser = localStorage.getItem('milbaat_user');
+if (savedNotifUser) manageNotificationListener(savedNotifUser);
 
 // --- Set Custom Background ---
 body.style.background = "none";
@@ -1624,6 +1647,12 @@ function getChatId(u1, u2) {
     return [u1, u2].sort().join('_');
 }
 
+function sendNotificationAlert(recipient) {
+    if (db && recipient) {
+        db.ref(`Notification Alert/${recipient}`).set(true).catch(e => console.error("Alert Error:", e));
+    }
+}
+
 function filterAndRenderChat() {
     if (!allMessagesRaw) return;
 
@@ -2105,6 +2134,9 @@ acceptBtn.addEventListener('click', async (e) => {
         currentUser = user;
         profileUsernameDisplay.innerText = displayName;
         logoDisplay.innerText = displayName;
+        
+        localStorage.setItem('milbaat_user', user);
+        manageNotificationListener(user);
 
         body.classList.remove('user-alpha', 'user-beta');
         if (isAlpha) body.classList.add('user-alpha');
@@ -2845,6 +2877,7 @@ sendMsgBtn.addEventListener('click', () => {
             console.error("Send Error:", error);
             alert("Failed to send message: " + error.message);
         });
+        sendNotificationAlert(recipient);
 
         // Clear reply state
         replyToMsg = null;
@@ -3486,6 +3519,7 @@ function sendMissedCallMessage(isVideo) {
         status: 'sent',
         replyTo: null
     });
+    sendNotificationAlert(recipient);
 }
 
 // Mute/Flip/Output Handlers
@@ -3889,6 +3923,7 @@ function sendAudioMessage(base64Audio) {
         status: 'sent',
         replyTo: null
     });
+    sendNotificationAlert(recipient);
 }
 
 // --- Image Preview & Send Logic ---
@@ -4150,6 +4185,7 @@ sendImageBtn.addEventListener('click', () => {
             console.error("Send Error:", err);
             alert("Failed to send. File might be too large.");
         });
+        sendNotificationAlert(recipient);
 
         // Cleanup
         imagePreviewOverlay.style.display = 'none';
@@ -4467,6 +4503,9 @@ confirmLogout.addEventListener('click', () => {
     acceptBtn.style.cursor = 'not-allowed';
     body.style.overflow = 'hidden';
     body.classList.remove('user-alpha', 'user-beta');
+    
+    localStorage.removeItem('milbaat_user');
+    manageNotificationListener(null);
     
     // Update status one last time before clearing
     if (currentUser && db) {
