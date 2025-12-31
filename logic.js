@@ -1683,10 +1683,8 @@ function setupFirebaseListeners() {
             allMessagesRaw = raw;
             
             // Auto-update Notification Alert for Alpha User based on unread messages
-            if (currentUser === ALPHA_ADMIN) {
-                const hasUnread = raw.some(m => m.recipient === ALPHA_ADMIN && m.status !== 'seen');
-                db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(hasUnread).catch(e => console.error(e));
-            }
+            const hasUnreadForAlpha = raw.some(m => m.recipient === ALPHA_ADMIN && m.status !== 'seen');
+            db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(hasUnreadForAlpha).catch(e => console.error(e));
             
             filterAndRenderChat();
         } catch (e) {
@@ -2135,6 +2133,11 @@ acceptBtn.addEventListener('click', async (e) => {
             if (typeof alphaHomeHeader !== 'undefined' && alphaHomeHeader) alphaHomeHeader.style.display = 'none';
             if (typeof alphaFriendListContainer !== 'undefined' && alphaFriendListContainer) alphaFriendListContainer.style.display = 'none';
             if (typeof alphaAddFriendFab !== 'undefined' && alphaAddFriendFab) alphaAddFriendFab.style.display = 'none';
+
+            // Ensure Default Header and Chat are visible for Beta/Other users
+            const defaultHeader = document.querySelector('header');
+            if (defaultHeader) defaultHeader.style.display = 'flex';
+            if (chatMessages) chatMessages.style.display = 'flex';
 
             currentChatPartner = ALPHA_ADMIN;
             chatInputBar.style.display = 'flex';
@@ -4477,6 +4480,11 @@ confirmLogout.addEventListener('click', () => {
     }
     if (headerLogoutBtn) headerLogoutBtn.style.display = 'none';
     
+    // Hide Headers on Logout to prevent them showing on login screen
+    const defaultHeader = document.querySelector('header');
+    if (defaultHeader) defaultHeader.style.display = 'none';
+    if (typeof alphaHomeHeader !== 'undefined' && alphaHomeHeader) alphaHomeHeader.style.display = 'none';
+
     // Show Login Overlay & Reset
     overlay.style.visibility = 'visible';
     overlay.style.opacity = '1';
