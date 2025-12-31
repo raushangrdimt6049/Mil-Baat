@@ -718,63 +718,6 @@ if (db) {
 }
 let serverTimeOffset = 0;
 
-// --- Notification Manager (Persistent) ---
-let currentNotificationRef = null;
-let currentNotificationSound = null; // To hold the playing audio object
-
-function stopNotificationSound(shouldResetDb = true) {
-    if (currentNotificationSound) {
-        currentNotificationSound.pause();
-        currentNotificationSound.currentTime = 0; // Rewind
-        currentNotificationSound = null;
-    }
-    if (shouldResetDb !== false && currentNotificationRef) {
-        currentNotificationRef.set(false).catch(() => {});
-    }
-}
-
-// Add global listeners to stop the sound on any interaction
-document.addEventListener('click', stopNotificationSound);
-document.addEventListener('touchstart', stopNotificationSound);
-document.addEventListener('keydown', stopNotificationSound);
-
-// Handle Power Button (Screen Lock) and App Backgrounding
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') stopNotificationSound();
-});
-// Handle interruptions (like incoming calls, system dialogs, potentially volume overlay)
-window.addEventListener('blur', () => stopNotificationSound());
-
-function manageNotificationListener(username) {
-    if (currentNotificationRef) {
-        currentNotificationRef.off();
-        currentNotificationRef = null;
-    }
-    // Only set up a listener if the current user is the Alpha user.
-    if (!username || !db || username !== ALPHA_ADMIN) return;
- 
-    currentNotificationRef = db.ref(`Notification Alert/${username}`);
-    currentNotificationRef.on('value', snapshot => {
-        if (snapshot.val() === true) {
-            stopNotificationSound(false); // Stop any previous sound, keep DB true
-
-            currentNotificationSound = new Audio('Notification.mp3');
-            
-            // When the sound finishes playing naturally, clear the reference
-            currentNotificationSound.onended = () => {
-                currentNotificationSound = null;
-            };
-
-            currentNotificationSound.play().catch(e => {
-                console.warn("Audio play failed:", e);
-                currentNotificationSound = null; // Clear reference on failure
-            });
-        } else {
-            stopNotificationSound(false); // Stop sound if value becomes false
-        }
-    });
-}
-
 let currentUser = null;
 let msgToDeleteId = null;
 let selectedMsgId = null;
@@ -814,10 +757,6 @@ let selectedMsgIds = new Set();
 let isSelectionMode = false;
 let blockedUsersSet = new Set();
 let lastStatusKey = null;
-
-// Initialize Notification Listener from LocalStorage (if available)
-const savedNotifUser = localStorage.getItem('milbaat_user');
-if (savedNotifUser) manageNotificationListener(savedNotifUser);
 
 // --- Set Custom Background ---
 body.style.background = "none";
@@ -1742,6 +1681,13 @@ function setupFirebaseListeners() {
                 });
             }
             allMessagesRaw = raw;
+            
+            // Auto-update Notification Alert for Alpha User based on unread messages
+            if (currentUser === ALPHA_ADMIN) {
+                const hasUnread = raw.some(m => m.recipient === ALPHA_ADMIN && m.status !== 'seen');
+                db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(hasUnread).catch(e => console.error(e));
+            }
+            
             filterAndRenderChat();
         } catch (e) {
             console.error("Error processing chat data:", e);
@@ -2175,7 +2121,6 @@ acceptBtn.addEventListener('click', async (e) => {
         logoDisplay.innerText = displayName;
         
         localStorage.setItem('milbaat_user', user);
-        manageNotificationListener(user);
 
         body.classList.remove('user-alpha', 'user-beta');
         if (isAlpha) body.classList.add('user-alpha');
@@ -4544,7 +4489,6 @@ confirmLogout.addEventListener('click', () => {
     body.classList.remove('user-alpha', 'user-beta');
     
     localStorage.removeItem('milbaat_user');
-    manageNotificationListener(null);
     
     // Update status one last time before clearing
     if (currentUser && db) {
