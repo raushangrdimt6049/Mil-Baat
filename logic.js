@@ -1693,7 +1693,13 @@ function setupFirebaseListeners() {
             }
             allMessagesRaw = raw;
             
-            // Notification alert is now handled by `sendNotificationAlert` and status change functions.
+            // Automatically turn off notification alert if there are no unread messages for Alpha.
+            // The alert is only turned ON by `sendNotificationAlert` when a new message arrives for an offline user.
+            const hasUnreadForAlpha = raw.some(m => m.recipient === ALPHA_ADMIN && m.status !== 'seen');
+            if (!hasUnreadForAlpha && currentUser) { // Check for currentUser to avoid running on initial load before login
+                db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error("Alert Error on clear:", e));
+            }
+
             filterAndRenderChat();
         } catch (e) {
             console.error("Error processing chat data:", e);
