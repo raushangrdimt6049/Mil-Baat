@@ -2213,10 +2213,11 @@ acceptBtn.addEventListener('click', async (e) => {
 let currentUserData = null; // To store extra data for new users
 
 // --- Online Status Logic ---
-function startHeartbeat() {
-    if (!currentUser || !db) return;
+function startHeartbeat(customUser = null) {
+    const targetUser = customUser || currentUser;
+    if (!targetUser || !db) return;
 
-    const statusRef = db.ref(`status/${currentUser}`);
+    const statusRef = db.ref(`status/${targetUser}`);
     
     statusRef.update({
         online: true,
@@ -4507,6 +4508,14 @@ confirmLogout.addEventListener('click', () => {
             online: false,
             lastSeen: firebase.database.ServerValue.TIMESTAMP
         });
+
+        if (currentUser === ALPHA_ADMIN) {
+            db.ref(`status/Raushan_Home`).update({
+                online: false,
+                lastSeen: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+
         db.ref(`status/${currentUser}`).onDisconnect().cancel();
 
         db.ref('messages').off();
@@ -5210,6 +5219,10 @@ function showAlphaHomeScreen() {
             online: false,
             lastSeen: firebase.database.ServerValue.TIMESTAMP
         });
+
+        if (currentUser === ALPHA_ADMIN) {
+            startHeartbeat('Raushan_Home');
+        }
     }
 
     // Switch Headers
@@ -5468,6 +5481,14 @@ function openAlphaChat(friendId, friendName) {
     
     if (alphaBackBtn) alphaBackBtn.style.display = 'block';
     if (headerLogoutBtn) headerLogoutBtn.style.display = 'block';
+
+    if (currentUser === ALPHA_ADMIN) {
+        db.ref(`status/Raushan_Home`).update({
+            online: false,
+            lastSeen: firebase.database.ServerValue.TIMESTAMP
+        });
+    }
+
     filterAndRenderChat();
     updatePinnedMessageListener();
     startHeartbeat();
