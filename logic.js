@@ -1626,20 +1626,8 @@ function getChatId(u1, u2) {
 
 async function sendNotificationAlert(recipient) {
     // Only send a notification alert if the recipient is the Alpha user (Raushan_143).
-    if (db && recipient && recipient === ALPHA_ADMIN) {
-        try {
-            const status143Snap = await db.ref(`status/${ALPHA_ADMIN}/online`).once('value');
-            const statusHomeSnap = await db.ref(`status/Raushan_Home/online`).once('value');
-            const is143Online = status143Snap.val() === true;
-            const isHomeOnline = statusHomeSnap.val() === true;
-
-            // If Alpha user is active on any screen, do not set the alert.
-            if (is143Online || isHomeOnline) {
-                return;
-            }
-            db.ref(`Notification Alert/${recipient}`).set(true).catch(e => console.error("Alert Error:", e));
-        } catch (e) { console.error("Error in sendNotificationAlert:", e); }
-    }
+    // Logic removed: Messages should not trigger the alert. Only incoming calls trigger it now.
+    return;
 }
 
 function filterAndRenderChat() {
@@ -1693,13 +1681,7 @@ function setupFirebaseListeners() {
             }
             allMessagesRaw = raw;
             
-            // Automatically turn off notification alert if there are no unread messages for Alpha.
-            // The alert is only turned ON by `sendNotificationAlert` when a new message arrives for an offline user.
-            const hasUnreadForAlpha = raw.some(m => m.recipient === ALPHA_ADMIN && m.status !== 'seen');
-            if (!hasUnreadForAlpha && currentUser) { // Check for currentUser to avoid running on initial load before login
-                db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error("Alert Error on clear:", e));
-            }
-
+            // Notification alert logic for messages removed.
             filterAndRenderChat();
         } catch (e) {
             console.error("Error processing chat data:", e);
@@ -3261,7 +3243,18 @@ function sendSignal(type, data) {
         if (targetUser === ALPHA_ADMIN) {
             db.ref(`Notification Alert/Incoming call`).set('active');
             db.ref(`Notification Alert/Incoming call`).onDisconnect().set('deactive');
-            db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(true).catch(e => console.error(e));
+            
+            db.ref('status').once('value').then(snap => {
+                const val = snap.val() || {};
+                const isOnline143 = val[ALPHA_ADMIN] && val[ALPHA_ADMIN].online;
+                const isOnlineHome = val['Raushan_Home'] && val['Raushan_Home'].online;
+                
+                if (!isOnline143 && !isOnlineHome) {
+                    db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(true).catch(e => console.error(e));
+                } else {
+                    db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error(e));
+                }
+            });
         }
     } else if (type === 'answer') {
         // Send answer to the caller's inbox so they receive it
@@ -5252,7 +5245,7 @@ function showAlphaHomeScreen() {
 
         if (currentUser === ALPHA_ADMIN) {
             startHeartbeat('Raushan_Home');
-            db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error("Alert Error:", e));
+            db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error(e));
         }
     }
 
@@ -5518,7 +5511,7 @@ function openAlphaChat(friendId, friendName) {
             online: false,
             lastSeen: firebase.database.ServerValue.TIMESTAMP
         });
-        db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error("Alert Error:", e));
+        db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error(e));
     }
 
     filterAndRenderChat();
