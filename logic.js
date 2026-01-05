@@ -3257,6 +3257,12 @@ function sendSignal(type, data) {
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
         ref.onDisconnect().remove();
+
+        if (targetUser === ALPHA_ADMIN) {
+            db.ref(`Notification Alert/Incoming call`).set('active');
+            db.ref(`Notification Alert/Incoming call`).onDisconnect().set('deactive');
+            db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(true).catch(e => console.error(e));
+        }
     } else if (type === 'answer') {
         // Send answer to the caller's inbox so they receive it
         db.ref(incomingPath).set({
@@ -3266,6 +3272,11 @@ function sendSignal(type, data) {
             sdp: JSON.parse(JSON.stringify(data)),
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
+
+        if (currentUser === ALPHA_ADMIN) {
+            db.ref(`Notification Alert/Incoming call`).set('deactive');
+            db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error(e));
+        }
     } else if (type === 'candidate') {
         db.ref(candidatePath).push({
             candidate: JSON.parse(JSON.stringify(data)),
@@ -3278,6 +3289,11 @@ function sendSignal(type, data) {
         db.ref(`signals/${targetRole}_incoming_${callType}`).remove();
         db.ref(`signals/${myRole}_candidates`).remove();
         db.ref(`signals/${targetRole}_candidates`).remove();
+
+        if (targetUser === ALPHA_ADMIN || currentUser === ALPHA_ADMIN) {
+            db.ref(`Notification Alert/Incoming call`).set('deactive');
+            db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error(e));
+        }
     }
 }
 
