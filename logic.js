@@ -1624,10 +1624,21 @@ function getChatId(u1, u2) {
     return [u1, u2].sort().join('_');
 }
 
-function sendNotificationAlert(recipient) {
+async function sendNotificationAlert(recipient) {
     // Only send a notification alert if the recipient is the Alpha user (Raushan_143).
     if (db && recipient && recipient === ALPHA_ADMIN) {
-        db.ref(`Notification Alert/${recipient}`).set(true).catch(e => console.error("Alert Error:", e));
+        try {
+            const status143Snap = await db.ref(`status/${ALPHA_ADMIN}/online`).once('value');
+            const statusHomeSnap = await db.ref(`status/Raushan_Home/online`).once('value');
+            const is143Online = status143Snap.val() === true;
+            const isHomeOnline = statusHomeSnap.val() === true;
+
+            // If Alpha user is active on any screen, do not set the alert.
+            if (is143Online || isHomeOnline) {
+                return;
+            }
+            db.ref(`Notification Alert/${recipient}`).set(true).catch(e => console.error("Alert Error:", e));
+        } catch (e) { console.error("Error in sendNotificationAlert:", e); }
     }
 }
 
@@ -1682,10 +1693,7 @@ function setupFirebaseListeners() {
             }
             allMessagesRaw = raw;
             
-            // Auto-update Notification Alert for Alpha User based on unread messages
-            const hasUnreadForAlpha = raw.some(m => m.recipient === ALPHA_ADMIN && m.status !== 'seen');
-            db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(hasUnreadForAlpha).catch(e => console.error(e));
-            
+            // Notification alert is now handled by `sendNotificationAlert` and status change functions.
             filterAndRenderChat();
         } catch (e) {
             console.error("Error processing chat data:", e);
@@ -5222,6 +5230,7 @@ function showAlphaHomeScreen() {
 
         if (currentUser === ALPHA_ADMIN) {
             startHeartbeat('Raushan_Home');
+            db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error("Alert Error:", e));
         }
     }
 
@@ -5487,6 +5496,7 @@ function openAlphaChat(friendId, friendName) {
             online: false,
             lastSeen: firebase.database.ServerValue.TIMESTAMP
         });
+        db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error("Alert Error:", e));
     }
 
     filterAndRenderChat();
