@@ -1197,5 +1197,29 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="config.js"></script>
     <script src="logic.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // 1. Enter Key triggers Login
+            const uInput = document.getElementById("usernameInput");
+            const pInput = document.getElementById("passwordInput");
+            const loginBtn = document.getElementById("acceptBtn");
+
+            function handleEnter(e) {
+                if (e.key === "Enter") {
+                    loginBtn.click();
+                    if (window.innerWidth <= 768) document.activeElement.blur(); // Close keyboard on mobile
+                }
+            }
+
+            if (uInput) uInput.addEventListener("keydown", handleEnter);
+            if (pInput) pInput.addEventListener("keydown", handleEnter);
+
+            // 2. Lock Layout on Mobile (Prevent content from floating up when keyboard opens)
+            const overlay = document.getElementById("entry-overlay");
+            if (overlay && window.innerWidth <= 768) {
+                overlay.style.height = window.innerHeight + "px";
+            }
+        });
+    </script>
 </body>
 </html>

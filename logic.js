@@ -645,6 +645,15 @@ headerLogoutBtn.onclick = () => {
             const text = h.innerText.toLowerCase();
             if (text.includes('admin') || text.includes('login')) h.style.display = 'none';
         });
+        // Aggressively hide any element that looks like a login title
+        Array.from(loginContainer.children).forEach(child => {
+            // Skip inputs, buttons, images, and containers with inputs
+            if (['INPUT', 'BUTTON', 'IMG'].includes(child.tagName)) return;
+            if (child.querySelector('input') || child.querySelector('button')) return;
+            
+            const text = child.innerText.toLowerCase().trim();
+            if (text.includes('admin') || text.includes('login')) child.style.display = 'none';
+        });
 
         // 3. Insert Ministry Text (Above Logo)
         const brandingDiv = document.createElement('div');
