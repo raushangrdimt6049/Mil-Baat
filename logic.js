@@ -1626,9 +1626,8 @@ function getChatId(u1, u2) {
 
 async function sendNotificationAlert(recipient) {
     // Only send a notification alert if the recipient is the Alpha user (Raushan_143).
-    if (recipient === ALPHA_ADMIN) {
-        db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(true).catch(e => console.error(e));
-    }
+    // Logic removed: Messages should not trigger the alert. Only incoming calls trigger it now.
+    return;
 }
 
 function filterAndRenderChat() {
