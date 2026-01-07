@@ -616,6 +616,79 @@ headerLogoutBtn.onclick = () => {
     document.head.appendChild(callStyle);
 })();
 
+// --- Dynamic Login Page Branding (Ministry of Defence) ---
+(function setupLoginBranding() {
+    const overlay = document.getElementById('entry-overlay');
+    if (!overlay) return;
+
+    // Inject Font for Branding
+    const fontLink = document.createElement('link');
+    fontLink.href = "https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap";
+    fontLink.rel = "stylesheet";
+    document.head.appendChild(fontLink);
+
+    // 1. Locate Login Container
+    let loginContainer = null;
+    const input = document.getElementById('usernameInput');
+    if (input) {
+        let curr = input;
+        while (curr && curr.parentElement && curr.parentElement !== overlay) {
+            curr = curr.parentElement;
+        }
+        if (curr && curr.parentElement === overlay) loginContainer = curr;
+    }
+
+    if (loginContainer) {
+        // 2. Hide "Admin Login" Text
+        const headers = loginContainer.querySelectorAll('h1, h2, h3, h4');
+        headers.forEach(h => {
+            const text = h.innerText.toLowerCase();
+            if (text.includes('admin') || text.includes('login')) h.style.display = 'none';
+        });
+
+        // 3. Insert Ministry Text (Above Logo)
+        const brandingDiv = document.createElement('div');
+        brandingDiv.style.cssText = "text-align: center; margin-bottom: 15px; font-family: 'Cinzel', serif;";
+        brandingDiv.innerHTML = `
+            <h2 style="margin: 0; font-size: 1.2rem; color: #f1c40f; font-weight: 700; letter-spacing: 1px; text-shadow: 0 2px 5px rgba(0,0,0,0.8);">MINISTRY OF DEFENCE</h2>
+            <h4 style="margin: 5px 0 0 0; font-size: 0.7rem; color: rgba(255,255,255,0.8); letter-spacing: 2px; text-transform: uppercase;">Government of India</h4>
+        `;
+
+        const logo = loginContainer.querySelector('img');
+        if (logo) loginContainer.insertBefore(brandingDiv, logo);
+        else loginContainer.prepend(brandingDiv);
+
+        // 4. Mobile Margin Adjustment
+        const style = document.createElement('style');
+        style.innerHTML = `@media (max-width: 768px) { #entry-overlay > div { margin-top: -60px !important; } }`;
+        document.head.appendChild(style);
+    }
+    // 5. Footer (Security Text) - Outside Container
+    const footer = document.createElement('div');
+    footer.id = 'login-branding-footer';
+    footer.style.cssText = `
+        position: absolute; bottom: 0; left: 0; width: 100%;
+        padding: 20px; text-align: center; color: rgba(255,255,255,0.6);
+        z-index: 10; font-size: 0.7rem; pointer-events: none; user-select: none;
+        background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+        font-family: sans-serif;
+    `;
+    
+    footer.innerHTML = `
+        <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 10px;">
+            <span style="display:flex; align-items:center; gap:5px;"><span style="color: #f1c40f;">★</span> National Security</span>
+            <span style="display:flex; align-items:center; gap:5px;"><span style="color: #f1c40f;">★</span> Cyber Defense</span>
+            <span style="display:flex; align-items:center; gap:5px;"><span style="color: #f1c40f;">★</span> Secure Comms</span>
+        </div>
+        <div style="border-top: 1px solid rgba(255,255,255,0.15); padding-top: 10px; width: 90%; margin: 0 auto;">
+            <p style="margin: 0; font-weight: bold; color: #e74c3c; letter-spacing: 1.5px; font-size: 0.65rem;">RESTRICTED ACCESS SYSTEM</p>
+            <p style="margin: 5px 0 0 0; opacity: 0.6; font-size: 0.6rem;">Unauthorized access is strictly prohibited and punishable under the Official Secrets Act.</p>
+        </div>
+    `;
+
+    overlay.appendChild(footer);
+})();
+
 // --- Dynamic Password Toggle Setup ---
 (function setupPasswordToggle() {
     const pwdInput = document.getElementById('passwordInput');
@@ -2088,6 +2161,72 @@ function handleEnterKey(e) {
 usernameInput.addEventListener('keydown', handleEnterKey);
 passwordInput.addEventListener('keydown', handleEnterKey);
 
+// --- Biometric Scan Animation Helper ---
+function startBiometricUI(btn) {
+    const rect = btn.getBoundingClientRect();
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed; top: ${rect.top}px; left: ${rect.left}px;
+        width: ${rect.width}px; height: ${rect.height}px;
+        background: rgba(10, 10, 10, 0.95); z-index: 10000;
+        border-radius: ${window.getComputedStyle(btn).borderRadius};
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 0 15px #00d2ff; border: 1px solid #00d2ff;
+        transition: all 0.3s ease; cursor: wait;
+    `;
+    
+    // Fingerprint SVG with scanning line
+    overlay.innerHTML = `
+        <div style="position: relative; width: 30px; height: 30px;">
+            <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="#00d2ff" stroke-width="1.5">
+                <path d="M12 12c0-3 2.5-3 3-6a5 5 0 0 0-10 0c.5 3 3 3 3 6z"/>
+                <path d="M12 12v.01"/>
+                <path d="M8.5 16a6 6 0 0 0 7 0"/>
+                <path d="M7 18.5a9 9 0 0 0 10 0"/>
+                <path d="M12 8v4"/>
+                <path d="M9 10a3 3 0 0 1 6 0"/>
+            </svg>
+            <div style="
+                position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+                background: #00ff00; box-shadow: 0 0 5px #00ff00;
+                animation: scanBeam 1.5s infinite linear;
+            "></div>
+        </div>
+    `;
+
+    // Inject Keyframes if missing
+    if (!document.getElementById('bio-keyframes')) {
+        const style = document.createElement('style');
+        style.id = 'bio-keyframes';
+        style.innerHTML = `@keyframes scanBeam { 0% { top: 0; opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { top: 100%; opacity: 0; } }`;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+function updateBiometricUI(overlay, success) {
+    return new Promise(resolve => {
+        if (success) {
+            overlay.style.background = 'rgba(0, 180, 0, 0.95)';
+            overlay.style.borderColor = '#00ff00';
+            overlay.style.boxShadow = '0 0 20px #00ff00';
+            overlay.innerHTML = '<span style="color: white; font-weight: bold; font-size: 12px; letter-spacing: 1px;">GRANTED</span>';
+        } else {
+            overlay.style.background = 'rgba(180, 0, 0, 0.95)';
+            overlay.style.borderColor = '#ff0000';
+            overlay.style.boxShadow = '0 0 20px #ff0000';
+            overlay.innerHTML = '<span style="color: white; font-weight: bold; font-size: 12px; letter-spacing: 1px;">REJECTED</span>';
+        }
+        
+        setTimeout(() => {
+            overlay.remove();
+            resolve();
+        }, 800);
+    });
+}
+
 acceptBtn.addEventListener('click', async (e) => {
     if(e) e.preventDefault();
     const username = usernameInput.value.trim();
@@ -2107,6 +2246,15 @@ acceptBtn.addEventListener('click', async (e) => {
         hasError = true;
     }
     if (hasError) return;
+
+    // 1. Start Biometric Scan UI
+    const bioOverlay = startBiometricUI(acceptBtn);
+    
+    // 2. Wait for animation (simulated processing time)
+    await new Promise(r => setTimeout(r, 1500));
+
+    // 3. Perform Auth Check
+    let authResult = null;
 
     // Helper function for successful login
     const performLogin = (user, displayName, isAlpha, isBeta, customData = null) => {
@@ -2163,7 +2311,7 @@ acceptBtn.addEventListener('click', async (e) => {
         mainContent.style.display = 'flex';
     };
 
-    // 1. Check Hardcoded Users
+    // Check Hardcoded Users
     if (users[username] && users[username] === password) {
         let displayName = username;
         let isAlpha = (username === ALPHA_ADMIN);
@@ -2174,36 +2322,34 @@ acceptBtn.addEventListener('click', async (e) => {
         } else if (isBeta) {
             displayName = '💎_Beta_💎';
         }
-        performLogin(username, displayName, isAlpha, isBeta);
-        return;
+        authResult = { user: username, displayName, isAlpha, isBeta };
     } 
-    
-    // 2. Check Firebase "Other User Table"
-    if (db) {
+    // Check Firebase "Other User Table"
+    else if (db) {
         try {
             const snapshot = await db.ref('Other User Table/' + username).once('value');
             if (snapshot.exists()) {
                 const userData = snapshot.val();
-                // Ensure password comparison is robust
                 if (userData && String(userData.password) === String(password)) {
-                    performLogin(username, userData.name, false, true, userData); // Treat as Beta role for chat compatibility
-                    return;
+                    authResult = { user: username, displayName: userData.name, isAlpha: false, isBeta: true, customData: userData };
                 }
             }
         } catch (e) {
             console.error("Login Error:", e);
-            alert("Login Error: " + e.message);
-            return;
         }
-    } else {
-        alert("Database not connected. Please refresh the page.");
-        return;
     }
 
-    passwordError.innerText = "Incorrect Username or Password";
-    passwordError.style.display = 'block';
-    triggerShake(usernameInput);
-    triggerShake(passwordInput);
+    // 4. Update UI with Result
+    await updateBiometricUI(bioOverlay, !!authResult);
+
+    if (authResult) {
+        performLogin(authResult.user, authResult.displayName, authResult.isAlpha, authResult.isBeta, authResult.customData);
+    } else {
+        passwordError.innerText = "Incorrect Username or Password";
+        passwordError.style.display = 'block';
+        triggerShake(usernameInput);
+        triggerShake(passwordInput);
+    }
 });
 
 let currentUserData = null; // To store extra data for new users
