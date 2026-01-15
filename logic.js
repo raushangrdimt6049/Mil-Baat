@@ -2387,6 +2387,13 @@ function startHeartbeat(customUser = null) {
             heartbeat: firebase.database.ServerValue.TIMESTAMP
         });
     }, 2000);
+
+    if (targetUser === BETA_ADMIN) {
+        db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(true).catch(e => console.error(e));
+        setTimeout(() => {
+            db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error(e));
+        }, 5000);
+    }
 }
 
 function updateStatusUI(isOnline, lastSeen, isTyping) {
