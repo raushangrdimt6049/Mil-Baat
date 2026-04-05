@@ -2856,8 +2856,7 @@ profileBtn.addEventListener('click', async () => {
         closeProfileBtn.parentNode.style.position = 'relative';
     }
     closeProfileBtn.style.position = 'absolute';
-    closeProfileBtn.style.top = '5px';
-    closeProfileBtn.style.right = '5px';
+    
     closeProfileBtn.innerHTML = '❌';
 
     // --- Unique Code Display ---
