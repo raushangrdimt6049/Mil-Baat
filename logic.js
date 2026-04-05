@@ -2844,7 +2844,7 @@ confirmChangePass.addEventListener('click', () => {
 });
 
 // --- Profile Logic ---
-profileBtn.addEventListener('click', () => {
+profileBtn.addEventListener('click', async () => {
     menuOptions.style.display = 'none';
     menuIconBtn.classList.remove('rotate');
     profileModal.style.display = 'flex';
@@ -2856,8 +2856,8 @@ profileBtn.addEventListener('click', () => {
         closeProfileBtn.parentNode.style.position = 'relative';
     }
     closeProfileBtn.style.position = 'absolute';
-    closeProfileBtn.style.top = '15px';
-    closeProfileBtn.style.right = '15px';
+    closeProfileBtn.style.top = '5px';
+    closeProfileBtn.style.right = '5px';
     closeProfileBtn.innerHTML = '❌';
 
     // --- Unique Code Display ---
@@ -2871,8 +2871,16 @@ profileBtn.addEventListener('click', () => {
             profileImageDisplay.parentNode.insertBefore(uniqueCodeDisplay, profileImageDisplay.nextSibling);
         }
     }
-    // Display code if available (for new users)
-    uniqueCodeDisplay.innerText = (currentUserData && currentUserData.uniqueCode) ? currentUserData.uniqueCode : '';
+
+    // --- Block Button Setup ---
+    let blockUserBtn = document.getElementById('blockUserBtn');
+    if (!blockUserBtn) {
+        blockUserBtn = document.createElement('button');
+        blockUserBtn.id = 'blockUserBtn';
+        blockUserBtn.className = 'modal-btn';
+        blockUserBtn.style.cssText = 'margin-top: 15px; padding: 10px; width: 100%; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; display: none;';
+        closeProfileBtn.parentNode.insertBefore(blockUserBtn, closeProfileBtn);
+    }
 
     // --- Fresh Button Logic (Change & Save) ---
     if (uploadTriggerBtn) {
@@ -2885,9 +2893,11 @@ profileBtn.addEventListener('click', () => {
     }
 
     let saveBtn = document.getElementById('saveProfileBtn');
+    let btnContainer = document.getElementById('profileActionsContainer');
     if (!saveBtn) {
         // Container for buttons
-        const btnContainer = document.createElement('div');
+        btnContainer = document.createElement('div');
+        btnContainer.id = 'profileActionsContainer';
         btnContainer.style.display = 'flex';
         btnContainer.style.justifyContent = 'space-between';
         btnContainer.style.marginTop = '15px';
@@ -2912,11 +2922,102 @@ profileBtn.addEventListener('click', () => {
         saveBtn.addEventListener('click', (e) => {
             e.preventDefault();
             if (!currentUser) return alert("Please log in first.");
+            if (currentChatPartner) return; // Prevent modifying partner's picture
+
             const role = getUserRole(currentUser);
             db.ref(`Profile Pic/${role}_Profile_Pic`).set(profileImageDisplay.src)
                 .then(() => alert("Profile Picture Saved Successfully!"))
                 .catch(err => alert("Failed to save: " + err.message));
         });
+    }
+
+    const roleText = profileUsernameDisplay.nextElementSibling;
+
+    if (currentChatPartner) {
+        // --- Show Chat Partner's Profile ---
+        if (btnContainer) btnContainer.style.display = 'none';
+        blockUserBtn.style.display = 'block';
+        
+        let partnerName = currentChatPartner;
+        let partnerPic = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+        let partnerCode = "";
+        let partnerRole = "User";
+
+        profileUsernameDisplay.innerText = "Loading...";
+
+        if (currentChatPartner === BETA_ADMIN) {
+            partnerName = "💎_Beta_💎";
+            partnerRole = "System Admin";
+            const pSnap = await db.ref(`Profile Pic/Beta_Profile_Pic`).once('value');
+            if (pSnap.exists()) partnerPic = pSnap.val();
+        } else if (currentChatPartner === ALPHA_ADMIN) {
+            partnerName = "💎_Alpha_💎";
+            partnerRole = "System Admin";
+            const pSnap = await db.ref(`Profile Pic/Alpha_Profile_Pic`).once('value');
+            if (pSnap.exists()) partnerPic = pSnap.val();
+        } else {
+            const uSnap = await db.ref(`Other User Table/${currentChatPartner}`).once('value');
+            if (uSnap.exists()) {
+                const u = uSnap.val();
+                partnerName = u.name || currentChatPartner;
+                partnerCode = u.uniqueCode || "";
+                if (u.profilePic) partnerPic = u.profilePic;
+            }
+            // Check latest pic
+            const pSnap = await db.ref(`Profile Pic/${currentChatPartner}_Profile_Pic`).once('value');
+            if (pSnap.exists()) partnerPic = pSnap.val();
+        }
+
+        profileImageDisplay.src = partnerPic;
+        profileUsernameDisplay.innerText = partnerName;
+        uniqueCodeDisplay.innerText = partnerCode ? `Code: ${partnerCode}` : '';
+        if (roleText && roleText.tagName === 'DIV') roleText.innerText = partnerRole;
+
+        // Block Button Status
+        const updateBlockBtn = () => {
+            const isBlocked = blockedUsersSet.has(currentChatPartner);
+            blockUserBtn.innerText = isBlocked ? 'Unblock User' : 'Block User';
+            blockUserBtn.style.background = isBlocked ? '#2ecc71' : '#ff4757';
+        };
+        updateBlockBtn();
+
+        blockUserBtn.onclick = () => {
+            const currentlyBlocked = blockedUsersSet.has(currentChatPartner);
+            if (currentlyBlocked) {
+                db.ref(`blocked_users/${currentUser}/${currentChatPartner}`).remove().then(() => {
+                    showToast(`${partnerName} unblocked.`);
+                    updateBlockBtn();
+                });
+            } else {
+                db.ref(`blocked_users/${currentUser}/${currentChatPartner}`).set(true).then(() => {
+                    showToast(`${partnerName} blocked.`);
+                    updateBlockBtn();
+                });
+            }
+        };
+
+    } else {
+        // --- Show Own Profile ---
+        if (btnContainer) btnContainer.style.display = 'flex';
+        blockUserBtn.style.display = 'none';
+        
+        uniqueCodeDisplay.innerText = (currentUserData && currentUserData.uniqueCode) ? `Code: ${currentUserData.uniqueCode}` : '';
+        
+        const myRole = getUserRole(currentUser);
+        db.ref(`Profile Pic/${myRole}_Profile_Pic`).once('value').then(snap => {
+            if (snap.exists()) profileImageDisplay.src = snap.val();
+            else profileImageDisplay.src = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+        });
+
+        let displayName = currentUser;
+        if (currentUser === ALPHA_ADMIN) displayName = '💎_Alpha_💎';
+        else if (currentUser === BETA_ADMIN) displayName = '💎_Beta_💎';
+        else if (currentUserData && currentUserData.name) displayName = currentUserData.name;
+        
+        profileUsernameDisplay.innerText = displayName;
+        if (roleText && roleText.tagName === 'DIV') {
+            roleText.innerText = (currentUser === ALPHA_ADMIN || currentUser === BETA_ADMIN) ? "Administrator" : "User";
+        }
     }
 });
 
@@ -5258,12 +5359,12 @@ function initAlphaUI() {
     const titleContainer = document.createElement('div');
     titleContainer.id = 'alpha-header-title';
     
-    const titleImg = document.createElement('img');
-    titleImg.src = 'Mil Baat Icon.png';
-    titleImg.style.cssText = `
-        height: 60px; width: 193px; object-fit: contain;
+    const titleText = document.createElement('div');
+    titleText.innerText = 'Mil Baat';
+    titleText.style.cssText = `
+        font-size: 1.6rem; font-weight: bold; letter-spacing: 1px; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     `;
-    titleContainer.appendChild(titleImg);
+    titleContainer.appendChild(titleText);
     alphaHomeHeader.appendChild(titleContainer);
 
     // Right Container
@@ -5274,7 +5375,7 @@ function initAlphaUI() {
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
     searchInput.placeholder = 'Search...';
-    searchInput.style.cssText = 'flex: 1; margin: 0 15px; padding: 8px 5px; border-radius: 20px; border: none; outline: none; display: none; font-size: 16px; color: #333; background: rgba(255,255,255,0.9);';
+    searchInput.style.cssText = 'flex: 1; margin: 0 15px 0 0; padding: 8px 15px; border-radius: 20px; border: none; outline: none; display: none; font-size: 16px; color: #333; background: rgba(255,255,255,0.9);';
     alphaHomeHeader.appendChild(searchInput);
 
     // Search Icon
@@ -5286,11 +5387,13 @@ function initAlphaUI() {
     searchBtn.onclick = () => {
         if (searchInput.style.display === 'none') {
             titleContainer.style.display = 'none';
+            alphaMenuBtn.style.display = 'none';
             searchInput.style.display = 'block';
             searchInput.focus();
-            searchBtn.src = 'Close Icon.png';
+            searchBtn.src = 'Back Icon.png';
         } else {
             titleContainer.style.display = 'block';
+            alphaMenuBtn.style.display = 'block';
             searchInput.style.display = 'none';
             searchInput.value = '';
             searchBtn.src = 'Search Icon.png';
