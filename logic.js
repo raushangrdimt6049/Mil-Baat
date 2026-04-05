@@ -1712,6 +1712,32 @@ async function sendNotificationAlert(recipient) {
     return;
 }
 
+function updateBlockOverlay() {
+    if (!chatInputBar) return;
+    let overlay = document.getElementById('block-input-overlay');
+
+    if (currentChatPartner && blockedUsersSet.has(currentChatPartner)) {
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'block-input-overlay';
+            overlay.style.cssText = `
+                position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(20, 20, 30, 0.95); backdrop-filter: blur(5px);
+                display: flex; align-items: center; justify-content: center;
+                color: #ff4757; font-weight: bold; z-index: 2000; font-size: 0.95rem;
+                cursor: not-allowed;
+            `;
+            overlay.innerText = "You blocked this user. Unblock to send messages.";
+            chatInputBar.appendChild(overlay);
+        }
+        overlay.style.display = 'flex';
+        if (msgInput) msgInput.disabled = true;
+    } else {
+        if (overlay) overlay.style.display = 'none';
+        if (msgInput) msgInput.disabled = false;
+    }
+}
+
 function filterAndRenderChat() {
     if (!allMessagesRaw) return;
 
@@ -1725,8 +1751,11 @@ function filterAndRenderChat() {
     if (!currentUser || !currentChatPartner) {
         currentChatHistory = [];
         if (chatMessages) chatMessages.innerHTML = '';
+        updateBlockOverlay();
         return;
     }
+
+    updateBlockOverlay();
 
     let history = allMessagesRaw.filter(msg => {
         if (!msg || typeof msg !== 'object' || !msg.timestamp) return false;
@@ -2855,9 +2884,7 @@ profileBtn.addEventListener('click', async () => {
     if (closeProfileBtn.parentNode) {
         closeProfileBtn.parentNode.style.position = 'relative';
     }
-    closeProfileBtn.style.position = 'absolute';
-    closeProfileBtn.style.top = '5px';
-    closeProfileBtn.style.right = '5px';
+    closeProfileBtn.style.cssText = 'position: absolute; top: 12px; right: 15px; background: transparent; border: none; font-size: 1.2rem; cursor: pointer; padding: 0; box-shadow: none; color: white;';
     closeProfileBtn.innerHTML = '❌';
 
     // --- Unique Code Display ---
