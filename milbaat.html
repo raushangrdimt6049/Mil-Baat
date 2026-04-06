@@ -333,12 +333,81 @@
         }
 
         /* User Specific Themes */
+        /* 60-30-10 Rule for Alpha User:
+           60% Dominant: #0F172A (Dark Slate Navy)
+           30% Secondary: #1E293B (Lighter Slate Navy)
+           10% Accent: #0EA5E9 (Sky Blue)
+        */
         body.user-alpha {
-            background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #1a1a2e);
-            background-size: 400% 400%;
+            background: #0F172A !important;
         }
-        body.user-alpha .msg-sent, body.user-alpha .send-btn {
-            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+        body.user-alpha #blur-bg-overlay {
+            display: none !important;
+        }
+        body.user-alpha header {
+            background: #1E293B !important;
+            border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+            backdrop-filter: none !important;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2) !important;
+        }
+        body.user-alpha #chatInputBar {
+            background: #1E293B !important;
+            border-top: 1px solid rgba(255,255,255,0.05) !important;
+            backdrop-filter: none !important;
+        }
+        body.user-alpha #input-box-wrapper {
+            background: #0F172A !important;
+            border: 1px solid rgba(255,255,255,0.05) !important;
+        }
+        body.user-alpha .msg-sent, 
+        body.user-alpha .send-btn {
+            background: #0EA5E9 !important;
+            color: white !important;
+            box-shadow: none !important;
+        }
+        body.user-alpha .msg-received {
+            background: #1E293B !important;
+            border: 1px solid rgba(255,255,255,0.05) !important;
+            box-shadow: none !important;
+        }
+        body.user-alpha .msg-selected {
+            background: #ff9f43 !important;
+        }
+        body.user-alpha .menu-options {
+            background: #1E293B !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            backdrop-filter: none !important;
+        }
+        body.user-alpha .menu-item:hover {
+            background: #0F172A !important;
+        }
+        body.user-alpha #selection-header {
+            background: #1E293B !important;
+        }
+        body.user-alpha #selection-header img {
+            filter: brightness(0) invert(1) !important;
+        }
+        body.user-alpha #selCounter {
+            color: white !important;
+        }
+        body.user-alpha .modal-box {
+            background: #1E293B !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+        }
+        body.user-alpha .confirm-btn {
+            background: #0EA5E9 !important;
+        }
+        body.user-alpha .reply-preview-bar {
+            background: #1E293B !important;
+            border-top: 1px solid rgba(255,255,255,0.05) !important;
+            border-left: 4px solid #0EA5E9 !important;
+        }
+        body.user-alpha .reply-sender {
+            color: #0EA5E9 !important;
+        }
+        body.user-alpha .replied-msg-context {
+            background: #0F172A !important;
+            border-left: 3px solid #0EA5E9 !important;
         }
         body.user-beta {
             background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #1a1a2e);

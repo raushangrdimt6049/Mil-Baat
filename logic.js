@@ -5366,7 +5366,7 @@ function initAlphaUI() {
     alphaFriendListContainer.id = 'alpha-friend-list';
     alphaFriendListContainer.style.cssText = `
         position: fixed; top: 65px; left: 0; width: 100%; height: calc(100% - 65px);
-        background: rgba(30, 35, 40, 0.7); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); overflow-y: auto; display: none; flex-direction: column;
+        background: #372772; overflow-y: auto; display: none; flex-direction: column;
         padding: 10px; box-sizing: border-box; z-index: 900;
     `;
     document.body.appendChild(alphaFriendListContainer);
@@ -5377,9 +5377,9 @@ function initAlphaUI() {
     alphaHomeHeader.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 65px;
         display: none; align-items: center; justify-content: space-between; padding: 0 15px;
-        background: #065e0dff;
-        border-bottom: 3px solid rgba(255, 255, 255, 0.08); z-index: 1000; box-sizing: border-box;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); color: white;
+        background: #1E293B;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05); z-index: 1000; box-sizing: border-box;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); color: white;
     `;
 
     // Left: Title Container
@@ -5489,7 +5489,7 @@ function initAlphaUI() {
     alphaAddFriendFab.style.cssText = `
         position: fixed; bottom: 30px; right: 30px;
         width: 60px; height: 60px; border-radius: 50%;
-        background: #00b894; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        background: #0EA5E9; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
         display: flex; align-items: center; justify-content: center;
         cursor: pointer; z-index: 1000; transition: transform 0.2s;
     `;
@@ -5686,13 +5686,13 @@ function renderAlphaFriendList() {
             } else {
                 // Create New
                 const cardHTML = `
-                <div id="friend-card-${f.id}" onclick="openAlphaChat('${f.id}', '${f.name}')" style="
+                <div id="friend-card-${f.id}" class="friend-card" onclick="openAlphaChat('${f.id}', '${f.name}')" style="
                     display: flex; align-items: center; padding: 12px 15px; margin-bottom: 12px;
-                    background: rgba(255, 255, 255, 0.05); border-radius: 16px;
-                    border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s, background 0.2s;
-                " onmouseover="this.style.transform='scale(1.02)'; this.style.background='rgba(255,255,255,0.1)';" 
-                  onmouseout="this.style.transform='scale(1)'; this.style.background='rgba(255,255,255,0.05)';">
+                    background: #1E293B; border-radius: 16px;
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.2s, background 0.2s;
+                " onmouseover="this.style.transform='scale(1.02)'; this.style.background='#283548';" 
+                  onmouseout="this.style.transform='scale(1)'; this.style.background='#1E293B';">
                     
                     <div style="position: relative; margin-right: 15px;">
                         <img src="${f.pic}" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.1);">
@@ -5707,7 +5707,7 @@ function renderAlphaFriendList() {
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                             <span class="friend-name" style="font-size: 1.1rem; font-weight: 600; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.name}</span>
                             <span id="badge-container-${f.id}" style="display: ${f.unread > 0 ? 'block' : 'none'};">
-                                <span id="unread-badge-${f.id}" style="background: #00d2ff; color: #000; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 800;">${f.unread}</span>
+                                <span id="unread-badge-${f.id}" style="background: #0EA5E9; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 800;">${f.unread}</span>
                             </span>
                         </div>
                         <div style="display: flex; align-items: center;">
