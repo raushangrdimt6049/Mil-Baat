@@ -5343,16 +5343,11 @@ function openBetaStatusModal() {
                     if(userSnap.exists()) { const u = userSnap.val(); name = u.name; if (u.profilePic) pic = u.profilePic; }
                     const item = document.createElement('div');
                     item.style.cssText = 'display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.1); padding:10px; border-radius:10px; margin-bottom:10px;';
-                    
-                    const isBlocked = blockedUsersSet.has(friendId);
 
                     item.innerHTML = `
                         <img src="${pic}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;">
                         <div style="flex:1;"><div style="font-weight:bold;">${name}</div></div>
                         <button class="unfriend-btn" style="padding:8px 12px; border-radius:5px; border:none; background:#ff4757; color:white; cursor:pointer;">Unfriend</button>
-                        <button class="block-friend-btn" data-friend-id="${friendId}" style="padding:8px 12px; border-radius:5px; border:none; background:${isBlocked ? '#2ecc71' : '#ff4757'}; color:white; cursor:pointer;">
-                            ${isBlocked ? 'Unblock' : 'Block'}
-                        </button>
                     `;
 
                     item.querySelector('.unfriend-btn').onclick = () => {
@@ -5370,34 +5365,12 @@ function openBetaStatusModal() {
                         }
                     };
 
-                    item.querySelector('.block-friend-btn').onclick = (e) => {
-                        const currentlyBlocked = blockedUsersSet.has(friendId);
-                        if (currentlyBlocked) {
-                            db.ref(`blocked_users/${currentUser}/${friendId}`).remove().then(() => showToast(`${name} unblocked.`));
-                        } else {
-                            db.ref(`blocked_users/${currentUser}/${friendId}`).set(true).then(() => showToast(`${name} blocked.`));
-                        }
-                    };
                     content.appendChild(item);
                 });
             });
         });
         modal.style.display = 'flex';
         if (mainContent) mainContent.classList.add('blur-content');
-
-        // Add a listener to update block buttons if the modal is open
-        const blockListener = db.ref(`blocked_users/${currentUser}`).on('value', snap => {
-            const blocked = snap.val() || {};
-            const friendItems = content.querySelectorAll('.block-friend-btn');
-            friendItems.forEach(btn => {
-                const fId = btn.dataset.friendId;
-                const isBlocked = !!blocked[fId];
-                btn.innerText = isBlocked ? 'Unblock' : 'Block';
-                btn.style.background = isBlocked ? '#2ecc71' : '#ff4757';
-            });
-        });
-        // When modal closes, remove this specific listener
-        modal.querySelector('.close-modal-btn').addEventListener('click', () => db.ref(`blocked_users/${currentUser}`).off('value', blockListener), { once: true });
     }
 })();
 
@@ -5520,19 +5493,24 @@ function initAlphaUI() {
     // Status View
     const statusView = document.createElement('div');
     statusView.id = 'alpha-view-status';
-    statusView.style.cssText = `display: none; flex-direction: column; align-items: center; padding: 20px; color: var(--alpha-text, white); height: 100%; position: relative;`;
+    statusView.style.cssText = `display: none; flex-direction: column; padding: 15px; box-sizing: border-box; color: var(--alpha-text, white); height: 100%; position: relative; gap: 15px;`;
+
+    const statusEmptyText = document.createElement('div');
+    statusEmptyText.id = 'alpha-status-empty-text';
+    statusEmptyText.innerText = "No status uploaded yet.";
+    statusEmptyText.style.cssText = `flex: 1; display: flex; align-items: center; justify-content: center; color: gray; font-size: 1.1rem;`;
 
     const statusDisplayContainer = document.createElement('div');
-    statusDisplayContainer.style.cssText = `width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: 10px;`;
+    statusDisplayContainer.style.cssText = `width: 100%; flex: 1; display: none; flex-direction: column; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); overflow-y: auto; padding: 15px; box-sizing: border-box;`;
 
     const statusPreview = document.createElement('img');
     statusPreview.id = 'alpha-status-preview';
-    statusPreview.style.cssText = `width: 100%; max-width: 400px; border-radius: 15px; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3); object-fit: contain; margin-bottom: 20px;`;
+    statusPreview.style.cssText = `width: 100%; height: auto; max-width: 500px; border-radius: 10px; display: block; object-fit: contain;`;
     
     const statusSendBtn = document.createElement('button');
     statusSendBtn.id = 'alpha-status-send-btn';
     statusSendBtn.innerText = "Set Status";
-    statusSendBtn.style.cssText = `padding: 12px 30px; border-radius: 20px; border: none; background: #2ecc71; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: none; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4);`;
+    statusSendBtn.style.cssText = `width: 100%; max-width: 400px; align-self: center; padding: 15px 30px; border-radius: 25px; border: none; background: linear-gradient(90deg, #2ecc71, #27ae60); color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: none; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4); flex-shrink: 0; z-index: 100;`;
 
     const statusFab = document.createElement('div');
     statusFab.id = 'alpha-status-fab';
@@ -5559,14 +5537,18 @@ function initAlphaUI() {
         const activeStatusData = snap.val();
         if (activeStatusData && activeStatusData.image) {
             statusPreview.src = activeStatusData.image;
-            statusPreview.style.display = 'block';
+            statusDisplayContainer.style.display = 'flex';
+            statusEmptyText.style.display = 'none';
             statusFab.style.display = 'none';
             statusSendBtn.style.display = 'none';
+            statusPreview.dataset.isLocal = "false";
         } else {
-            statusPreview.style.display = 'none';
             statusPreview.src = '';
+            statusDisplayContainer.style.display = 'none';
+            statusEmptyText.style.display = 'flex';
             statusFab.style.display = 'flex';
             statusSendBtn.style.display = 'none';
+            statusPreview.dataset.isLocal = "false";
         }
     });
     
@@ -5579,7 +5561,7 @@ function initAlphaUI() {
     statusPreview.addEventListener('contextmenu', e => e.preventDefault());
 
     function startPress() {
-        if (statusSendBtn.style.display === 'block') return;
+        if (statusPreview.dataset.isLocal === "true") return;
         pressTimer = setTimeout(() => {
             let delModal = document.getElementById('delete-status-modal');
             if (!delModal) {
@@ -5597,12 +5579,23 @@ function initAlphaUI() {
                         </div>
                     </div>`;
                 document.body.appendChild(delModal);
-                document.getElementById('cancel-del-status').onclick = () => delModal.style.display = 'none';
+                document.getElementById('cancel-del-status').onclick = () => {
+                    delModal.style.display = 'none';
+                    const dashboard = document.getElementById('alpha-dashboard');
+                    if (dashboard) dashboard.classList.remove('blur-content');
+                };
                 document.getElementById('confirm-del-status').onclick = () => {
-                    db.ref('beta_status_feed').remove().then(() => { showToast("Status deleted"); delModal.style.display = 'none'; });
+                    db.ref('beta_status_feed').remove().then(() => { 
+                        showToast("Status deleted"); 
+                        delModal.style.display = 'none'; 
+                        const dashboard = document.getElementById('alpha-dashboard');
+                        if (dashboard) dashboard.classList.remove('blur-content');
+                    });
                 };
             }
             delModal.style.display = 'flex';
+            const dashboard = document.getElementById('alpha-dashboard');
+            if (dashboard) dashboard.classList.add('blur-content');
         }, 600);
     }
     function cancelPress() { clearTimeout(pressTimer); }
@@ -5613,9 +5606,11 @@ function initAlphaUI() {
             const reader = new FileReader();
             reader.onload = (ev) => {
                 statusPreview.src = ev.target.result;
-                statusPreview.style.display = 'block';
+                statusDisplayContainer.style.display = 'flex';
+                statusEmptyText.style.display = 'none';
                 statusSendBtn.style.display = 'block';
                 statusFab.style.display = 'none';
+                statusPreview.dataset.isLocal = "true";
             };
             reader.readAsDataURL(file);
         }
@@ -5624,20 +5619,24 @@ function initAlphaUI() {
     statusSendBtn.onclick = () => {
         const statusData = statusPreview.src;
         if (statusData) {
+            statusSendBtn.innerText = "Setting...";
             db.ref('beta_status_feed').set({
                 image: statusData,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             }).then(() => {
                 showToast("Status updated for Beta user");
-                statusSendBtn.style.display = 'none';
                 statusFileInput.value = '';
+                statusSendBtn.innerText = "Set Status";
+                statusSendBtn.style.display = 'none';
+                statusPreview.dataset.isLocal = "false";
             });
         }
     };
 
     statusDisplayContainer.appendChild(statusPreview);
-    statusDisplayContainer.appendChild(statusSendBtn);
+    statusView.appendChild(statusEmptyText);
     statusView.appendChild(statusDisplayContainer);
+    statusView.appendChild(statusSendBtn);
     statusView.appendChild(statusFab);
     statusView.appendChild(statusFileInput);
     contentArea.appendChild(statusView);
