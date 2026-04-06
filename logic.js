@@ -2585,7 +2585,7 @@ menuIconBtn.addEventListener('click', (e) => {
         const isBeta = (currentUser === BETA_ADMIN);
         
         const order = [
-            'profileBtn', 'themeToggleBtn', 'menuBackToBetaBtn', 
+            'profileBtn', 'themeToggleBtn', 'alphaStatusBtn', 'menuBackToBetaBtn', 
             'menuPendingBtn', 'menuAddFriendBtn', 'menuFriendsBtn', 
             'clearChatBtn', 'changePassBtn', 'changeFontBtn', 'logoutBtn'
         ];
@@ -2600,6 +2600,7 @@ menuIconBtn.addEventListener('click', (e) => {
                     if (id !== 'profileBtn' && id !== 'clearChatBtn') isVisible = false;
                 } else {
                     if (id === 'menuBackToBetaBtn') isVisible = false;
+                    else if (id === 'alphaStatusBtn') isVisible = isBeta;
                     else if (id === 'menuAddFriendBtn' || id === 'menuFriendsBtn') isVisible = false;
                     else if (id === 'menuPendingBtn') isVisible = (!isBeta);
                 }
@@ -5129,6 +5130,55 @@ window.addEventListener('popstate', () => {
     });
 })();
 
+function openBetaStatusModal() {
+    let modal = document.getElementById('beta-status-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'beta-status-modal';
+        modal.className = 'modal-overlay';
+        modal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10001; align-items: center; justify-content: center; backdrop-filter: blur(10px); flex-direction: column;';
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✖';
+        closeBtn.style.cssText = 'position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 1.5rem; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;';
+        closeBtn.onclick = () => {
+            modal.style.display = 'none';
+            if(mainContent) mainContent.classList.remove('blur-content');
+        };
+        
+        const img = document.createElement('img');
+        img.id = 'beta-status-img';
+        img.style.cssText = 'max-width: 90%; max-height: 80%; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: contain;';
+        
+        const noStatusTxt = document.createElement('div');
+        noStatusTxt.id = 'beta-status-no-txt';
+        noStatusTxt.innerText = 'No status uploaded yet.';
+        noStatusTxt.style.cssText = 'color: white; font-size: 1.2rem; display: none;';
+        
+        modal.appendChild(closeBtn);
+        modal.appendChild(img);
+        modal.appendChild(noStatusTxt);
+        document.body.appendChild(modal);
+    }
+
+    modal.style.display = 'flex';
+    if(mainContent) mainContent.classList.add('blur-content');
+
+    db.ref('beta_status_feed').once('value').then(snap => {
+        const data = snap.val();
+        const img = document.getElementById('beta-status-img');
+        const noTxt = document.getElementById('beta-status-no-txt');
+        if (data && data.image) {
+            img.src = data.image;
+            img.style.display = 'block';
+            noTxt.style.display = 'none';
+        } else {
+            img.style.display = 'none';
+            noTxt.style.display = 'block';
+        }
+    });
+}
+
 // --- Friend System Logic ---
 (function setupFriendSystem() {
     // 1. Create Modals
@@ -5180,6 +5230,7 @@ window.addEventListener('popstate', () => {
         const addFriendBtn = createMenuBtn('menuAddFriendBtn', '➕ Add Friends', openAddFriendModal);
         const friendsBtn = createMenuBtn('menuFriendsBtn', '👥 Friends', openFriendsListModal);
         const pendingBtn = createMenuBtn('menuPendingBtn', `🔔 Pending Requests <span id="pending-req-badge" style="background-color: #ff4757; color: white; border-radius: 10px; padding: 2px 6px; font-size: 12px; font-weight: bold; display: none; margin-left: 8px;"></span>`, openPendingReqModal);
+        const alphaStatusBtn = createMenuBtn('alphaStatusBtn', '👁️ Alpha Status', openBetaStatusModal);
         const backToBetaBtn = createMenuBtn('menuBackToBetaBtn', '🔙 Back to Beta', () => {
             if (currentChatPartner === BETA_ADMIN) {
                 alert("Already in Beta user...");
@@ -5196,6 +5247,7 @@ window.addEventListener('popstate', () => {
 
         // Append to menu (Order is handled by menuIconBtn click handler)
         menu.appendChild(backToBetaBtn);
+        menu.appendChild(alphaStatusBtn);
         menu.appendChild(pendingBtn);
         menu.appendChild(friendsBtn);
         menu.appendChild(addFriendBtn);
@@ -5359,169 +5411,369 @@ let alphaTypingListener = null;
 let alphaListInterval = null;
 
 function initAlphaUI() {
-    if (alphaFriendListContainer) return;
+    if (document.getElementById('alpha-dashboard')) return;
 
-    // 1. Friend List Container
-    alphaFriendListContainer = document.createElement('div');
-    alphaFriendListContainer.id = 'alpha-friend-list';
-    alphaFriendListContainer.style.cssText = `
-        position: fixed; top: 65px; left: 0; width: 100%; height: calc(100% - 65px);
-        background: #372772; overflow-y: auto; display: none; flex-direction: column;
-        padding: 10px; box-sizing: border-box; z-index: 900;
+    const dashboard = document.createElement('div');
+    dashboard.id = 'alpha-dashboard';
+    dashboard.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: var(--alpha-bg, #0F172A); display: none; flex-direction: column;
+        z-index: 900;
     `;
-    document.body.appendChild(alphaFriendListContainer);
+    document.body.appendChild(dashboard);
 
-    // 2. Create Fresh Header for Alpha Home
+    // 2. Header
     alphaHomeHeader = document.createElement('div');
     alphaHomeHeader.id = 'alpha-home-header';
     alphaHomeHeader.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; height: 65px;
-        display: none; align-items: center; justify-content: space-between; padding: 0 15px;
-        background: #1E293B;
+        width: 100%; height: 65px;
+        display: flex; align-items: center; justify-content: space-between; padding: 0 15px;
+        background: var(--alpha-header-bg, #1E293B);
         border-bottom: 1px solid rgba(255, 255, 255, 0.05); z-index: 1000; box-sizing: border-box;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); color: white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); color: var(--alpha-text, white); flex-shrink: 0;
     `;
 
-    // Left: Title Container
-    const titleContainer = document.createElement('div');
-    titleContainer.id = 'alpha-header-title';
-    
     const titleText = document.createElement('div');
     titleText.innerText = 'Mil Baat';
     titleText.style.cssText = `
-        font-size: 1.6rem; font-weight: bold; letter-spacing: 1px; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        font-size: 1.6rem; font-weight: bold; letter-spacing: 1px; color: var(--alpha-text, white); text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     `;
-    titleContainer.appendChild(titleText);
-    alphaHomeHeader.appendChild(titleContainer);
+    alphaHomeHeader.appendChild(titleText);
 
-    // Right Container
-    const rightContainer = document.createElement('div');
-    rightContainer.style.cssText = 'display: flex; align-items: center; gap: 20px;';
+    const themeToggle = document.createElement('div');
+    themeToggle.innerHTML = '🌙'; 
+    themeToggle.style.cssText = 'font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center;';
+    themeToggle.onclick = () => {
+        themeToggleBtn.click();
+        const isLight = document.body.classList.contains('light-mode');
+        themeToggle.innerHTML = isLight ? '☀️' : '🌙';
+        dashboard.style.setProperty('--alpha-bg', isLight ? '#fdfbfb' : '#0F172A');
+        dashboard.style.setProperty('--alpha-header-bg', isLight ? '#ffffff' : '#1E293B');
+        dashboard.style.setProperty('--alpha-text', isLight ? '#333' : 'white');
+        const footerNav = document.getElementById('alpha-footer-nav');
+        if (footerNav) footerNav.style.background = isLight ? '#ffffff' : '#1E293B';
+    };
+    alphaHomeHeader.appendChild(themeToggle);
 
-    // Search Input
+    dashboard.appendChild(alphaHomeHeader);
+
+    // 3. Search Box
+    const searchContainer = document.createElement('div');
+    searchContainer.style.cssText = `
+        padding: 10px 15px; flex-shrink: 0;
+    `;
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
     searchInput.placeholder = 'Search...';
-    searchInput.style.cssText = 'flex: 1; margin: 0 15px 0 0; padding: 8px 15px; border-radius: 20px; border: none; outline: none; display: none; font-size: 16px; color: #333; background: rgba(255,255,255,0.9);';
-    alphaHomeHeader.appendChild(searchInput);
-
-    // Search Icon
-    const searchBtn = document.createElement('img');
-    searchBtn.src = 'Search Icon.png';
-    searchBtn.onerror = () => searchBtn.src = 'Search Icon.png';
-    searchBtn.style.cssText = 'height: 40px; width: 40px; cursor: pointer;';
-    
-    searchBtn.onclick = () => {
-        if (searchInput.style.display === 'none') {
-            titleContainer.style.display = 'none';
-            alphaMenuBtn.style.display = 'none';
-            searchInput.style.display = 'block';
-            searchInput.focus();
-            searchBtn.src = 'Back Icon.png';
-        } else {
-            titleContainer.style.display = 'block';
-            alphaMenuBtn.style.display = 'block';
-            searchInput.style.display = 'none';
-            searchInput.value = '';
-            searchBtn.src = 'Search Icon.png';
-            const list = document.getElementById('alpha-friend-list');
-            if(list) Array.from(list.children).forEach(c => c.style.display = 'flex');
-        }
-    };
+    searchInput.style.cssText = `
+        width: 100%; padding: 10px 15px; border-radius: 20px; border: 1px solid rgba(0,0,0,0.1); outline: none;
+        font-size: 16px; color: #333; background: rgba(255,255,255,0.9); box-sizing: border-box;
+    `;
     
     searchInput.addEventListener('input', (e) => {
         const val = e.target.value.toLowerCase();
-        const list = document.getElementById('alpha-friend-list');
-        if(list) {
-            Array.from(list.children).forEach(child => {
-                const name = child.querySelector('span').innerText.toLowerCase();
-                child.style.display = name.includes(val) ? 'flex' : 'none';
+        if (alphaFriendListContainer) {
+            Array.from(alphaFriendListContainer.children).forEach(child => {
+                const nameEl = child.querySelector('.friend-name');
+                if (nameEl) {
+                    const name = nameEl.innerText.toLowerCase();
+                    child.style.display = name.includes(val) ? 'flex' : 'none';
+                }
             });
         }
     });
-    
-    rightContainer.appendChild(searchBtn);
+    searchContainer.appendChild(searchInput);
+    dashboard.appendChild(searchContainer);
 
-    // Alpha Menu Icon
-    const alphaMenuBtn = document.createElement('img');
-    alphaMenuBtn.src = 'Menu Icon.png';
-    alphaMenuBtn.onerror = () => alphaMenuBtn.src = 'https://cdn-icons-png.flaticon.com/512/2311/2311524.png';
-    alphaMenuBtn.style.cssText = 'height: 40px; width: 40px; cursor: pointer;';
-    
-    alphaMenuBtn.onclick = (e) => {
-        e.stopPropagation();
-        const menuOptions = document.getElementById('menuOptions');
-        if (menuOptions && menuOptions.parentNode !== document.body) {
-            document.body.appendChild(menuOptions);
-        }
-        if (menuOptions.style.display === 'flex') {
-            menuOptions.style.display = 'none';
-        } else {
-            const alphaItems = ['profileBtn', 'themeToggleBtn', 'menuFriendsBtn', 'changePassBtn', 'changeFontBtn', 'logoutBtn'];
-            Array.from(menuOptions.children).forEach(c => c.style.display = 'none');
-            alphaItems.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.style.display = 'block';
-                    menuOptions.appendChild(el);
-                }
-            });
-            menuOptions.style.display = 'flex';
-            menuOptions.style.cssText = `
-                display: flex; flex-direction: column; position: fixed; top: 65px; right: 10px;
-                background: rgba(44, 62, 80, 0.9); backdrop-filter: blur(70px); -webkit-backdrop-filter: blur(90px);
-                border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 10px;
-                z-index: 2000; min-width: 160px; gap: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-                color: white; opacity: 1; visibility: visible;
-            `;
-            Array.from(menuOptions.children).forEach(child => child.style.color = 'white');
-        }
-    };
-    rightContainer.appendChild(alphaMenuBtn);
+    // 4. Content Area
+    const contentArea = document.createElement('div');
+    contentArea.id = 'alpha-content-area';
+    contentArea.style.cssText = `
+        flex: 1; overflow-y: auto; position: relative; padding-bottom: 70px;
+    `;
+    dashboard.appendChild(contentArea);
 
+    // --- Views ---
     
-    alphaHomeHeader.appendChild(rightContainer);
-    document.body.appendChild(alphaHomeHeader);
+    // Home View
+    const homeView = document.createElement('div');
+    homeView.id = 'alpha-view-home';
+    homeView.style.cssText = `display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--alpha-text, white); gap: 20px;`;
+    
+    const homeProfilePic = document.createElement('img');
+    homeProfilePic.id = 'alpha-home-profile-pic';
+    homeProfilePic.src = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+    homeProfilePic.style.cssText = `width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid #0EA5E9; box-shadow: 0 4px 15px rgba(0,0,0,0.5);`;
+    
+    const homeName = document.createElement('div');
+    homeName.innerText = "💎_Alpha_💎";
+    homeName.style.cssText = `font-size: 1.8rem; font-weight: bold; color: #0EA5E9;`;
+    
+    homeView.appendChild(homeProfilePic);
+    homeView.appendChild(homeName);
+    contentArea.appendChild(homeView);
 
-    // 4. Add Friend FAB
-    alphaAddFriendFab = document.createElement('div');
-    alphaAddFriendFab.id = 'alpha-add-friend-fab';
-    alphaAddFriendFab.style.cssText = `
-        position: fixed; bottom: 30px; right: 30px;
+    db.ref(`Profile Pic/Alpha_Profile_Pic`).once('value').then(snap => {
+        if(snap.exists()) homeProfilePic.src = snap.val();
+    });
+
+    // Status View
+    const statusView = document.createElement('div');
+    statusView.id = 'alpha-view-status';
+    statusView.style.cssText = `display: none; flex-direction: column; align-items: center; padding: 20px; color: var(--alpha-text, white); height: 100%; position: relative;`;
+
+    const statusDisplayContainer = document.createElement('div');
+    statusDisplayContainer.style.cssText = `width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: 10px;`;
+
+    const statusPreview = document.createElement('img');
+    statusPreview.id = 'alpha-status-preview';
+    statusPreview.style.cssText = `width: 100%; max-width: 400px; border-radius: 15px; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3); object-fit: contain; margin-bottom: 20px;`;
+    
+    const statusSendBtn = document.createElement('button');
+    statusSendBtn.id = 'alpha-status-send-btn';
+    statusSendBtn.innerText = "Set Status";
+    statusSendBtn.style.cssText = `padding: 12px 30px; border-radius: 20px; border: none; background: #2ecc71; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: none; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4);`;
+
+    const statusFab = document.createElement('div');
+    statusFab.id = 'alpha-status-fab';
+    statusFab.style.cssText = `
+        position: absolute; bottom: 20px; right: 20px;
         width: 60px; height: 60px; border-radius: 50%;
         background: #0EA5E9; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
         display: flex; align-items: center; justify-content: center;
         cursor: pointer; z-index: 1000; transition: transform 0.2s;
     `;
-    alphaAddFriendFab.onmouseover = () => alphaAddFriendFab.style.transform = 'scale(1.1)';
-    alphaAddFriendFab.onmouseout = () => alphaAddFriendFab.style.transform = 'scale(1)';
-    
     const fabIcon = document.createElement('img');
     fabIcon.src = 'Add Friend Icon.png';
-    fabIcon.onerror = () => fabIcon.src = 'https://cdn-icons-png.flaticon.com/512/3018/3018447.png';
     fabIcon.style.cssText = 'width: 30px; height: 30px; object-fit: contain; pointer-events: none; filter: brightness(0) invert(1);';
+    statusFab.appendChild(fabIcon);
+
+    const statusFileInput = document.createElement('input');
+    statusFileInput.type = 'file';
+    statusFileInput.accept = 'image/*';
+    statusFileInput.style.display = 'none';
+
+    statusFab.onclick = () => statusFileInput.click();
+
+    db.ref('beta_status_feed').on('value', snap => {
+        const activeStatusData = snap.val();
+        if (activeStatusData && activeStatusData.image) {
+            statusPreview.src = activeStatusData.image;
+            statusPreview.style.display = 'block';
+            statusFab.style.display = 'none';
+            statusSendBtn.style.display = 'none';
+        } else {
+            statusPreview.style.display = 'none';
+            statusPreview.src = '';
+            statusFab.style.display = 'flex';
+            statusSendBtn.style.display = 'none';
+        }
+    });
     
-    alphaAddFriendFab.appendChild(fabIcon);
-    
-    alphaAddFriendFab.onclick = () => {
-        const btn = document.getElementById('menuAddFriendBtn');
-        if (btn) btn.click();
+    let pressTimer;
+    statusPreview.addEventListener('touchstart', startPress, {passive: true});
+    statusPreview.addEventListener('touchend', cancelPress);
+    statusPreview.addEventListener('mousedown', startPress);
+    statusPreview.addEventListener('mouseup', cancelPress);
+    statusPreview.addEventListener('mouseleave', cancelPress);
+    statusPreview.addEventListener('contextmenu', e => e.preventDefault());
+
+    function startPress() {
+        if (statusSendBtn.style.display === 'block') return;
+        pressTimer = setTimeout(() => {
+            let delModal = document.getElementById('delete-status-modal');
+            if (!delModal) {
+                delModal = document.createElement('div');
+                delModal.id = 'delete-status-modal';
+                delModal.className = 'modal-overlay';
+                delModal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(10px);';
+                delModal.innerHTML = `
+                    <div class="modal-box" style="background: #1E293B; padding: 25px; border-radius: 15px; text-align: center; color: white; border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="margin-bottom: 15px;">Delete Status?</h3>
+                        <p style="margin-bottom: 20px; color: rgba(255,255,255,0.7);">Remove this status update?</p>
+                        <div style="display: flex; gap: 10px;">
+                            <button id="cancel-del-status" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 10px; cursor: pointer;">Cancel</button>
+                            <button id="confirm-del-status" style="flex: 1; padding: 10px; background: #ff4757; border: none; color: white; border-radius: 10px; cursor: pointer;">Delete</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(delModal);
+                document.getElementById('cancel-del-status').onclick = () => delModal.style.display = 'none';
+                document.getElementById('confirm-del-status').onclick = () => {
+                    db.ref('beta_status_feed').remove().then(() => { showToast("Status deleted"); delModal.style.display = 'none'; });
+                };
+            }
+            delModal.style.display = 'flex';
+        }, 600);
+    }
+    function cancelPress() { clearTimeout(pressTimer); }
+
+    statusFileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                statusPreview.src = ev.target.result;
+                statusPreview.style.display = 'block';
+                statusSendBtn.style.display = 'block';
+                statusFab.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
     };
+
+    statusSendBtn.onclick = () => {
+        const statusData = statusPreview.src;
+        if (statusData) {
+            db.ref('beta_status_feed').set({
+                image: statusData,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                showToast("Status updated for Beta user");
+                statusSendBtn.style.display = 'none';
+                statusFileInput.value = '';
+            });
+        }
+    };
+
+    statusDisplayContainer.appendChild(statusPreview);
+    statusDisplayContainer.appendChild(statusSendBtn);
+    statusView.appendChild(statusDisplayContainer);
+    statusView.appendChild(statusFab);
+    statusView.appendChild(statusFileInput);
+    contentArea.appendChild(statusView);
+
+    // Message View (Friend List)
+    alphaFriendListContainer = document.createElement('div');
+    alphaFriendListContainer.id = 'alpha-view-message';
+    alphaFriendListContainer.style.cssText = `display: none; flex-direction: column; padding: 10px;`;
+    contentArea.appendChild(alphaFriendListContainer);
+
+    // Menu View
+    const menuView = document.createElement('div');
+    menuView.id = 'alpha-view-menu';
+    menuView.style.cssText = `display: none; flex-direction: column; padding: 20px; gap: 15px; color: var(--alpha-text, white);`;
     
-    document.body.appendChild(alphaAddFriendFab);
+    const createMenuBtn = (text, onClick) => {
+        const btn = document.createElement('button');
+        btn.innerText = text;
+        btn.style.cssText = `
+            padding: 15px; border-radius: 10px; border: none; background: var(--alpha-header-bg, #1E293B); 
+            color: var(--alpha-text, white); font-size: 1.1rem; text-align: left; cursor: pointer;
+            border-left: 4px solid #0EA5E9; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        `;
+        btn.onclick = onClick;
+        return btn;
+    };
+
+    menuView.appendChild(createMenuBtn('📸 Update Profile Pic', () => profileBtn.click()));
+    menuView.appendChild(createMenuBtn('🔠 Change Font', () => document.getElementById('changeFontBtn')?.click()));
+    menuView.appendChild(createMenuBtn('🔑 Change Password', () => changePassBtn.click()));
+    menuView.appendChild(createMenuBtn('👥 Friends', () => document.getElementById('menuFriendsBtn')?.click()));
+    
+    const blockedBtn = createMenuBtn('🚫 Blocked Friends', () => {
+        let msg = "Blocked Users:\n";
+        if(blockedUsersSet.size === 0) msg += "None";
+        else blockedUsersSet.forEach(u => msg += u + "\n");
+        alert(msg);
+    });
+    menuView.appendChild(blockedBtn);
+    
+    menuView.appendChild(createMenuBtn('🚪 Logout', () => logoutBtn.click()));
+
+    contentArea.appendChild(menuView);
+
+    // 5. Footer Navigation
+    const footerNav = document.createElement('div');
+    footerNav.id = 'alpha-footer-nav';
+    footerNav.style.cssText = `
+        position: absolute; bottom: 0; left: 0; width: 100%; height: 70px;
+        background: var(--alpha-header-bg, #1E293B); display: flex; justify-content: space-around; align-items: center;
+        border-top: 1px solid rgba(255,255,255,0.05); z-index: 1000;
+    `;
+
+    const navItems = [
+        { id: 'home', icon: '🏠', label: 'Home', view: homeView },
+        { id: 'status', icon: '📸', label: 'Status', view: statusView },
+        { id: 'message', icon: '💬', label: 'Message', view: alphaFriendListContainer },
+        { id: 'menu', icon: '☰', label: 'Menu', view: menuView }
+    ];
+
+    navItems.forEach((item, index) => {
+        const btn = document.createElement('div');
+        btn.style.cssText = `
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            flex: 1; height: 100%; cursor: pointer; color: ${index === 0 ? '#0EA5E9' : 'gray'};
+            transition: color 0.2s;
+        `;
+        btn.innerHTML = `
+            <div style="font-size: 1.5rem; margin-bottom: 2px;">${item.icon}</div>
+            <div style="font-size: 0.75rem; font-weight: bold;">${item.label}</div>
+        `;
+        
+        btn.onclick = () => {
+            navItems.forEach(n => {
+                n.view.style.display = 'none';
+                n.btn.style.color = 'gray';
+            });
+            item.view.style.display = item.id === 'message' || item.id === 'menu' || item.id === 'status' || item.id === 'home' ? 'flex' : 'block';
+            btn.style.color = '#0EA5E9';
+            
+            if (item.id === 'message') {
+                if (!alphaAddFriendFab) createAlphaFab();
+                alphaAddFriendFab.style.display = 'flex';
+                renderAlphaFriendList(); 
+            } else {
+                if (alphaAddFriendFab) alphaAddFriendFab.style.display = 'none';
+            }
+        };
+        item.btn = btn;
+        footerNav.appendChild(btn);
+    });
+
+    dashboard.appendChild(footerNav);
+
+    function createAlphaFab() {
+        alphaAddFriendFab = document.createElement('div');
+        alphaAddFriendFab.id = 'alpha-add-friend-fab';
+        alphaAddFriendFab.style.cssText = `
+            position: absolute; bottom: 80px; right: 20px;
+            width: 60px; height: 60px; border-radius: 50%;
+            background: #0EA5E9; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
+            display: none; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 1000; transition: transform 0.2s;
+        `;
+        alphaAddFriendFab.innerHTML = '<span style="font-size: 30px; color: white;">+</span>';
+        alphaAddFriendFab.onclick = () => {
+            const btn = document.getElementById('menuAddFriendBtn');
+            if (btn) btn.click();
+        };
+        dashboard.appendChild(alphaAddFriendFab);
+    }
+    createAlphaFab();
+    
+    // Apply initial theme settings if body is already in light mode
+    if (document.body.classList.contains('light-mode')) {
+        themeToggle.innerHTML = '☀️';
+        dashboard.style.setProperty('--alpha-bg', '#fdfbfb');
+        dashboard.style.setProperty('--alpha-header-bg', '#ffffff');
+        dashboard.style.setProperty('--alpha-text', '#333');
+        footerNav.style.background = '#ffffff';
+    };
 }
 
 function showAlphaHomeScreen() {
-    if (!alphaFriendListContainer) initAlphaUI();
+    if (!document.getElementById('alpha-dashboard')) initAlphaUI();
+
+    const dashboard = document.getElementById('alpha-dashboard');
 
     // Hide Chat UI
     if (chatMessages) chatMessages.style.display = 'none';
     if (chatInputBar) chatInputBar.style.display = 'none';
     if (pinnedMessageBar) pinnedMessageBar.style.display = 'none';
     
-    // Show Home UI
-    alphaFriendListContainer.style.display = 'flex';
-    if (alphaAddFriendFab) alphaAddFriendFab.style.display = 'flex';
+    // Show Dashboard UI
+    dashboard.style.display = 'flex';
+    
     if (headerLogoutBtn) headerLogoutBtn.style.display = 'none';
     
     currentChatPartner = null;
@@ -5544,12 +5796,11 @@ function showAlphaHomeScreen() {
     // Switch Headers
     const defaultHeader = document.querySelector('header');
     if (defaultHeader) defaultHeader.style.display = 'none';
-    if (alphaHomeHeader) alphaHomeHeader.style.display = 'flex';
     
-    // Ensure the back button is hidden on the home screen
-    if (alphaBackBtn) alphaBackBtn.style.display = 'none';
-
-    renderAlphaFriendList();
+    db.ref(`Profile Pic/Alpha_Profile_Pic`).once('value').then(snap => {
+        const homePic = document.getElementById('alpha-home-profile-pic');
+        if(snap.exists() && homePic) homePic.src = snap.val();
+    });
 }
 
 let alphaRenderGeneration = 0;
@@ -5776,7 +6027,9 @@ function openAlphaChat(friendId, friendName) {
         alphaStatusListener = null;
     }
 
-    alphaFriendListContainer.style.display = 'none';
+    const dashboard = document.getElementById('alpha-dashboard');
+    if (dashboard) dashboard.style.display = 'none';
+    
     if (chatMessages) chatMessages.style.display = 'block';
     if (chatInputBar) chatInputBar.style.display = 'flex';
     currentChatPartner = friendId;
@@ -5784,10 +6037,6 @@ function openAlphaChat(friendId, friendName) {
     // Switch Headers Back
     const defaultHeader = document.querySelector('header');
     if (defaultHeader) defaultHeader.style.display = 'flex';
-    if (alphaHomeHeader) alphaHomeHeader.style.display = 'none';
-    if (alphaAddFriendFab) alphaAddFriendFab.style.display = 'none';
-
-    // Explicitly show all necessary elements of the default header
     if (menuIconBtn) menuIconBtn.style.display = 'block';
 
     if (logoDisplay) {
@@ -5795,7 +6044,6 @@ function openAlphaChat(friendId, friendName) {
         logoDisplay.innerHTML = friendName;
     }
     
-    if (alphaBackBtn) alphaBackBtn.style.display = 'block';
     if (headerLogoutBtn) headerLogoutBtn.style.display = 'block';
 
     if (currentUser === ALPHA_ADMIN) {
