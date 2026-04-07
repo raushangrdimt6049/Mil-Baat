@@ -2355,9 +2355,9 @@ acceptBtn.addEventListener('click', async (e) => {
         let isBeta = (username === BETA_ADMIN);
         
         if (isAlpha) {
-            displayName = '💎_Alpha_💎';
+            displayName = 'Alpha';
         } else if (isBeta) {
-            displayName = '💎_Beta_💎';
+            displayName = 'Beta';
         }
         authResult = { user: username, displayName, isAlpha, isBeta };
     } 
@@ -2979,12 +2979,12 @@ profileBtn.addEventListener('click', async () => {
         profileUsernameDisplay.innerText = "Loading...";
 
         if (currentChatPartner === BETA_ADMIN) {
-            partnerName = "💎_Beta_💎";
+            partnerName = "Beta";
             partnerRole = "System Admin";
             const pSnap = await db.ref(`Profile Pic/Beta_Profile_Pic`).once('value');
             if (pSnap.exists()) partnerPic = pSnap.val();
         } else if (currentChatPartner === ALPHA_ADMIN) {
-            partnerName = "💎_Alpha_💎";
+            partnerName = "Alpha";
             partnerRole = "System Admin";
             const pSnap = await db.ref(`Profile Pic/Alpha_Profile_Pic`).once('value');
             if (pSnap.exists()) partnerPic = pSnap.val();
@@ -3043,8 +3043,8 @@ profileBtn.addEventListener('click', async () => {
         });
 
         let displayName = currentUser;
-        if (currentUser === ALPHA_ADMIN) displayName = '💎_Alpha_💎';
-        else if (currentUser === BETA_ADMIN) displayName = '💎_Beta_💎';
+        if (currentUser === ALPHA_ADMIN) displayName = 'Alpha';
+        else if (currentUser === BETA_ADMIN) displayName = 'Beta';
         else if (currentUserData && currentUserData.name) displayName = currentUserData.name;
         
         profileUsernameDisplay.innerText = displayName;
@@ -3369,7 +3369,7 @@ async function startCall(video, isIncoming = false) {
 
     // Set Header Name
     const targetUser = currentUser === ALPHA_ADMIN ? BETA_ADMIN : ALPHA_ADMIN;
-    const targetDisplayName = targetUser === ALPHA_ADMIN ? "💎_Alpha_💎" : "💎_Beta_💎";
+    const targetDisplayName = targetUser === ALPHA_ADMIN ? "Alpha" : "Beta";
     const nameEl = document.getElementById('callHeaderName');
     if (nameEl) nameEl.innerText = targetDisplayName;
 
@@ -3603,8 +3603,8 @@ function handleIncomingSignal(signal) {
         incomingSignalData = signal;
         
         let displayName = signal.sender;
-        if (signal.sender === ALPHA_ADMIN) displayName = "💎_Alpha_💎";
-        else if (signal.sender === BETA_ADMIN) displayName = "💎_Beta_💎";
+        if (signal.sender === ALPHA_ADMIN) displayName = "Alpha";
+        else if (signal.sender === BETA_ADMIN) displayName = "Beta";
 
         incomingCallTitle.innerText = `Incoming Call From ${displayName}`;
         incomingCallType.innerText = signal.isVideo ? "Video Call" : "Audio Call";
@@ -5250,7 +5250,7 @@ function openBetaStatusModal() {
             } else {
                 currentChatPartner = BETA_ADMIN;
                 const logo = document.querySelector('.logo');
-                if(logo) logo.innerText = "💎_Beta_💎";
+                if(logo) logo.innerText = "Beta";
                 filterAndRenderChat();
                 updatePinnedMessageListener();
                 showToast("Back to Beta Chat");
@@ -5324,7 +5324,7 @@ function openBetaStatusModal() {
                 const senderRole = getUserRole(senderId);
                 db.ref(`Profile Pic/${senderRole}_Profile_Pic`).once('value').then(picSnap => {
                     const pic = picSnap.val() || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
-                    const name = (senderId === ALPHA_ADMIN) ? '💎_Alpha_💎' : senderId;
+                    const name = (senderId === ALPHA_ADMIN) ? 'Alpha' : senderId;
                     const item = document.createElement('div');
                     item.style.cssText = 'display:flex; align-items:center; gap:15px; background:rgba(255,255,255,0.1); padding:10px; border-radius:10px; margin-bottom:10px;';
                     item.innerHTML = `<img src="${pic}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;"><div style="flex:1;"><div style="font-weight:bold;">${name}</div></div><button class="confirm-req-btn" style="padding:8px 12px; border-radius:5px; border:none; background:#0984e3; color:white; cursor:pointer;">Confirm</button>`;
@@ -5492,7 +5492,7 @@ function initAlphaUI() {
     homeProfilePic.style.cssText = `width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid #0EA5E9; box-shadow: 0 4px 15px rgba(0,0,0,0.5);`;
     
     const homeName = document.createElement('div');
-    homeName.innerText = "💎_Alpha_💎";
+    homeName.innerText = "Alpha";
     homeName.style.cssText = `font-size: 1.8rem; font-weight: bold; color: #0EA5E9;`;
     
     homeView.appendChild(homeProfilePic);
@@ -5704,9 +5704,9 @@ function initAlphaUI() {
     `;
 
     const navItems = [
-        { id: 'home', icon: '🏠', label: 'Home', view: homeView },
-        { id: 'status', icon: '📸', label: 'Status', view: statusView },
-        { id: 'message', icon: '💬', label: 'Message', view: alphaFriendListContainer },
+        { id: 'home', icon: '⌂', label: 'Home', view: homeView },
+        { id: 'status', icon: '📷︎', label: 'Status', view: statusView },
+        { id: 'message', icon: '🖂', label: 'Message', view: alphaFriendListContainer },
         { id: 'menu', icon: '☰', label: 'Menu', view: menuView }
     ];
 
@@ -5877,7 +5877,7 @@ function renderAlphaFriendList() {
             let statusMsg = "Hey I am using Mil Baat.";
 
             if (fid === BETA_ADMIN) {
-                name = "💎_Beta_💎";
+                name = "Beta";
                 statusMsg = "System Admin";
                 const pSnap = await db.ref(`Profile Pic/Beta_Profile_Pic`).once('value');
                 if (pSnap.exists()) pic = pSnap.val();
