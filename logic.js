@@ -5704,10 +5704,10 @@ function initAlphaUI() {
     `;
 
     const navItems = [
-        { id: 'home', icon: '⌂',  view: homeView },
-        { id: 'status', icon: '📷︎',  view: statusView },
-        { id: 'message', icon: '🖂',  view: alphaFriendListContainer },
-        { id: 'menu', icon: '☰',  view: menuView }
+        { id: 'home', icon: '⌂', label: 'Home', view: homeView },
+        { id: 'status', icon: '📷︎', label: 'Status', view: statusView },
+        { id: 'message', icon: '🖂', label: 'Message', view: alphaFriendListContainer },
+        { id: 'menu', icon: '☰', label: 'Menu', view: menuView }
     ];
 
     navItems.forEach((item, index) => {
