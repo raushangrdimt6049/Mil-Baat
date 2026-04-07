@@ -5143,6 +5143,68 @@ window.addEventListener('popstate', () => {
     });
 })();
 
+function makeImageZoomable(img) {
+    let scale = 1;
+    let panning = false;
+    let pointX = 0, pointY = 0;
+    let startX = 0, startY = 0;
+    let initialDistance = 0;
+    let initialScale = 1;
+
+    const updateTransform = () => {
+        img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+        img.style.transformOrigin = 'center center';
+        img.style.transition = panning ? 'none' : 'transform 0.1s ease-out';
+    };
+
+    img.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = (e.wheelDelta ? e.wheelDelta : -e.deltaY);
+        if (delta > 0) scale *= 1.1;
+        else scale /= 1.1;
+        scale = Math.min(Math.max(1, scale), 5);
+        if (scale === 1) { pointX = 0; pointY = 0; }
+        updateTransform();
+    }, { passive: false });
+
+    img.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            initialDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            initialScale = scale;
+        } else if (e.touches.length === 1) {
+            panning = true;
+            startX = e.touches[0].pageX - pointX;
+            startY = e.touches[0].pageY - pointY;
+        }
+    }, { passive: false });
+
+    img.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            const currentDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            scale = Math.min(Math.max(1, initialScale * (currentDistance / initialDistance)), 5);
+            updateTransform();
+        } else if (e.touches.length === 1 && panning && scale > 1) {
+            e.preventDefault();
+            pointX = e.touches[0].pageX - startX;
+            pointY = e.touches[0].pageY - startY;
+            updateTransform();
+        }
+    }, { passive: false });
+
+    img.addEventListener('touchend', () => {
+        panning = false;
+    });
+
+    img.addEventListener('dblclick', () => {
+        scale = 1; pointX = 0; pointY = 0;
+        updateTransform();
+    });
+    
+    img.style.touchAction = 'none';
+}
+
 function openBetaStatusModal() {
     let modal = document.getElementById('beta-status-modal');
     if (!modal) {
@@ -5162,6 +5224,7 @@ function openBetaStatusModal() {
         const img = document.createElement('img');
         img.id = 'beta-status-img';
         img.style.cssText = 'max-width: 90%; max-height: 80%; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: contain;';
+        makeImageZoomable(img);
         
         const noStatusTxt = document.createElement('div');
         noStatusTxt.id = 'beta-status-no-txt';
@@ -5175,6 +5238,11 @@ function openBetaStatusModal() {
     }
 
     modal.style.display = 'flex';
+    const existingImg = document.getElementById('beta-status-img');
+    if (existingImg) {
+        existingImg.style.transform = 'translate(0px, 0px) scale(1)';
+    }
+
     if(mainContent) mainContent.classList.add('blur-content');
 
     db.ref('beta_status_feed').once('value').then(snap => {
@@ -5435,7 +5503,10 @@ function initAlphaUI() {
         themeToggle.innerHTML = isLight ? '◐' : '◑';
         dashboard.style.setProperty('--alpha-bg', isLight ? '#fdfbfb' : '#0F172A');
         dashboard.style.setProperty('--alpha-header-bg', isLight ? '#ffffff' : '#1E293B');
-        dashboard.style.setProperty('--alpha-text', isLight ? '#333' : 'white');
+        dashboard.style.setProperty('--alpha-text', isLight ? 'black' : 'white');
+        dashboard.style.setProperty('--alpha-card-bg', isLight ? '#ffffff' : '#1E293B');
+        dashboard.style.setProperty('--alpha-card-hover', isLight ? '#f0f0f0' : '#283548');
+        dashboard.style.setProperty('--alpha-border', isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)');
         const footerNav = document.getElementById('alpha-footer-nav');
         if (footerNav) footerNav.style.background = isLight ? '#ffffff' : '#1E293B';
     };
@@ -5519,6 +5590,7 @@ function initAlphaUI() {
     const statusPreview = document.createElement('img');
     statusPreview.id = 'alpha-status-preview';
     statusPreview.style.cssText = `width: 100%; height: auto; max-width: 500px; border-radius: 10px; display: block; object-fit: contain;`;
+    makeImageZoomable(statusPreview);
     
     const statusSendBtn = document.createElement('button');
     statusSendBtn.id = 'alpha-status-send-btn';
@@ -5768,7 +5840,10 @@ function initAlphaUI() {
         themeToggle.innerHTML = '◐';
         dashboard.style.setProperty('--alpha-bg', '#fdfbfb');
         dashboard.style.setProperty('--alpha-header-bg', '#ffffff');
-        dashboard.style.setProperty('--alpha-text', '#333');
+        dashboard.style.setProperty('--alpha-text', 'black');
+        dashboard.style.setProperty('--alpha-card-bg', '#ffffff');
+        dashboard.style.setProperty('--alpha-card-hover', '#f0f0f0');
+        dashboard.style.setProperty('--alpha-border', 'rgba(0,0,0,0.1)');
         footerNav.style.background = '#ffffff';
     };
 }
@@ -5857,7 +5932,7 @@ function renderAlphaFriendList() {
         if (friendIds.length === 0) {
             if (!document.getElementById('no-friends-placeholder')) {
                 alphaFriendListContainer.innerHTML = `
-                    <div id="no-friends-placeholder" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; color: rgba(255,255,255,0.5);">
+                    <div id="no-friends-placeholder" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; color: var(--alpha-text, white); opacity: 0.6;">
                         <img src="Add Friend Icon.png" style="width: 80px; opacity: 0.3; margin-bottom: 20px; filter: invert(1);">
                         <div style="font-size: 1.2rem;">No friends yet</div>
                         <div style="font-size: 0.9rem;">Tap the + button to add someone</div>
@@ -5951,11 +6026,11 @@ function renderAlphaFriendList() {
                 const cardHTML = `
                 <div id="friend-card-${f.id}" class="friend-card" onclick="openAlphaChat('${f.id}', '${f.name}')" style="
                     display: flex; align-items: center; padding: 12px 15px; margin-bottom: 12px;
-                    background: #1E293B; border-radius: 16px;
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    background: var(--alpha-card-bg, #1E293B); border-radius: 16px;
+                    border: 1px solid var(--alpha-border, rgba(255, 255, 255, 0.05));
                     box-shadow: 0 4px 6px rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.2s, background 0.2s;
-                " onmouseover="this.style.transform='scale(1.02)'; this.style.background='#283548';" 
-                  onmouseout="this.style.transform='scale(1)'; this.style.background='#1E293B';">
+                " onmouseover="this.style.transform='scale(1.02)'; this.style.background='var(--alpha-card-hover, #283548)';" 
+                  onmouseout="this.style.transform='scale(1)'; this.style.background='var(--alpha-card-bg, #1E293B)';">
                     
                     <div style="position: relative; margin-right: 15px;">
                         <img src="${f.pic}" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.1);">
@@ -5968,14 +6043,14 @@ function renderAlphaFriendList() {
                     
                     <div style="flex: 1; overflow: hidden;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                            <span class="friend-name" style="font-size: 1.1rem; font-weight: 600; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.name}</span>
+                            <span class="friend-name" style="font-size: 1.1rem; font-weight: 600; color: var(--alpha-text, white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.name}</span>
                             <span id="badge-container-${f.id}" style="display: ${f.unread > 0 ? 'block' : 'none'};">
                                 <span id="unread-badge-${f.id}" style="background: #0EA5E9; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 800;">${f.unread}</span>
                             </span>
                         </div>
                         <div style="display: flex; align-items: center;">
                             <span id="typing-${f.id}" style="display: none; color: #00d2ff; font-size: 0.85rem; font-style: italic; animation: blinkText 1s infinite;">Typing...</span>
-                            <span class="status-text-${f.id}" style="font-size: 0.85rem; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.statusMsg}</span>
+                            <span class="status-text-${f.id}" style="font-size: 0.85rem; color: var(--alpha-text, white); opacity: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${f.statusMsg}</span>
                         </div>
                     </div>
                 </div>
