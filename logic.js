@@ -5677,12 +5677,12 @@ function initAlphaUI() {
         return btn;
     };
 
-    menuView.appendChild(createMenuBtn('📷︎ Update Profile Pic', () => profileBtn.click()));
-    menuView.appendChild(createMenuBtn('🔠 Change Font', () => document.getElementById('changeFontBtn')?.click()));
-    menuView.appendChild(createMenuBtn('🔑 Change Password', () => changePassBtn.click()));
-    menuView.appendChild(createMenuBtn('👥 Friends', () => document.getElementById('menuFriendsBtn')?.click()));
+    menuView.appendChild(createMenuBtn('Update Profile Pic', () => profileBtn.click()));
+    menuView.appendChild(createMenuBtn('Change Font', () => document.getElementById('changeFontBtn')?.click()));
+    menuView.appendChild(createMenuBtn('Change Password', () => changePassBtn.click()));
+    menuView.appendChild(createMenuBtn('Friends', () => document.getElementById('menuFriendsBtn')?.click()));
     
-    const blockedBtn = createMenuBtn('🚫 Blocked Friends', () => {
+    const blockedBtn = createMenuBtn('Blocked Friends', () => {
         let msg = "Blocked Users:\n";
         if(blockedUsersSet.size === 0) msg += "None";
         else blockedUsersSet.forEach(u => msg += u + "\n");
@@ -5690,7 +5690,7 @@ function initAlphaUI() {
     });
     menuView.appendChild(blockedBtn);
     
-    menuView.appendChild(createMenuBtn('🚪 Logout', () => logoutBtn.click()));
+    menuView.appendChild(createMenuBtn('Logout', () => logoutBtn.click()));
 
     contentArea.appendChild(menuView);
 
