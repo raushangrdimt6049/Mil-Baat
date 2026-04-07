@@ -850,7 +850,7 @@ if (!bgOverlay) {
     bgOverlay.id = 'blur-bg-overlay';
     bgOverlay.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
-            filter: blur(0px); transform: scale(1.1); background-color: #1E2EDE;
+            filter: blur(0px); transform: scale(1.1); background-color: #334e58;
     `;
 
     document.body.appendChild(bgOverlay);
