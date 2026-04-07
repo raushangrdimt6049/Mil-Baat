@@ -5597,6 +5597,11 @@ function initAlphaUI() {
     statusSendBtn.innerText = "Set Status";
     statusSendBtn.style.cssText = `width: 100%; max-width: 400px; align-self: center; padding: 15px 30px; border-radius: 25px; border: none; background: linear-gradient(90deg, #2ecc71, #27ae60); color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: none; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4); flex-shrink: 0; z-index: 100;`;
 
+    const statusRemoveBtn = document.createElement('button');
+    statusRemoveBtn.id = 'alpha-status-remove-btn';
+    statusRemoveBtn.innerText = "Remove Status";
+    statusRemoveBtn.style.cssText = `width: 100%; max-width: 400px; align-self: center; padding: 15px 30px; border-radius: 25px; border: none; background: linear-gradient(90deg, #ff4757, #ff6b81); color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: none; box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4); flex-shrink: 0; z-index: 100;`;
+
     const statusFab = document.createElement('div');
     statusFab.id = 'alpha-status-fab';
     statusFab.style.cssText = `
@@ -5626,6 +5631,7 @@ function initAlphaUI() {
             statusEmptyText.style.display = 'none';
             statusFab.style.display = 'none';
             statusSendBtn.style.display = 'none';
+            statusRemoveBtn.style.display = 'block';
             statusPreview.dataset.isLocal = "false";
         } else {
             statusPreview.src = '';
@@ -5633,57 +5639,46 @@ function initAlphaUI() {
             statusEmptyText.style.display = 'flex';
             statusFab.style.display = 'flex';
             statusSendBtn.style.display = 'none';
+            statusRemoveBtn.style.display = 'none';
             statusPreview.dataset.isLocal = "false";
         }
     });
     
-    let pressTimer;
-    statusPreview.addEventListener('touchstart', startPress, {passive: true});
-    statusPreview.addEventListener('touchend', cancelPress);
-    statusPreview.addEventListener('mousedown', startPress);
-    statusPreview.addEventListener('mouseup', cancelPress);
-    statusPreview.addEventListener('mouseleave', cancelPress);
-    statusPreview.addEventListener('contextmenu', e => e.preventDefault());
-
-    function startPress() {
-        if (statusPreview.dataset.isLocal === "true") return;
-        pressTimer = setTimeout(() => {
-            let delModal = document.getElementById('delete-status-modal');
-            if (!delModal) {
-                delModal = document.createElement('div');
-                delModal.id = 'delete-status-modal';
-                delModal.className = 'modal-overlay';
-                delModal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(10px);';
-                delModal.innerHTML = `
-                    <div class="modal-box" style="background: #1E293B; padding: 25px; border-radius: 15px; text-align: center; color: white; border: 1px solid rgba(255,255,255,0.1);">
-                        <h3 style="margin-bottom: 15px;">Delete Status?</h3>
-                        <p style="margin-bottom: 20px; color: rgba(255,255,255,0.7);">Remove this status update?</p>
-                        <div style="display: flex; gap: 10px;">
-                            <button id="cancel-del-status" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 10px; cursor: pointer;">Cancel</button>
-                            <button id="confirm-del-status" style="flex: 1; padding: 10px; background: #ff4757; border: none; color: white; border-radius: 10px; cursor: pointer;">Delete</button>
-                        </div>
-                    </div>`;
-                document.body.appendChild(delModal);
-                document.getElementById('cancel-del-status').onclick = () => {
-                    delModal.style.display = 'none';
+    statusRemoveBtn.onclick = () => {
+        let delModal = document.getElementById('delete-status-modal');
+        if (!delModal) {
+            delModal = document.createElement('div');
+            delModal.id = 'delete-status-modal';
+            delModal.className = 'modal-overlay';
+            delModal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(10px);';
+            delModal.innerHTML = `
+                <div class="modal-box" style="background: var(--alpha-header-bg, #1E293B); padding: 25px; border-radius: 15px; text-align: center; color: var(--alpha-text, white); border: 1px solid var(--alpha-border, rgba(255,255,255,0.1));">
+                    <h3 style="margin-bottom: 15px;">Delete Status?</h3>
+                    <p style="margin-bottom: 20px; opacity: 0.7;">Remove this status update?</p>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="cancel-del-status" style="flex: 1; padding: 10px; background: rgba(128,128,128,0.2); border: none; color: var(--alpha-text, white); border-radius: 10px; cursor: pointer;">Cancel</button>
+                        <button id="confirm-del-status" style="flex: 1; padding: 10px; background: #ff4757; border: none; color: white; border-radius: 10px; cursor: pointer;">Delete</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(delModal);
+            document.getElementById('cancel-del-status').onclick = () => {
+                delModal.style.display = 'none';
+                const dashboard = document.getElementById('alpha-dashboard');
+                if (dashboard) dashboard.classList.remove('blur-content');
+            };
+            document.getElementById('confirm-del-status').onclick = () => {
+                db.ref('beta_status_feed').remove().then(() => { 
+                    showToast("Status deleted"); 
+                    delModal.style.display = 'none'; 
                     const dashboard = document.getElementById('alpha-dashboard');
                     if (dashboard) dashboard.classList.remove('blur-content');
-                };
-                document.getElementById('confirm-del-status').onclick = () => {
-                    db.ref('beta_status_feed').remove().then(() => { 
-                        showToast("Status deleted"); 
-                        delModal.style.display = 'none'; 
-                        const dashboard = document.getElementById('alpha-dashboard');
-                        if (dashboard) dashboard.classList.remove('blur-content');
-                    });
-                };
-            }
-            delModal.style.display = 'flex';
-            const dashboard = document.getElementById('alpha-dashboard');
-            if (dashboard) dashboard.classList.add('blur-content');
-        }, 600);
-    }
-    function cancelPress() { clearTimeout(pressTimer); }
+                });
+            };
+        }
+        delModal.style.display = 'flex';
+        const dashboard = document.getElementById('alpha-dashboard');
+        if (dashboard) dashboard.classList.add('blur-content');
+    };
 
     statusFileInput.onchange = (e) => {
         const file = e.target.files[0];
@@ -5694,6 +5689,7 @@ function initAlphaUI() {
                 statusDisplayContainer.style.display = 'flex';
                 statusEmptyText.style.display = 'none';
                 statusSendBtn.style.display = 'block';
+                    statusRemoveBtn.style.display = 'none';
                 statusFab.style.display = 'none';
                 statusPreview.dataset.isLocal = "true";
             };
@@ -5722,6 +5718,7 @@ function initAlphaUI() {
     statusView.appendChild(statusEmptyText);
     statusView.appendChild(statusDisplayContainer);
     statusView.appendChild(statusSendBtn);
+    statusView.appendChild(statusRemoveBtn);
     statusView.appendChild(statusFab);
     statusView.appendChild(statusFileInput);
     contentArea.appendChild(statusView);
