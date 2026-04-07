@@ -2643,7 +2643,7 @@ themeToggleBtn.addEventListener('click', () => {
     body.classList.toggle('light-mode');
     const isLight = body.classList.contains('light-mode');
     
-    themeToggleBtn.innerText = isLight ? '🌙 Dark Mode' : '☀️ Light Mode';
+    themeToggleBtn.innerText = isLight ? '◐ Dark Mode' : '◑ Light Mode';
 
     // Switch Message Bubble Background
     let msgStyle = document.getElementById('dynamic-msg-style');
@@ -5240,11 +5240,11 @@ function openBetaStatusModal() {
             return btn;
         };
 
-        const addFriendBtn = createMenuBtn('menuAddFriendBtn', '➕ Add Friends', openAddFriendModal);
-        const friendsBtn = createMenuBtn('menuFriendsBtn', '👥 Friends', openFriendsListModal);
-        const pendingBtn = createMenuBtn('menuPendingBtn', `🔔 Pending Requests <span id="pending-req-badge" style="background-color: #ff4757; color: white; border-radius: 10px; padding: 2px 6px; font-size: 12px; font-weight: bold; display: none; margin-left: 8px;"></span>`, openPendingReqModal);
-        const alphaStatusBtn = createMenuBtn('alphaStatusBtn', '👁️ Alpha Status', openBetaStatusModal);
-        const backToBetaBtn = createMenuBtn('menuBackToBetaBtn', '🔙 Back to Beta', () => {
+        const addFriendBtn = createMenuBtn('menuAddFriendBtn', 'Add Friends', openAddFriendModal);
+        const friendsBtn = createMenuBtn('menuFriendsBtn', 'Friends', openFriendsListModal);
+        const pendingBtn = createMenuBtn('menuPendingBtn', `Pending Requests <span id="pending-req-badge" style="background-color: #ff4757; color: white; border-radius: 10px; padding: 2px 6px; font-size: 12px; font-weight: bold; display: none; margin-left: 8px;"></span>`, openPendingReqModal);
+        const alphaStatusBtn = createMenuBtn('alphaStatusBtn', 'Alpha Status', openBetaStatusModal);
+        const backToBetaBtn = createMenuBtn('menuBackToBetaBtn', 'Back to Beta', () => {
             if (currentChatPartner === BETA_ADMIN) {
                 alert("Already in Beta user...");
             } else {
@@ -5427,12 +5427,12 @@ function initAlphaUI() {
     alphaHomeHeader.appendChild(titleText);
 
     const themeToggle = document.createElement('div');
-    themeToggle.innerHTML = '🌙'; 
+    themeToggle.innerHTML = '◑'; 
     themeToggle.style.cssText = 'font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center;';
     themeToggle.onclick = () => {
         themeToggleBtn.click();
         const isLight = document.body.classList.contains('light-mode');
-        themeToggle.innerHTML = isLight ? '☀️' : '🌙';
+        themeToggle.innerHTML = isLight ? '◐' : '◑';
         dashboard.style.setProperty('--alpha-bg', isLight ? '#fdfbfb' : '#0F172A');
         dashboard.style.setProperty('--alpha-header-bg', isLight ? '#ffffff' : '#1E293B');
         dashboard.style.setProperty('--alpha-text', isLight ? '#333' : 'white');
@@ -5765,7 +5765,7 @@ function initAlphaUI() {
     
     // Apply initial theme settings if body is already in light mode
     if (document.body.classList.contains('light-mode')) {
-        themeToggle.innerHTML = '☀️';
+        themeToggle.innerHTML = '◐';
         dashboard.style.setProperty('--alpha-bg', '#fdfbfb');
         dashboard.style.setProperty('--alpha-header-bg', '#ffffff');
         dashboard.style.setProperty('--alpha-text', '#333');
