@@ -4799,6 +4799,14 @@ confirmLogout.addEventListener('click', () => {
     const defaultHeader = document.querySelector('header');
     if (defaultHeader) defaultHeader.style.display = 'none';
     if (typeof alphaHomeHeader !== 'undefined' && alphaHomeHeader) alphaHomeHeader.style.display = 'none';
+    
+    // Hide Alpha Dashboard and reset to Home view
+    const dashboard = document.getElementById('alpha-dashboard');
+    if (dashboard) {
+        dashboard.style.display = 'none';
+        const homeNavBtn = document.querySelector('#alpha-footer-nav > div:nth-child(1)');
+        if (homeNavBtn) homeNavBtn.click();
+    }
 
     // Show Login Overlay & Reset
     overlay.style.visibility = 'visible';
