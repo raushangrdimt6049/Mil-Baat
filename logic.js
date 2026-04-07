@@ -850,7 +850,7 @@ if (!bgOverlay) {
     bgOverlay.id = 'blur-bg-overlay';
     bgOverlay.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
-        filter: blur(0px); transform: scale(1.1);
+            filter: blur(0px); transform: scale(1.1); background-color: #13C4A3;
     `;
 
     document.body.appendChild(bgOverlay);
@@ -860,9 +860,8 @@ let bgImage = document.getElementById('theme-bg-image');
 if (!bgImage && bgOverlay) {
     bgImage = document.createElement('img');
     bgImage.id = 'theme-bg-image';
-    bgImage.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;';
+        bgImage.style.cssText = 'width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; display: none;';
     bgOverlay.appendChild(bgImage);
-    bgImage.src = 'Dark Theme.png';
 }
 
 // --- Dynamic Selection Header Setup ---
@@ -2669,7 +2668,13 @@ themeToggleBtn.addEventListener('click', () => {
         }
 
         bgOverlay.style.backgroundImage = 'none';
-        bgImage.src = isLight ? 'Light Theme.png' : 'Dark Theme.png';
+            if (isLight) {
+                bgImage.style.display = 'block';
+                bgImage.src = 'Light Theme.png';
+            } else {
+                bgImage.style.display = 'none';
+                bgOverlay.style.backgroundColor = '#13C4A3';
+            }
     }
 });
 
