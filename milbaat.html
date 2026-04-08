@@ -22,7 +22,7 @@
             background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #1a1a2e);
             background-size: 400% 400%;
             animation: gradientBG 15s ease infinite;
-            color: white;
+            color: rgb(227, 214, 214);
             height: 100vh;
             overflow: hidden; /* Prevent scrolling until accepted */
             display: flex;
@@ -84,7 +84,7 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 15px 20px;
             border-radius: 30px;
-            color: white;
+            color: rgb(147, 133, 133);
             font-size: 1rem;
             margin-bottom: 15px;
             width: 80%;
@@ -880,7 +880,7 @@
             flex-direction: column;
         }
         .reply-sender {
-            color: #055919;
+            color: #cdd8d0;
             font-size: 0.8rem;
             font-weight: bold;
             margin-bottom: 2px;
@@ -1116,6 +1116,20 @@
             <div class="modal-actions">
                 <button class="modal-btn cancel-btn" id="cancelDeleteMsg">Cancel</button>
                 <button class="modal-btn confirm-btn" id="confirmDeleteMsg">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forward Message Modal -->
+    <div id="forward-msg-modal" class="modal-overlay">
+        <div class="modal-box" style="max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="color:white; margin-bottom:15px;">Forward to...</h3>
+            <div id="forward-friends-list" style="flex: 1; overflow-y: auto; text-align: left; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px;">
+                <!-- Friend items will go here -->
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel-btn" id="cancelForwardBtn">Cancel</button>
+                <button class="modal-btn confirm-btn" id="confirmForwardBtn" style="background: #00d2ff; color: white;" disabled>Send</button>
             </div>
         </div>
     </div>

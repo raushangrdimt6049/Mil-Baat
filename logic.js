@@ -47,6 +47,10 @@ const clearChatModal = document.getElementById('clear-chat-modal');
 const confirmClearChat = document.getElementById('confirmClearChat');
 const cancelClearChat = document.getElementById('cancelClearChat');
 const messageOptionsModal = document.getElementById('message-options-modal');
+const forwardMsgModal = document.getElementById('forward-msg-modal');
+const forwardFriendsList = document.getElementById('forward-friends-list');
+const cancelForwardBtn = document.getElementById('cancelForwardBtn');
+const confirmForwardBtn = document.getElementById('confirmForwardBtn');
 const pinMsgBtn = document.getElementById('pinMsgBtn');
 const deleteMsgOptionBtn = document.getElementById('deleteMsgOptionBtn');
 const cancelMsgOptions = document.getElementById('cancelMsgOptions');
@@ -915,6 +919,13 @@ if (!bgImage && bgOverlay) {
     copyBtn.style.cssText = 'height: 24px; width: 24px; object-fit: contain; cursor: pointer;';
     header.appendChild(copyBtn);
 
+    // Add Forward button
+    const forwardBtn = document.createElement('img');
+    forwardBtn.src = 'Forward Icon.png';
+    forwardBtn.id = 'selForwardBtn';
+    forwardBtn.style.cssText = 'height: 24px; width: 24px; object-fit: contain; cursor: pointer;';
+    header.appendChild(forwardBtn);
+
     // 3. Action Buttons
     for (let i = 1; i < icons.length; i++) {
         const btn = document.createElement('img');
@@ -945,6 +956,11 @@ if (!bgImage && bgOverlay) {
         } else {
             showToast("Only text messages can be copied");
         }
+    };
+
+    document.getElementById('selForwardBtn').onclick = () => {
+        if (selectedMsgIds.size === 0) return;
+        openForwardModal();
     };
 
     document.getElementById('selPinBtn').onclick = () => {
@@ -1550,6 +1566,7 @@ function updateSelectionHeaderIcons() {
     const unsendBtn = document.getElementById('selUnsendBtn');
     const pinBtn = document.getElementById('selPinBtn');
     const copyBtn = document.getElementById('selCopyBtn');
+    const forwardBtn = document.getElementById('selForwardBtn');
     const counter = document.getElementById('selCounter');
     
     if (counter) counter.innerText = selectedMsgIds.size;
@@ -1560,6 +1577,7 @@ function updateSelectionHeaderIcons() {
     let canUnsend = false;
     let canPin = (selectedMsgIds.size === 1);
     let canCopy = false;
+    let canForward = (selectedMsgIds.size > 0);
 
     if (selectedMsgIds.size === 1) {
         const id = Array.from(selectedMsgIds)[0];
@@ -1592,6 +1610,7 @@ function updateSelectionHeaderIcons() {
     setState(unsendBtn, canUnsend);
     setState(pinBtn, canPin);
     setState(copyBtn, canCopy);
+    if (forwardBtn) setState(forwardBtn, canForward);
 }
 
 function toggleSelection(id) {
@@ -6297,4 +6316,151 @@ function openAlphaChat(friendId, friendName) {
     filterAndRenderChat();
     updatePinnedMessageListener();
     startHeartbeat();
+}
+
+// --- Forward Message Logic ---
+let selectedForwardFriends = new Set();
+
+async function openForwardModal() {
+    forwardMsgModal.style.display = 'flex';
+    mainContent.classList.add('blur-content');
+    forwardFriendsList.innerHTML = '<div style="text-align: center; padding: 20px;">Loading friends...</div>';
+    confirmForwardBtn.disabled = true;
+    confirmForwardBtn.style.opacity = '0.5';
+    selectedForwardFriends.clear();
+
+    let friendIds = [];
+    const snap = await db.ref(`friends/${currentUser}`).once('value');
+    if (snap.exists()) friendIds = Object.keys(snap.val());
+    
+    // Ensure admins are accessible based on user type
+    if (currentUser === ALPHA_ADMIN && !friendIds.includes(BETA_ADMIN)) friendIds.push(BETA_ADMIN);
+    if (currentUser !== ALPHA_ADMIN && !friendIds.includes(ALPHA_ADMIN)) friendIds.push(ALPHA_ADMIN);
+
+    if (friendIds.length === 0) {
+        forwardFriendsList.innerHTML = '<div style="text-align: center; padding: 20px; color: rgba(255,255,255,0.7);">No friends available to forward.</div>';
+        return;
+    }
+
+    // Fetch details
+    const promises = friendIds.map(async (fid) => {
+        let name = fid;
+        let pic = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+
+        if (fid === BETA_ADMIN) {
+            name = "Beta";
+            const pSnap = await db.ref(`Profile Pic/Beta_Profile_Pic`).once('value');
+            if (pSnap.exists()) pic = pSnap.val();
+        } else if (fid === ALPHA_ADMIN) {
+            name = "Alpha";
+            const pSnap = await db.ref(`Profile Pic/Alpha_Profile_Pic`).once('value');
+            if (pSnap.exists()) pic = pSnap.val();
+        } else {
+            const uSnap = await db.ref(`Other User Table/${fid}`).once('value');
+            if (uSnap.exists()) {
+                const u = uSnap.val();
+                name = u.name || fid;
+                if (u.profilePic) pic = u.profilePic;
+            }
+            const pSnap = await db.ref(`Profile Pic/${fid}_Profile_Pic`).once('value');
+            if (pSnap.exists()) pic = pSnap.val();
+        }
+        return { id: fid, name, pic };
+    });
+
+    const friendsData = await Promise.all(promises);
+    friendsData.sort((a, b) => a.name.localeCompare(b.name));
+
+    forwardFriendsList.innerHTML = '';
+    friendsData.forEach(f => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 10px; cursor: pointer; transition: background 0.2s;';
+        item.innerHTML = `
+            <img src="${f.pic}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+            <div style="flex: 1; font-weight: bold; color: white;">${f.name}</div>
+            <div class="checkbox-ui" style="width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.5); border-radius: 5px; display: flex; align-items: center; justify-content: center;"></div>
+        `;
+
+        item.onclick = () => {
+            const checkbox = item.querySelector('.checkbox-ui');
+            if (selectedForwardFriends.has(f.id)) {
+                selectedForwardFriends.delete(f.id);
+                checkbox.innerHTML = '';
+                checkbox.style.background = 'transparent';
+                checkbox.style.borderColor = 'rgba(255,255,255,0.5)';
+            } else {
+                selectedForwardFriends.add(f.id);
+                checkbox.innerHTML = '✓';
+                checkbox.style.background = '#00d2ff';
+                checkbox.style.borderColor = '#00d2ff';
+                checkbox.style.color = 'white';
+                checkbox.style.fontSize = '14px';
+            }
+            confirmForwardBtn.disabled = selectedForwardFriends.size === 0;
+            confirmForwardBtn.style.opacity = selectedForwardFriends.size === 0 ? '0.5' : '1';
+        };
+
+        forwardFriendsList.appendChild(item);
+    });
+}
+
+if (cancelForwardBtn) {
+    cancelForwardBtn.addEventListener('click', () => {
+        forwardMsgModal.style.display = 'none';
+        mainContent.classList.remove('blur-content');
+    });
+}
+
+if (confirmForwardBtn) {
+    confirmForwardBtn.addEventListener('click', () => {
+        if (selectedForwardFriends.size === 0 || selectedMsgIds.size === 0) return;
+
+        const now = new Date();
+        const d = String(now.getDate()).padStart(2, '0');
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const y = now.getFullYear();
+        const datePart = `${d}/${m}/${y}`;
+        const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const timeString = `${datePart} ${timePart}`;
+        const rawDate = now.toISOString();
+
+        const messagesToForward = [];
+        selectedMsgIds.forEach(id => {
+            const msg = currentChatHistory.find(m => m.id === id);
+            if (msg) messagesToForward.push(msg);
+        });
+
+        selectedForwardFriends.forEach(friendId => {
+            const table = getMessageTable(currentUser);
+            
+            messagesToForward.forEach(origMsg => {
+                const newMsgRef = db.ref(`messages/${table}`).push();
+                const newMsg = {
+                    id: newMsgRef.key,
+                    sender: currentUser,
+                    recipient: friendId,
+                    text: origMsg.text || '',
+                    timestamp: timeString,
+                    rawDate: rawDate,
+                    status: 'sent',
+                    replyTo: null // Remove reply context when forwarding
+                };
+                
+                // Carry over media
+                if (origMsg.image) newMsg.image = origMsg.image;
+                if (origMsg.video) newMsg.video = origMsg.video;
+                if (origMsg.audio) newMsg.audio = origMsg.audio;
+                if (origMsg.file) newMsg.file = origMsg.file;
+
+                newMsgRef.set(newMsg).catch(err => console.error("Forward Error:", err));
+            });
+            
+            sendNotificationAlert(friendId);
+        });
+
+        forwardMsgModal.style.display = 'none';
+        mainContent.classList.remove('blur-content');
+        exitSelectionMode();
+        showToast(`Forwarded to ${selectedForwardFriends.size} chat(s)`);
+    });
 }
