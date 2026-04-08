@@ -3071,20 +3071,35 @@ profileBtn.addEventListener('click', async () => {
         // Block Button Status
         const updateBlockBtn = () => {
             const isBlocked = blockedUsersSet.has(currentChatPartner);
-            blockUserBtn.innerText = isBlocked ? 'Unblock User' : 'Block User';
+            if (currentChatPartner === ALPHA_ADMIN) {
+                blockUserBtn.innerText = isBlocked ? 'Unblock Alpha' : 'Block Alpha';
+            } else {
+                blockUserBtn.innerText = isBlocked ? 'Unblock User' : 'Block User';
+            }
             blockUserBtn.style.background = isBlocked ? '#2ecc71' : '#ff4757';
         };
         updateBlockBtn();
 
         blockUserBtn.onclick = () => {
             const currentlyBlocked = blockedUsersSet.has(currentChatPartner);
+            const updates = {};
             if (currentlyBlocked) {
-                db.ref(`blocked_users/${currentUser}/${currentChatPartner}`).remove().then(() => {
+                // Unblock logic
+                updates[`blocked_users/${currentUser}/${currentChatPartner}`] = null;
+                if (currentChatPartner === ALPHA_ADMIN) {
+                    updates[`blocked_users/${ALPHA_ADMIN}/${currentUser}`] = null;
+                }
+                db.ref().update(updates).then(() => {
                     showToast(`${partnerName} unblocked.`);
                     updateBlockBtn();
                 });
             } else {
-                db.ref(`blocked_users/${currentUser}/${currentChatPartner}`).set(true).then(() => {
+                // Block logic
+                updates[`blocked_users/${currentUser}/${currentChatPartner}`] = true;
+                if (currentChatPartner === ALPHA_ADMIN) {
+                    updates[`blocked_users/${ALPHA_ADMIN}/${currentUser}`] = true;
+                }
+                db.ref().update(updates).then(() => {
                     showToast(`${partnerName} blocked.`);
                     updateBlockBtn();
                 });
@@ -3093,7 +3108,11 @@ profileBtn.addEventListener('click', async () => {
 
     } else {
         // --- Show Own Profile ---
-        if (btnContainer) btnContainer.style.display = 'flex';
+        if (currentUser === ALPHA_ADMIN) {
+            if (btnContainer) btnContainer.style.display = 'flex';
+        } else {
+            if (btnContainer) btnContainer.style.display = 'none';
+        }
         blockUserBtn.style.display = 'none';
         
         uniqueCodeDisplay.innerText = (currentUserData && currentUserData.uniqueCode) ? `Code: ${currentUserData.uniqueCode}` : '';
