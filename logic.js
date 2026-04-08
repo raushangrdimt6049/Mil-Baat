@@ -311,7 +311,7 @@ headerLogoutBtn.onclick = () => {
             `;
         }
 
-        // --- Chat Container Dimensions & Padding ---
+        // --- Main Chat Cointainer ka design jisme sab message show ho rha hai ---
         // You can modify these values manually to fit your design
         if (chatMessages) {
             chatMessages.style.cssText = `
@@ -341,6 +341,11 @@ headerLogoutBtn.onclick = () => {
     msgStyle.id = 'dynamic-msg-style';
     // Default Dark Theme (Gray)
     msgStyle.innerHTML = `.message-bubble { max-width: 75%; word-wrap: break-word; padding: 10px; border-radius: 10px; margin-bottom: 5px; } .msg-sent { align-self: flex-end; margin-left: auto; text-align: left; background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; border-bottom-right-radius: 0; } .msg-received { align-self: flex-start; margin-right: auto; text-align: left; background-color: rgba(45, 52, 54, 0.9) !important; color: white !important; border-bottom-left-radius: 0; } #chatMessages .message-bubble.msg-selected, #chatMessages .msg-sent.msg-selected, #chatMessages .msg-received.msg-selected { background: #ff9f43 !important; transition: background 0.2s; }`;
+    const isLight = document.body.classList.contains('light-mode');
+    const bubbleBgSent = isLight ? 'rgba(210, 235, 255, 0.95)' : 'rgba(45, 52, 54, 0.9)';
+    const bubbleBgRcv = isLight ? 'rgba(240, 240, 245, 0.95)' : 'rgba(45, 52, 54, 0.9)';
+    const textColor = isLight ? '#000000' : 'white';
+    msgStyle.innerHTML = `.message-bubble { max-width: 75%; word-wrap: break-word; padding: 10px; border-radius: 10px; margin-bottom: 5px; } .msg-sent { align-self: flex-end; margin-left: auto; text-align: left; background-color: ${bubbleBgSent} !important; color: ${textColor} !important; border-bottom-right-radius: 0; } .msg-received { align-self: flex-start; margin-right: auto; text-align: left; background-color: ${bubbleBgRcv} !important; color: ${textColor} !important; border-bottom-left-radius: 0; } #chatMessages .message-bubble.msg-selected, #chatMessages .msg-sent.msg-selected, #chatMessages .msg-received.msg-selected { background: #ff9f43 !important; color: white !important; transition: background 0.2s; }`;
     document.head.appendChild(msgStyle);
 })();
 
@@ -355,10 +360,10 @@ headerLogoutBtn.onclick = () => {
         #entry-overlay input, #change-pass-modal input { background: rgba(255, 255, 255, 0.1) !important; color: white !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; }
         
         /* --- Light Theme Overrides --- */
-        body.light-mode #entry-overlay { background-color: rgba(244, 246, 248, 0.5) !important; color: #2c3e50 !important; backdrop-filter: blur(5px); }
+        body.light-mode #entry-overlay { background-color: rgba(255, 255, 255, 0.5) !important; color: #000000 !important; backdrop-filter: blur(5px); }
         body.light-mode #logout-modal > div, body.light-mode #change-pass-modal > div, body.light-mode #clear-chat-modal > div, body.light-mode #message-options-modal > div, body.light-mode .modal-box { 
             background-color: #ffffff !important; 
-            color: #2c3e50 !important; 
+            color: #000000 !important; 
             border: 1px solid #e1e4e8 !important; 
             box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important; 
         }
@@ -372,9 +377,9 @@ headerLogoutBtn.onclick = () => {
 
         /* Font Modal Styles */
         .font-option-btn { border: 1px solid rgba(255,255,255,0.2) !important; background: rgba(255,255,255,0.05) !important; color: white !important; }
-        body.light-mode .font-option-btn { border: 1px solid #ced4da !important; background: #f8f9fa !important; color: #333 !important; }
+        body.light-mode .font-option-btn { border: 1px solid #ced4da !important; background: #f8f9fa !important; color: #000000 !important; }
         #font-modal-close { color: rgba(255,255,255,0.7) !important; }
-        body.light-mode #font-modal-close { color: #333 !important; }
+        body.light-mode #font-modal-close { color: #000000 !important; }
 
         /* Message Highlight Animation */
         @keyframes highlightPulse {
@@ -850,7 +855,7 @@ if (!bgOverlay) {
     bgOverlay.id = 'blur-bg-overlay';
     bgOverlay.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
-            filter: blur(0px); transform: scale(1.1); background-color: #334e58;
+            filter: blur(0px); transform: scale(1.1); background-color: #161B16;
     `;
 
     document.body.appendChild(bgOverlay);
@@ -2140,6 +2145,13 @@ function renderChat(history) {
             }
         }
 
+        // Extract only the time part from the timestamp string
+        if (displayTime && typeof displayTime === 'string') {
+            const parts = displayTime.split(' ');
+            // Assumes format "DATE TIME", takes everything after the first space
+            if (parts.length > 1) displayTime = parts.slice(1).join(' ');
+        }
+
         timeSpan.innerHTML = `${displayTime} ${tickHtml}`;
         msgDiv.appendChild(timeSpan);
         
@@ -2656,6 +2668,11 @@ themeToggleBtn.addEventListener('click', () => {
     const bubbleColor = isLight ? 'rgba(0, 123, 255, 0.85)' : 'rgba(45, 52, 54, 0.9)';
     msgStyle.innerHTML = `.message-bubble { max-width: 75%; word-wrap: break-word; padding: 10px; border-radius: 10px; margin-bottom: 5px; } .msg-sent { align-self: flex-end; margin-left: auto; text-align: left; background-color: ${bubbleColor} !important; color: white !important; border-bottom-right-radius: 0; } .msg-received { align-self: flex-start; margin-right: auto; text-align: left; background-color: ${bubbleColor} !important; color: white !important; border-bottom-left-radius: 0; } #chatMessages .message-bubble.msg-selected, #chatMessages .msg-sent.msg-selected, #chatMessages .msg-received.msg-selected { background: #ff9f43 !important; transition: background 0.2s; }`;
 
+    const bubbleBgSent = isLight ? 'rgba(210, 235, 255, 0.95)' : 'rgba(45, 52, 54, 0.9)';
+    const bubbleBgRcv = isLight ? 'rgba(240, 240, 245, 0.95)' : 'rgba(45, 52, 54, 0.9)';
+    const textColor = isLight ? '#000000' : 'white';
+    msgStyle.innerHTML = `.message-bubble { max-width: 75%; word-wrap: break-word; padding: 10px; border-radius: 10px; margin-bottom: 5px; } .msg-sent { align-self: flex-end; margin-left: auto; text-align: left; background-color: ${bubbleBgSent} !important; color: ${textColor} !important; border-bottom-right-radius: 0; } .msg-received { align-self: flex-start; margin-right: auto; text-align: left; background-color: ${bubbleBgRcv} !important; color: ${textColor} !important; border-bottom-left-radius: 0; } #chatMessages .message-bubble.msg-selected, #chatMessages .msg-sent.msg-selected, #chatMessages .msg-received.msg-selected { background: #ff9f43 !important; color: white !important; transition: background 0.2s; }`;
+
     // Switch background image based on theme
     if (bgOverlay) {
         let bgImage = document.getElementById('theme-bg-image');
@@ -2668,13 +2685,13 @@ themeToggleBtn.addEventListener('click', () => {
         }
 
         bgOverlay.style.backgroundImage = 'none';
-            if (isLight) {
-                bgImage.style.display = 'block';
-                bgImage.src = 'Light Theme.png';
-            } else {
-                bgImage.style.display = 'none';
-                bgOverlay.style.backgroundColor = '#13C4A3';
-            }
+        if (isLight) {
+            bgImage.style.display = 'none';
+            bgOverlay.style.backgroundColor = '#ffffff';
+        } else {
+            bgImage.style.display = 'none';
+            bgOverlay.style.backgroundColor = '#161B16';
+        }
     }
 });
 
@@ -2898,12 +2915,27 @@ profileBtn.addEventListener('click', async () => {
     if (!uniqueCodeDisplay) {
         uniqueCodeDisplay = document.createElement('div');
         uniqueCodeDisplay.id = 'userUniqueCodeDisplay';
-        uniqueCodeDisplay.style.cssText = 'margin-top: 10px; font-size: 1rem; color: #00d2ff; font-weight: bold; letter-spacing: 1px;';
+            uniqueCodeDisplay.style.cssText = 'margin-top: 10px; font-size: 1rem; font-weight: bold; letter-spacing: 1px;';
         // Insert after profile image
         if (profileImageDisplay && profileImageDisplay.parentNode) {
             profileImageDisplay.parentNode.insertBefore(uniqueCodeDisplay, profileImageDisplay.nextSibling);
         }
     }
+
+        // --- Account Opening Date Display ---
+        let accountDateDisplay = document.getElementById('userAccountDateDisplay');
+        if (!accountDateDisplay) {
+            accountDateDisplay = document.createElement('div');
+            accountDateDisplay.id = 'userAccountDateDisplay';
+            accountDateDisplay.style.cssText = 'margin-top: 5px; font-size: 0.9rem; font-weight: 500;';
+            if (uniqueCodeDisplay && uniqueCodeDisplay.parentNode) {
+                uniqueCodeDisplay.parentNode.insertBefore(accountDateDisplay, uniqueCodeDisplay.nextSibling);
+            }
+        }
+
+        const isLightMode = document.body.classList.contains('light-mode');
+        uniqueCodeDisplay.style.color = isLightMode ? '#0052d4' : '#00d2ff';
+        accountDateDisplay.style.color = isLightMode ? '#555' : 'rgba(255,255,255,0.7)';
 
     // --- Block Button Setup ---
     let blockUserBtn = document.getElementById('blockUserBtn');
@@ -2974,6 +3006,7 @@ profileBtn.addEventListener('click', async () => {
         let partnerName = currentChatPartner;
         let partnerPic = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
         let partnerCode = "";
+        let partnerDate = "";
         let partnerRole = "User";
 
         profileUsernameDisplay.innerText = "Loading...";
@@ -2994,6 +3027,7 @@ profileBtn.addEventListener('click', async () => {
                 const u = uSnap.val();
                 partnerName = u.name || currentChatPartner;
                 partnerCode = u.uniqueCode || "";
+                partnerDate = u.accountOpeningDate || "";
                 if (u.profilePic) partnerPic = u.profilePic;
             }
             // Check latest pic
@@ -3004,7 +3038,16 @@ profileBtn.addEventListener('click', async () => {
         profileImageDisplay.src = partnerPic;
         profileUsernameDisplay.innerText = partnerName;
         uniqueCodeDisplay.innerText = partnerCode ? `Code: ${partnerCode}` : '';
-        if (roleText && roleText.tagName === 'DIV') roleText.innerText = partnerRole;
+        accountDateDisplay.innerText = partnerDate ? `Joined: ${partnerDate}` : '';
+
+        if (roleText && roleText.tagName === 'DIV') {
+            if (currentChatPartner === ALPHA_ADMIN) {
+                roleText.innerText = "Administrator";
+                roleText.style.display = 'block';
+            } else {
+                roleText.style.display = 'none';
+            }
+        }
 
         // Block Button Status
         const updateBlockBtn = () => {
@@ -3035,6 +3078,7 @@ profileBtn.addEventListener('click', async () => {
         blockUserBtn.style.display = 'none';
         
         uniqueCodeDisplay.innerText = (currentUserData && currentUserData.uniqueCode) ? `Code: ${currentUserData.uniqueCode}` : '';
+        accountDateDisplay.innerText = (currentUserData && currentUserData.accountOpeningDate) ? `Joined: ${currentUserData.accountOpeningDate}` : '';
         
         const myRole = getUserRole(currentUser);
         db.ref(`Profile Pic/${myRole}_Profile_Pic`).once('value').then(snap => {
@@ -3049,7 +3093,12 @@ profileBtn.addEventListener('click', async () => {
         
         profileUsernameDisplay.innerText = displayName;
         if (roleText && roleText.tagName === 'DIV') {
-            roleText.innerText = (currentUser === ALPHA_ADMIN || currentUser === BETA_ADMIN) ? "Administrator" : "User";
+            if (currentUser === ALPHA_ADMIN) {
+                roleText.innerText = "Administrator";
+                roleText.style.display = 'block';
+            } else {
+                roleText.style.display = 'none';
+            }
         }
     }
 });
@@ -5049,12 +5098,15 @@ window.addEventListener('popstate', () => {
         }
 
         const uniqueCode = "MILBAAT" + Math.floor(10000000 + Math.random() * 90000000);
+        const dateObj = new Date();
+        const formattedDate = String(dateObj.getDate()).padStart(2, '0') + '/' + String(dateObj.getMonth() + 1).padStart(2, '0') + '/' + dateObj.getFullYear();
         const userData = {
             username: username,
             name: uName.value.trim(),
             password: uPass.value,
             uniqueCode: uniqueCode,
-            profilePic: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+            profilePic: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+            accountOpeningDate: formattedDate
         };
 
         if (db) {
@@ -5162,7 +5214,7 @@ function makeImageZoomable(img) {
         const delta = (e.wheelDelta ? e.wheelDelta : -e.deltaY);
         if (delta > 0) scale *= 1.1;
         else scale /= 1.1;
-        scale = Math.min(Math.max(1, scale), 5);
+        scale = Math.min(Math.max(1, scale), 2);
         if (scale === 1) { pointX = 0; pointY = 0; }
         updateTransform();
     }, { passive: false });
@@ -5183,7 +5235,7 @@ function makeImageZoomable(img) {
         if (e.touches.length === 2) {
             e.preventDefault();
             const currentDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-            scale = Math.min(Math.max(1, initialScale * (currentDistance / initialDistance)), 5);
+            scale = Math.min(Math.max(1, initialScale * (currentDistance / initialDistance)), 2);
             updateTransform();
         } else if (e.touches.length === 1 && panning && scale > 1) {
             e.preventDefault();
@@ -5205,6 +5257,102 @@ function makeImageZoomable(img) {
     img.style.touchAction = 'none';
 }
 
+function createStatusSlider(container, imageUrls, isEditable) {
+    container.innerHTML = ''; // Clear previous content
+
+    if (!imageUrls || imageUrls.length === 0) {
+        container.innerHTML = '<p style="text-align:center; opacity:0.7; color: white;">No status to display.</p>';
+        return;
+    }
+
+    // 1. Create Slider Wrapper
+    const sliderWrapper = document.createElement('div');
+    sliderWrapper.style.cssText = `
+        display: flex;
+        width: 100%;
+        height: 100%;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+    `;
+    sliderWrapper.style.setProperty('-ms-overflow-style', 'none');  /* IE and Edge */
+    sliderWrapper.className = 'status-slider-wrapper';
+
+    const sliderStyle = document.createElement('style');
+    if (!document.querySelector('#status-slider-styles')) {
+        sliderStyle.id = 'status-slider-styles';
+        sliderStyle.innerHTML = `.status-slider-wrapper::-webkit-scrollbar { display: none; }`;
+        document.head.appendChild(sliderStyle);
+    }
+
+    // 2. Create Slides
+    imageUrls.forEach(url => {
+        const slide = document.createElement('div');
+        slide.style.cssText = `
+            flex: 0 0 100%;
+            width: 100%;
+            height: 100%;
+            scroll-snap-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = `
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+        `;
+        slide.appendChild(img);
+        sliderWrapper.appendChild(slide);
+    });
+
+    container.appendChild(sliderWrapper);
+
+    // 3. Create Dots
+    if (imageUrls.length > 1) {
+        const dotsContainer = document.createElement('div');
+        dotsContainer.style.cssText = `
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        `;
+
+        for (let i = 0; i < imageUrls.length; i++) {
+            const dot = document.createElement('span');
+            dot.style.cssText = `
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background-color: rgba(0, 0, 0, 0.5);
+                transition: background-color 0.3s;
+            `;
+            dotsContainer.appendChild(dot);
+        }
+        container.appendChild(dotsContainer);
+
+        const updateDots = () => {
+            const scrollLeft = sliderWrapper.scrollLeft;
+            const slideWidth = sliderWrapper.offsetWidth;
+            const currentIndex = Math.round(scrollLeft / slideWidth);
+            
+            dotsContainer.childNodes.forEach((dot, index) => {
+                dot.style.backgroundColor = (index === currentIndex) ? 'white' : 'rgba(0, 0, 0, 0.5)';
+            });
+        };
+
+        sliderWrapper.addEventListener('scroll', updateDots);
+        updateDots(); // Initial call
+    }
+}
+
 function openBetaStatusModal() {
     let modal = document.getElementById('beta-status-modal');
     if (!modal) {
@@ -5221,10 +5369,9 @@ function openBetaStatusModal() {
             if(mainContent) mainContent.classList.remove('blur-content');
         };
         
-        const img = document.createElement('img');
-        img.id = 'beta-status-img';
-        img.style.cssText = 'max-width: 90%; max-height: 80%; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: contain;';
-        makeImageZoomable(img);
+        const sliderContainer = document.createElement('div');
+        sliderContainer.id = 'beta-status-slider-container';
+        sliderContainer.style.cssText = 'position: relative; width: 90%; height: 80%;';
         
         const noStatusTxt = document.createElement('div');
         noStatusTxt.id = 'beta-status-no-txt';
@@ -5232,29 +5379,27 @@ function openBetaStatusModal() {
         noStatusTxt.style.cssText = 'color: white; font-size: 1.2rem; display: none;';
         
         modal.appendChild(closeBtn);
-        modal.appendChild(img);
+        modal.appendChild(sliderContainer);
         modal.appendChild(noStatusTxt);
         document.body.appendChild(modal);
     }
 
     modal.style.display = 'flex';
-    const existingImg = document.getElementById('beta-status-img');
-    if (existingImg) {
-        existingImg.style.transform = 'translate(0px, 0px) scale(1)';
-    }
-
     if(mainContent) mainContent.classList.add('blur-content');
+
+    const sliderContainer = document.getElementById('beta-status-slider-container');
+    const noTxt = document.getElementById('beta-status-no-txt');
 
     db.ref('beta_status_feed').once('value').then(snap => {
         const data = snap.val();
-        const img = document.getElementById('beta-status-img');
-        const noTxt = document.getElementById('beta-status-no-txt');
-        if (data && data.image) {
-            img.src = data.image;
-            img.style.display = 'block';
+        const imageUrls = (data && data.images) ? data.images : (data && data.image ? [data.image] : []);
+
+        if (imageUrls.length > 0) {
+            sliderContainer.style.display = 'block';
             noTxt.style.display = 'none';
+            createStatusSlider(sliderContainer, imageUrls, true);
         } else {
-            img.style.display = 'none';
+            sliderContainer.style.display = 'none';
             noTxt.style.display = 'block';
         }
     });
@@ -5501,9 +5646,9 @@ function initAlphaUI() {
         themeToggleBtn.click();
         const isLight = document.body.classList.contains('light-mode');
         themeToggle.innerHTML = isLight ? '◐' : '◑';
-        dashboard.style.setProperty('--alpha-bg', isLight ? '#fdfbfb' : '#0F172A');
+            dashboard.style.setProperty('--alpha-bg', isLight ? '#ffffff' : '#0F172A');
         dashboard.style.setProperty('--alpha-header-bg', isLight ? '#ffffff' : '#1E293B');
-        dashboard.style.setProperty('--alpha-text', isLight ? 'black' : 'white');
+            dashboard.style.setProperty('--alpha-text', isLight ? '#000000' : '#ffffff');
         dashboard.style.setProperty('--alpha-card-bg', isLight ? '#ffffff' : '#1E293B');
         dashboard.style.setProperty('--alpha-card-hover', isLight ? '#f0f0f0' : '#283548');
         dashboard.style.setProperty('--alpha-border', isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)');
@@ -5587,11 +5732,6 @@ function initAlphaUI() {
     const statusDisplayContainer = document.createElement('div');
     statusDisplayContainer.style.cssText = `width: 100%; flex: 1; display: none; flex-direction: column; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); overflow-y: auto; padding: 15px; box-sizing: border-box;`;
 
-    const statusPreview = document.createElement('img');
-    statusPreview.id = 'alpha-status-preview';
-    statusPreview.style.cssText = `width: 100%; height: auto; max-width: 500px; border-radius: 10px; display: block; object-fit: contain;`;
-    makeImageZoomable(statusPreview);
-    
     const statusSendBtn = document.createElement('button');
     statusSendBtn.id = 'alpha-status-send-btn';
     statusSendBtn.innerText = "Set Status";
@@ -5619,28 +5759,28 @@ function initAlphaUI() {
     const statusFileInput = document.createElement('input');
     statusFileInput.type = 'file';
     statusFileInput.accept = 'image/*';
+    statusFileInput.multiple = true;
     statusFileInput.style.display = 'none';
 
     statusFab.onclick = () => statusFileInput.click();
 
     db.ref('beta_status_feed').on('value', snap => {
         const activeStatusData = snap.val();
-        if (activeStatusData && activeStatusData.image) {
-            statusPreview.src = activeStatusData.image;
+        const imageUrls = (activeStatusData && activeStatusData.images) ? activeStatusData.images : [];
+        if (imageUrls.length > 0) {
+            createStatusSlider(statusDisplayContainer, imageUrls, true);
             statusDisplayContainer.style.display = 'flex';
             statusEmptyText.style.display = 'none';
             statusFab.style.display = 'none';
             statusSendBtn.style.display = 'none';
             statusRemoveBtn.style.display = 'block';
-            statusPreview.dataset.isLocal = "false";
         } else {
-            statusPreview.src = '';
+            statusDisplayContainer.innerHTML = '';
             statusDisplayContainer.style.display = 'none';
             statusEmptyText.style.display = 'flex';
             statusFab.style.display = 'flex';
             statusSendBtn.style.display = 'none';
             statusRemoveBtn.style.display = 'none';
-            statusPreview.dataset.isLocal = "false";
         }
     });
     
@@ -5681,40 +5821,56 @@ function initAlphaUI() {
     };
 
     statusFileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                statusPreview.src = ev.target.result;
+        const files = e.target.files;
+        if (files.length > 5) {
+            alert("You can select a maximum of 5 images.");
+            statusFileInput.value = ''; // Reset file input
+            return;
+        }
+        if (files.length > 0) {
+            const filePromises = Array.from(files).map(file => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => resolve(ev.target.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            Promise.all(filePromises).then(base64Images => {
+                createStatusSlider(statusDisplayContainer, base64Images, true);
+                
                 statusDisplayContainer.style.display = 'flex';
                 statusEmptyText.style.display = 'none';
                 statusSendBtn.style.display = 'block';
-                    statusRemoveBtn.style.display = 'none';
+                statusRemoveBtn.style.display = 'none';
                 statusFab.style.display = 'none';
-                statusPreview.dataset.isLocal = "true";
-            };
-            reader.readAsDataURL(file);
-        }
-    };
 
-    statusSendBtn.onclick = () => {
-        const statusData = statusPreview.src;
-        if (statusData) {
-            statusSendBtn.innerText = "Setting...";
-            db.ref('beta_status_feed').set({
-                image: statusData,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            }).then(() => {
-                showToast("Status updated for Beta user");
-                statusFileInput.value = '';
-                statusSendBtn.innerText = "Set Status";
-                statusSendBtn.style.display = 'none';
-                statusPreview.dataset.isLocal = "false";
+                statusSendBtn.dataset.images = JSON.stringify(base64Images);
             });
         }
     };
 
-    statusDisplayContainer.appendChild(statusPreview);
+    statusSendBtn.onclick = () => {
+        const imagesStr = statusSendBtn.dataset.images;
+        if (imagesStr) {
+            const images = JSON.parse(imagesStr);
+            if (images && images.length > 0) {
+                statusSendBtn.innerText = "Setting...";
+                db.ref('beta_status_feed').set({
+                    images: images,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                }).then(() => {
+                    showToast("Status updated for Beta user");
+                    statusFileInput.value = '';
+                    statusSendBtn.innerText = "Set Status";
+                    statusSendBtn.style.display = 'none';
+                    delete statusSendBtn.dataset.images;
+                });
+            }
+        }
+    };
+
     statusView.appendChild(statusEmptyText);
     statusView.appendChild(statusDisplayContainer);
     statusView.appendChild(statusSendBtn);
@@ -5835,9 +5991,9 @@ function initAlphaUI() {
     // Apply initial theme settings if body is already in light mode
     if (document.body.classList.contains('light-mode')) {
         themeToggle.innerHTML = '◐';
-        dashboard.style.setProperty('--alpha-bg', '#fdfbfb');
+            dashboard.style.setProperty('--alpha-bg', '#ffffff');
         dashboard.style.setProperty('--alpha-header-bg', '#ffffff');
-        dashboard.style.setProperty('--alpha-text', 'black');
+            dashboard.style.setProperty('--alpha-text', '#000000');
         dashboard.style.setProperty('--alpha-card-bg', '#ffffff');
         dashboard.style.setProperty('--alpha-card-hover', '#f0f0f0');
         dashboard.style.setProperty('--alpha-border', 'rgba(0,0,0,0.1)');

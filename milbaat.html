@@ -427,9 +427,8 @@
 
         /* --- Light Mode Styles --- */
         body.light-mode {
-            background: linear-gradient(-45deg, #89f7fe, #66a6ff, #e2ebf0, #fdfbfb);
-            background-size: 400% 400%;
-            color: #333;
+            background: #ffffff !important;
+            color: #000000 !important;
         }
         body.light-mode .logo {
             background: -webkit-linear-gradient(#0052d4, #4364f7, #6fb1fc);
@@ -485,6 +484,66 @@
         body.light-mode .nav-item.active {
             color: #007aff;
         }
+        
+        /* --- Light Mode Chat Interface Overrides --- */
+        body.light-mode header {
+            background: rgba(255, 255, 255, 0.9) !important;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+            color: #000 !important;
+        }
+        body.light-mode #chatInputBar {
+            background: rgba(255, 255, 255, 0.95) !important;
+            border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+            color: #000 !important;
+        }
+        body.light-mode #input-box-wrapper {
+            background: rgba(0, 0, 0, 0.05) !important;
+            border: 1px solid rgba(0, 0, 0, 0.1) !important;
+        }
+        body.light-mode #msgInput { color: #000 !important; }
+        body.light-mode #msgInput::placeholder { color: rgba(0, 0, 0, 0.5) !important; }
+        body.light-mode #lastSeenDisplay { color: rgba(0, 0, 0, 0.6) !important; }
+        body.light-mode .menu-options {
+            background: rgba(255, 255, 255, 0.95) !important;
+            border: 1px solid rgba(0, 0, 0, 0.1) !important;
+            color: #000 !important;
+        }
+        body.light-mode .menu-item,
+        body.light-mode #menuOptions > button,
+        body.light-mode #menuOptions > div {
+            color: #000 !important;
+        }
+        body.light-mode .msg-time { color: rgba(0, 0, 0, 0.5) !important; }
+        body.light-mode .chat-date-divider span {
+            background: rgba(0, 0, 0, 0.05) !important;
+            color: #000 !important;
+        }
+        body.light-mode .reply-preview-bar,
+        body.light-mode .pinned-msg-bar,
+        body.light-mode #emoji-picker {
+            background: rgba(245, 245, 245, 0.95) !important;
+            border-color: rgba(0, 0, 0, 0.1) !important;
+        }
+        body.light-mode .reply-text,
+        body.light-mode .close-reply,
+        body.light-mode .replied-text,
+        body.light-mode .pinned-text,
+        body.light-mode .close-pinned,
+        body.light-mode .action-btn {
+            color: rgba(0, 0, 0, 0.7) !important;
+        }
+        body.light-mode .replied-sender,
+        body.light-mode .reply-sender,
+        body.light-mode .pinned-sender,
+        body.light-mode #headerTypingIndicator { color: #007aff !important; text-shadow: none !important; }
+        body.light-mode .replied-msg-context { background: rgba(0, 0, 0, 0.05) !important; border-left-color: #007aff !important; }
+        body.light-mode .typing-indicator { background: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; color: #000 !important; }
+        body.light-mode .typing-dots span { background-color: #000 !important; }
+        body.light-mode .msg-tick { color: rgba(0, 0, 0, 0.4) !important; }
+        body.light-mode .msg-tick.seen { color: #007aff !important; }
+        body.light-mode #userStatusIndicator { text-shadow: none !important; }
+        body.light-mode #selection-header { background: rgba(245, 245, 245, 0.95) !important; border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important; }
+        body.light-mode #selCounter { color: #000 !important; }
 
         /* --- Chat Interface Styles --- */
         .chat-messages {
@@ -821,7 +880,7 @@
             flex-direction: column;
         }
         .reply-sender {
-            color: #00d2ff;
+            color: #055919;
             font-size: 0.8rem;
             font-weight: bold;
             margin-bottom: 2px;
@@ -1043,7 +1102,7 @@
             <h3 style="color:white; margin-bottom:15px;">Message Options</h3>
             <div style="display: flex; flex-direction: column; gap: 10px;">
                 <button class="modal-btn" id="pinMsgBtn" style="background: rgba(255, 215, 0, 0.15); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.3);">📌 Pin Message</button>
-                <button class="modal-btn confirm-btn" id="deleteMsgOptionBtn">🗑️ Delete Message</button>
+                <button class="modal-btn confirm-btn" id="deleteMsgOptionBtn">Delete Message</button>
                 <button class="modal-btn cancel-btn" id="cancelMsgOptions">Cancel</button>
             </div>
         </div>
@@ -1091,8 +1150,8 @@
             </div>
             <div class="menu-options" id="menuOptions">
                 <div class="menu-item" id="profileBtn">Profile</div>
-                <div class="menu-item" id="themeToggleBtn">☀️ Light Mode</div>
-                <div class="menu-item" id="clearChatBtn">🗑️ Clear Chat</div>
+                <div class="menu-item" id="themeToggleBtn">Light Mode</div>
+                <div class="menu-item" id="clearChatBtn">Clear Chat</div>
                 <div class="menu-item" id="changePassBtn">Change Password</div>
                 <div class="menu-item" id="logoutBtn">Logout</div>
             </div>
