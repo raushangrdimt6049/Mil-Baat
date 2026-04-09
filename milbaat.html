@@ -356,7 +356,7 @@
         }
         body.user-alpha .msg-sent, 
         body.user-alpha .send-btn {
-            background: #0c460d !important;
+            background: #4A90E2 !important;
             box-shadow: none !important;
         }
         body.user-alpha .msg-received {
@@ -399,7 +399,7 @@
             color: #0EA5E9 !important;
         }
         body.user-alpha .replied-msg-context {
-            background: #063e17 !important;
+            background: #11588b !important;
             border-left: 3px solid #b92fac !important;
         }
         body.user-beta {
@@ -407,7 +407,8 @@
             background-size: 400% 400%;
         }
         body.user-beta .msg-sent, body.user-beta .send-btn {
-            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+            background:  #3a7bd5 !important;
+            border-left: 3px solid #b92fac !important;
         }
 
         /* Menu Icon Rotation */
@@ -550,8 +551,9 @@
         }
 
         .message-bubble {
-            max-width: 75%;
-            padding: 12px 18px;
+            width: 400px;      /* increase width */
+            height: auto;     /* increase height */
+            padding: 15px;
             border-radius: 20px;
             font-size: 0.95rem;
             line-height: 1.4;
@@ -560,7 +562,11 @@
         }
 
         .msg-received {
+            width: 400px;      /* increase width */
+            height: auto;     /* increase height */
+            padding: 15px;
             background: rgba(255, 255, 255, 0.15);
+            border-left: 3px solid #b92fac !important;
             align-self: flex-start;
             border-bottom-left-radius: 5px;
             backdrop-filter: blur(5px);
@@ -825,12 +831,13 @@
         }
 
         .msg-tick {
-            font-size: 0.8rem;
+            
             font-weight: bold;
+            color: #3c0479;
         }
         /* Color for Read Receipt */
         .msg-tick.seen {
-            color: #059ced; /* Bright Green for read */
+            color: #3c0479; /* Bright Green for read */
         }
 
         /* Date Divider */
