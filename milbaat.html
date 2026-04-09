@@ -399,8 +399,8 @@
             color: #0EA5E9 !important;
         }
         body.user-alpha .replied-msg-context {
-            background: #11588b !important;
-            border-left: 3px solid #b92fac !important;
+            background: #11588b !important; 
+            border-left: 3px solid #239d3f !important;
         }
         body.user-beta {
             background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #1a1a2e);
@@ -420,10 +420,6 @@
         }
 
         /* --- Light Mode Styles --- */
-        body.light-mode {
-            background: #ffffff !important;
-            color: #000000 !important;
-        }
         body.light-mode .logo {
             background: -webkit-linear-gradient(#0052d4, #4364f7, #6fb1fc);
             -webkit-background-clip: text;
@@ -482,17 +478,19 @@
         /* --- Light Mode Chat Interface Overrides --- */
         body.light-mode header {
             background: rgba(255, 255, 255, 0.9) !important;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+            border-bottom: 2px solid rgb(31, 191, 231) !important;
             color: #000 !important;
         }
         body.light-mode #chatInputBar {
             background: rgba(255, 255, 255, 0.95) !important;
-            border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
             color: #000 !important;
         }
         body.light-mode #input-box-wrapper {
-            background: rgba(0, 0, 0, 0.05) !important;
-            border: 1px solid rgba(0, 0, 0, 0.1) !important;
+            background: rgba(0, 0, 0, 0.129) !important;
+            border: 1px solid rgba(0, 0, 0, 0.084) !important;
+        }
+        body.light-mode {
+            background-color: #0ef62d;
         }
         body.light-mode #msgInput { color: #000 !important; }
         body.light-mode #msgInput::placeholder { color: rgba(0, 0, 0, 0.5) !important; }
@@ -520,9 +518,20 @@
         }
         body.light-mode .reply-text,
         body.light-mode .close-reply,
-        body.light-mode .replied-text,
+        body.light-mode .replied-text{
+            color: #000 !important;
+        }
         body.light-mode .pinned-text,
         body.light-mode .close-pinned,
+        body.light-mode .msg-sent{
+            background: rgb(159, 211, 144) !important;
+            border-left: 3px solid #340885 !important;
+        }
+        body.light-mode .msg-received{
+            background: rgb(204, 189, 189) !important;
+            border-left: 3px solid #17790e !important;
+
+        }
         body.light-mode .action-btn {
             color: rgba(0, 0, 0, 0.7) !important;
         }
@@ -533,8 +542,8 @@
         body.light-mode .replied-msg-context { background: rgba(0, 0, 0, 0.05) !important; border-left-color: #007aff !important; }
         body.light-mode .typing-indicator { background: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; color: #000 !important; }
         body.light-mode .typing-dots span { background-color: #000 !important; }
-        body.light-mode .msg-tick { color: rgba(0, 0, 0, 0.4) !important; }
-        body.light-mode .msg-tick.seen { color: #007aff !important; }
+        body.light-mode .msg-tick { color: rgba(30, 13, 187, 0.4) !important; }
+        body.light-mode .msg-tick.seen { color: #097814 !important; }
         body.light-mode #userStatusIndicator { text-shadow: none !important; }
         body.light-mode #selection-header { background: rgba(245, 245, 245, 0.95) !important; border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important; }
         body.light-mode #selCounter { color: #000 !important; }
@@ -833,11 +842,11 @@
         .msg-tick {
             
             font-weight: bold;
-            color: #3c0479;
+            color: #e312ff;
         }
         /* Color for Read Receipt */
         .msg-tick.seen {
-            color: #3c0479; /* Bright Green for read */
+            color: #0ef62d; /* Bright Green for read */
         }
 
         /* Date Divider */
