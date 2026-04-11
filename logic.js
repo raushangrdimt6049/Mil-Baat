@@ -5839,39 +5839,86 @@ function initAlphaUI() {
     });
     
     statusRemoveBtn.onclick = () => {
-        let delModal = document.getElementById('delete-status-modal');
-        if (!delModal) {
-            delModal = document.createElement('div');
-            delModal.id = 'delete-status-modal';
-            delModal.className = 'modal-overlay';
-            delModal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(10px);';
+        db.ref('beta_status_feed').once('value').then(snap => {
+            const data = snap.val();
+            const imageUrls = (data && data.images) ? data.images : (data && data.image ? [data.image] : []);
+            
+            if (imageUrls.length === 0) return;
+
+            let delModal = document.getElementById('delete-status-modal');
+            if (!delModal) {
+                delModal = document.createElement('div');
+                delModal.id = 'delete-status-modal';
+                delModal.className = 'modal-overlay';
+                delModal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(10px);';
+                document.body.appendChild(delModal);
+            }
+
+            let imagesHtml = '';
+            imageUrls.forEach((url, index) => {
+                imagesHtml += `
+                    <label style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px; cursor: pointer; text-align: left; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+                        <input type="checkbox" class="delete-status-cb" value="${index}" style="width: 20px; height: 20px; accent-color: #ff4757;">
+                        <img src="${url}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">
+                        <span style="font-weight: bold;">Image ${index + 1}</span>
+                    </label>
+                `;
+            });
+
             delModal.innerHTML = `
-                <div class="modal-box" style="background: var(--alpha-header-bg, #1E293B); padding: 25px; border-radius: 15px; text-align: center; color: var(--alpha-text, white); border: 1px solid var(--alpha-border, rgba(255,255,255,0.1));">
-                    <h3 style="margin-bottom: 15px;">Delete Status?</h3>
-                    <p style="margin-bottom: 20px; opacity: 0.7;">Remove this status update?</p>
-                    <div style="display: flex; gap: 10px;">
-                        <button id="cancel-del-status" style="flex: 1; padding: 10px; background: rgba(128,128,128,0.2); border: none; color: var(--alpha-text, white); border-radius: 10px; cursor: pointer;">Cancel</button>
-                        <button id="confirm-del-status" style="flex: 1; padding: 10px; background: #ff4757; border: none; color: white; border-radius: 10px; cursor: pointer;">Delete</button>
+                <div class="modal-box" style="background: var(--alpha-header-bg, #1E293B); padding: 25px; border-radius: 15px; text-align: center; color: var(--alpha-text, white); border: 1px solid var(--alpha-border, rgba(255,255,255,0.1)); max-width: 350px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+                    <h3 style="margin-bottom: 10px; flex-shrink: 0;">Delete Status?</h3>
+                    <p style="margin-bottom: 15px; opacity: 0.7; font-size: 0.9rem; flex-shrink: 0;">Select images to remove:</p>
+                    <div style="display: flex; flex-direction: column; overflow-y: auto; margin-bottom: 20px; padding-right: 5px;">
+                        ${imagesHtml}
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-shrink: 0;">
+                        <button id="cancel-del-status" style="flex: 1; padding: 10px; background: rgba(128,128,128,0.2); border: none; color: var(--alpha-text, white); border-radius: 10px; cursor: pointer; font-weight: bold;">Cancel</button>
+                        <button id="confirm-del-status" style="flex: 1; padding: 10px; background: #ff4757; border: none; color: white; border-radius: 10px; cursor: pointer; font-weight: bold;">Delete</button>
                     </div>
                 </div>`;
-            document.body.appendChild(delModal);
+
             document.getElementById('cancel-del-status').onclick = () => {
                 delModal.style.display = 'none';
                 const dashboard = document.getElementById('alpha-dashboard');
                 if (dashboard) dashboard.classList.remove('blur-content');
             };
+
             document.getElementById('confirm-del-status').onclick = () => {
-                db.ref('beta_status_feed').remove().then(() => { 
-                    showToast("Status deleted"); 
-                    delModal.style.display = 'none'; 
-                    const dashboard = document.getElementById('alpha-dashboard');
-                    if (dashboard) dashboard.classList.remove('blur-content');
-                });
+                const checkboxes = delModal.querySelectorAll('.delete-status-cb');
+                const indicesToDelete = Array.from(checkboxes).filter(cb => cb.checked).map(cb => parseInt(cb.value));
+                
+                if (indicesToDelete.length === 0) {
+                    showToast("Select at least one image to delete");
+                    return;
+                }
+
+                const remainingImages = imageUrls.filter((_, index) => !indicesToDelete.includes(index));
+
+                if (remainingImages.length === 0) {
+                    db.ref('beta_status_feed').remove().then(() => { 
+                        showToast("All status images deleted"); 
+                        delModal.style.display = 'none'; 
+                        const dashboard = document.getElementById('alpha-dashboard');
+                        if (dashboard) dashboard.classList.remove('blur-content');
+                    });
+                } else {
+                    db.ref('beta_status_feed').set({
+                        images: remainingImages,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    }).then(() => {
+                        showToast("Selected images deleted");
+                        delModal.style.display = 'none'; 
+                        const dashboard = document.getElementById('alpha-dashboard');
+                        if (dashboard) dashboard.classList.remove('blur-content');
+                    });
+                }
             };
-        }
-        delModal.style.display = 'flex';
-        const dashboard = document.getElementById('alpha-dashboard');
-        if (dashboard) dashboard.classList.add('blur-content');
+
+            delModal.style.display = 'flex';
+            const dashboard = document.getElementById('alpha-dashboard');
+            if (dashboard) dashboard.classList.add('blur-content');
+        });
     };
 
     statusFileInput.onchange = (e) => {
