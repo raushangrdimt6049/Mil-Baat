@@ -5311,6 +5311,7 @@ function createStatusSlider(container, imageUrls, isEditable) {
         height: 100%;
         overflow-x: auto;
         scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none; /* Firefox */
     `;
@@ -5332,6 +5333,7 @@ function createStatusSlider(container, imageUrls, isEditable) {
             width: 100%;
             height: 100%;
             scroll-snap-align: center;
+            scroll-snap-stop: always;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -5779,6 +5781,11 @@ function initAlphaUI() {
     statusRemoveBtn.id = 'alpha-status-remove-btn';
     statusRemoveBtn.innerText = "Remove Status";
     statusRemoveBtn.style.cssText = `width: 100%; max-width: 400px; align-self: center; padding: 15px 30px; border-radius: 25px; border: none; background: linear-gradient(90deg, #ff4757, #ff6b81); color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: none; box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4); flex-shrink: 0; z-index: 100;`;
+    
+    const statusAddMoreBtn = document.createElement('button');
+    statusAddMoreBtn.id = 'alpha-status-add-more-btn';
+    statusAddMoreBtn.innerText = "+ Add More";
+    statusAddMoreBtn.style.cssText = `background: none; border: none; color: #0EA5E9; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: none; align-self: center; padding: 10px; margin-top: 5px; z-index: 100; text-decoration: underline;`;
 
     const statusFab = document.createElement('div');
     statusFab.id = 'alpha-status-fab';
@@ -5800,7 +5807,10 @@ function initAlphaUI() {
     statusFileInput.multiple = true;
     statusFileInput.style.display = 'none';
 
-    statusFab.onclick = () => statusFileInput.click();
+    let isAddingMore = false;
+    
+    statusFab.onclick = () => { isAddingMore = false; statusFileInput.click(); };
+    statusAddMoreBtn.onclick = () => { isAddingMore = true; statusFileInput.click(); };
 
     db.ref('beta_status_feed').on('value', snap => {
         const activeStatusData = snap.val();
@@ -5812,6 +5822,11 @@ function initAlphaUI() {
             statusFab.style.display = 'none';
             statusSendBtn.style.display = 'none';
             statusRemoveBtn.style.display = 'block';
+            if (imageUrls.length < 5) {
+                statusAddMoreBtn.style.display = 'block';
+            } else {
+                statusAddMoreBtn.style.display = 'none';
+            }
         } else {
             statusDisplayContainer.innerHTML = '';
             statusDisplayContainer.style.display = 'none';
@@ -5819,6 +5834,7 @@ function initAlphaUI() {
             statusFab.style.display = 'flex';
             statusSendBtn.style.display = 'none';
             statusRemoveBtn.style.display = 'none';
+            statusAddMoreBtn.style.display = 'none';
         }
     });
     
@@ -5860,33 +5876,55 @@ function initAlphaUI() {
 
     statusFileInput.onchange = (e) => {
         const files = e.target.files;
-        if (files.length > 5) {
-            alert("You can select a maximum of 5 images.");
-            statusFileInput.value = ''; // Reset file input
-            return;
-        }
-        if (files.length > 0) {
-            const filePromises = Array.from(files).map(file => {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => resolve(ev.target.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
+        
+        db.ref('beta_status_feed').once('value').then(snap => {
+            const data = snap.val();
+            const existingImages = (isAddingMore && data && data.images) ? data.images : [];
+            const spaceLeft = 5 - existingImages.length;
+
+            if (files.length > spaceLeft) {
+                alert(`You can only add ${spaceLeft} more image(s). Maximum is 5.`);
+                statusFileInput.value = ''; // Reset file input
+                return;
+            }
+            
+            if (files.length > 0) {
+                const filePromises = Array.from(files).map(file => {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => resolve(ev.target.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
                 });
-            });
 
-            Promise.all(filePromises).then(base64Images => {
-                createStatusSlider(statusDisplayContainer, base64Images, true);
-                
-                statusDisplayContainer.style.display = 'flex';
-                statusEmptyText.style.display = 'none';
-                statusSendBtn.style.display = 'block';
-                statusRemoveBtn.style.display = 'none';
-                statusFab.style.display = 'none';
+                Promise.all(filePromises).then(base64Images => {
+                    if (isAddingMore) {
+                        const combinedImages = existingImages.concat(base64Images);
+                        statusAddMoreBtn.innerText = "Adding...";
+                        db.ref('beta_status_feed').update({
+                            images: combinedImages,
+                            timestamp: firebase.database.ServerValue.TIMESTAMP
+                        }).then(() => {
+                            showToast("Status added");
+                            statusFileInput.value = '';
+                            statusAddMoreBtn.innerText = "+ Add More";
+                        });
+                    } else {
+                        createStatusSlider(statusDisplayContainer, base64Images, true);
+                        
+                        statusDisplayContainer.style.display = 'flex';
+                        statusEmptyText.style.display = 'none';
+                        statusSendBtn.style.display = 'block';
+                        statusRemoveBtn.style.display = 'none';
+                        statusFab.style.display = 'none';
+                        statusAddMoreBtn.style.display = 'none';
 
-                statusSendBtn.dataset.images = JSON.stringify(base64Images);
-            });
-        }
+                        statusSendBtn.dataset.images = JSON.stringify(base64Images);
+                    }
+                });
+            }
+        });
     };
 
     statusSendBtn.onclick = () => {
@@ -5911,6 +5949,7 @@ function initAlphaUI() {
 
     statusView.appendChild(statusEmptyText);
     statusView.appendChild(statusDisplayContainer);
+    statusView.appendChild(statusAddMoreBtn);
     statusView.appendChild(statusSendBtn);
     statusView.appendChild(statusRemoveBtn);
     statusView.appendChild(statusFab);
