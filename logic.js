@@ -3624,20 +3624,15 @@ function sendSignal(type, data) {
         ref.onDisconnect().remove();
 
         if (targetUser === ALPHA_ADMIN) {
+            // Set notifications to active/true
             db.ref(`Notification Alert/Incoming call`).set('active');
-            db.ref(`Notification Alert/Incoming call`).onDisconnect().set('deactive');
-            
-            db.ref('status').once('value').then(snap => {
-                const val = snap.val() || {};
-                const isOnline143 = val[ALPHA_ADMIN] && val[ALPHA_ADMIN].online;
-                const isOnlineHome = val['Raushan_Home'] && val['Raushan_Home'].online;
-                
-                if (!isOnline143 && !isOnlineHome) {
-                    db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(true).catch(e => console.error(e));
-                } else {
-                    db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false).catch(e => console.error(e));
-                }
-            });
+            db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(true);
+
+            // After 4 seconds, set them to deactive/false
+            setTimeout(() => {
+                db.ref(`Notification Alert/Incoming call`).set('deactive');
+                db.ref(`Notification Alert/${ALPHA_ADMIN}`).set(false);
+            }, 4000);
         }
     } else if (type === 'answer') {
         // Send answer to the caller's inbox so they receive it
