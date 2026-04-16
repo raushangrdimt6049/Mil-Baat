@@ -1999,7 +1999,7 @@ function renderChat(history) {
             const m = String(now.getMonth() + 1).padStart(2, '0');
             const y = now.getFullYear();
             const datePart = `${d}/${m}/${y}`;
-            const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
             
             db.ref(`messages/${table}/${msg.id}/seenTimestamp`).set(`${datePart} ${timePart}`);
         }
@@ -2168,7 +2168,7 @@ function renderChat(history) {
         if (displayTime && typeof displayTime === 'string') {
             const parts = displayTime.split(' ');
             // Assumes format "DATE TIME", takes everything after the first space
-            if (parts.length > 1) displayTime = parts.slice(1).join(' ');
+            if (parts.length > 1) displayTime = parts.slice(1).join(' ').toUpperCase();
         }
 
         timeSpan.innerHTML = `${displayTime} ${tickHtml}`;
@@ -2482,7 +2482,7 @@ function updateStatusUI(isOnline, lastSeen, isTyping) {
             const date = new Date(lastSeen);
             const now = new Date();
             const isToday = date.toDateString() === now.toDateString();
-            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
             
             if (isToday) {
                 lastSeenDisplay.innerText = `Last seen today at ${timeStr}`;
@@ -3212,7 +3212,7 @@ sendMsgBtn.addEventListener('click', () => {
         const m = String(now.getMonth() + 1).padStart(2, '0');
         const y = now.getFullYear();
         const datePart = `${d}/${m}/${y}`;
-        const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
         const timeString = `${datePart} ${timePart}`;
         const rawDate = now.toISOString();
 
@@ -3890,7 +3890,7 @@ function sendMissedCallMessage(isVideo) {
     const m = String(now.getMonth() + 1).padStart(2, '0');
     const y = now.getFullYear();
     const datePart = `${d}/${m}/${y}`;
-    const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
     const timeString = `${datePart} ${timePart}`;
     const rawDate = now.toISOString();
 
@@ -4294,7 +4294,7 @@ function sendAudioMessage(base64Audio) {
     const m = String(now.getMonth() + 1).padStart(2, '0');
     const y = now.getFullYear();
     const datePart = `${d}/${m}/${y}`;
-    const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
     const timeString = `${datePart} ${timePart}`;
     const rawDate = now.toISOString();
 
@@ -4543,7 +4543,7 @@ sendImageBtn.addEventListener('click', () => {
         const m = String(now.getMonth() + 1).padStart(2, '0');
         const y = now.getFullYear();
         const datePart = `${d}/${m}/${y}`;
-        const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
         const timeString = `${datePart} ${timePart}`;
         const rawDate = now.toISOString();
 
@@ -6520,7 +6520,7 @@ if (confirmForwardBtn) {
         const m = String(now.getMonth() + 1).padStart(2, '0');
         const y = now.getFullYear();
         const datePart = `${d}/${m}/${y}`;
-        const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const timePart = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
         const timeString = `${datePart} ${timePart}`;
         const rawDate = now.toISOString();
 
