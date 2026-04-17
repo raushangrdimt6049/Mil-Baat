@@ -2966,61 +2966,29 @@ profileBtn.addEventListener('click', async () => {
         closeProfileBtn.parentNode.insertBefore(blockUserBtn, closeProfileBtn);
     }
 
-    // --- Fresh Button Logic (Change & Save) ---
+    // --- Fresh Button Logic (Change Picture) ---
     if (uploadTriggerBtn) {
         uploadTriggerBtn.style.display = 'block';
-        uploadTriggerBtn.innerText = "Change";
-        uploadTriggerBtn.style.background = "#4facfe"; // Light Blue
+        uploadTriggerBtn.innerText = "📸 Change Picture";
+        uploadTriggerBtn.style.background = "rgba(255,255,255,0.15)";
         uploadTriggerBtn.style.color = "white";
-        uploadTriggerBtn.style.width = "48%";
+        uploadTriggerBtn.style.width = "100%";
         uploadTriggerBtn.style.border = "none";
     }
 
+    // Hide legacy save button if it exists
     let saveBtn = document.getElementById('saveProfileBtn');
     let btnContainer = document.getElementById('profileActionsContainer');
-    if (!saveBtn) {
-        // Container for buttons
-        btnContainer = document.createElement('div');
-        btnContainer.id = 'profileActionsContainer';
-        btnContainer.style.display = 'flex';
-        btnContainer.style.justifyContent = 'space-between';
-        btnContainer.style.marginTop = '15px';
-        btnContainer.style.width = '100%';
-
-        if (uploadTriggerBtn && uploadTriggerBtn.parentNode) {
-            uploadTriggerBtn.parentNode.insertBefore(btnContainer, uploadTriggerBtn);
-            btnContainer.appendChild(uploadTriggerBtn);
-        }
-
-        saveBtn = document.createElement('button');
-        saveBtn.id = 'saveProfileBtn';
-        saveBtn.innerText = "Save";
-        saveBtn.className = uploadTriggerBtn ? uploadTriggerBtn.className : '';
-        saveBtn.style.background = "#0052D4"; // Deep Blue
-        saveBtn.style.color = "white";
-        saveBtn.style.width = "48%";
-        saveBtn.style.border = "none";
-        
-        btnContainer.appendChild(saveBtn);
-
-        saveBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (!currentUser) return alert("Please log in first.");
-            if (currentChatPartner) return; // Prevent modifying partner's picture
-
-            const role = getUserRole(currentUser);
-            db.ref(`Profile Pic/${role}_Profile_Pic`).set(profileImageDisplay.src)
-                .then(() => alert("Profile Picture Saved Successfully!"))
-                .catch(err => alert("Failed to save: " + err.message));
-        });
-    }
+    if (saveBtn) saveBtn.style.display = 'none';
+    if (btnContainer) btnContainer.style.display = 'none';
 
     const roleText = profileUsernameDisplay.nextElementSibling;
     const isAlpha = (currentUser === ALPHA_ADMIN);
 
     if (isAlpha && currentChatPartner) {
         // --- Show Chat Partner's Profile ---
-        if (btnContainer) btnContainer.style.display = 'none';
+        if (uploadTriggerBtn) uploadTriggerBtn.style.display = 'none';
+        profileImageDisplay.style.cursor = 'default';
         blockUserBtn.style.display = 'block';
         
         let partnerName = currentChatPartner;
@@ -3109,11 +3077,8 @@ profileBtn.addEventListener('click', async () => {
 
     } else {
         // --- Show Own Profile ---
-        if (currentUser === ALPHA_ADMIN) {
-            if (btnContainer) btnContainer.style.display = 'flex';
-        } else {
-            if (btnContainer) btnContainer.style.display = 'none';
-        }
+        if (uploadTriggerBtn) uploadTriggerBtn.style.display = 'block';
+        profileImageDisplay.style.cursor = 'pointer';
         blockUserBtn.style.display = 'none';
         
         uniqueCodeDisplay.innerText = (currentUserData && currentUserData.uniqueCode) ? `Code: ${currentUserData.uniqueCode}` : '';
@@ -3153,15 +3118,114 @@ uploadTriggerBtn.addEventListener('click', (e) => {
     profileFileInput.click();
 });
 
-// Handle profile picture selection
-profileFileInput.addEventListener('change', function() {
+// Handle profile picture selection with confirmation modal
+profileFileInput.addEventListener('change', function(event) {
     if (this.files && this.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            profileImageDisplay.src = e.target.result;
+            const newImageSrc = e.target.result;
+            showProfilePicConfirmation(newImageSrc);
         };
         reader.readAsDataURL(this.files[0]);
     }
+    // Reset input so the same file can be selected again
+    event.target.value = '';
+});
+
+function showProfilePicConfirmation(newImageSrc) {
+    let confirmModal = document.getElementById('profile-pic-confirm-modal');
+    if (!confirmModal) {
+        confirmModal = document.createElement('div');
+        confirmModal.id = 'profile-pic-confirm-modal';
+        confirmModal.className = 'modal-overlay';
+        confirmModal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10005; align-items: center; justify-content: center; backdrop-filter: blur(5px);';
+        
+        confirmModal.innerHTML = `
+            <div class="modal-box" style="background: #2d3436; padding: 25px; border-radius: 15px; width: 85%; max-width: 350px; text-align: center; color: white; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <h3 style="margin-bottom: 15px;">Crop Profile Picture</h3>
+                <div style="width: 100%; height: 250px; background: #000; margin-bottom: 20px; border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                    <img id="confirmProfilePicPreview" src="" style="max-width: 100%; max-height: 100%;">
+                </div>
+                <div class="modal-actions" style="display: flex; justify-content: space-between; gap: 10px; margin-top: 5px;">
+                    <button id="cancelProfilePicChange" class="modal-btn cancel-btn">Cancel</button>
+                    <button id="confirmProfilePicChange" class="modal-btn confirm-btn" style="background: #00d2ff;">Confirm</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(confirmModal);
+
+        document.getElementById('cancelProfilePicChange').addEventListener('click', () => {
+            confirmModal.style.display = 'none';
+        });
+    }
+
+    const previewImg = document.getElementById('confirmProfilePicPreview');
+    previewImg.src = newImageSrc;
+    
+    const confirmBtn = document.getElementById('confirmProfilePicChange');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    
+    confirmModal.style.display = 'flex';
+
+    if (previewImg.cropperInstance) {
+        previewImg.cropperInstance.destroy();
+    }
+    setTimeout(() => {
+        previewImg.cropperInstance = new Cropper(previewImg, {
+            aspectRatio: 1,
+            viewMode: 1,
+            autoCropArea: 1,
+            background: false
+        });
+    }, 50);
+
+    newConfirmBtn.addEventListener('click', () => {
+        if (!currentUser) return alert("Please log in first.");
+        
+        newConfirmBtn.innerText = 'Updating...';
+        newConfirmBtn.disabled = true;
+
+        let finalImageSrc = newImageSrc;
+        if (previewImg.cropperInstance) {
+            finalImageSrc = previewImg.cropperInstance.getCroppedCanvas({
+                width: 400, height: 400
+            }).toDataURL('image/jpeg', 0.8);
+        }
+
+        profileImageDisplay.src = finalImageSrc; // Update immediately
+        
+        const role = getUserRole(currentUser);
+        db.ref(`Profile Pic/${role}_Profile_Pic`).set(finalImageSrc)
+            .then(() => {
+                showToast("Profile Picture Updated Successfully!");
+                confirmModal.style.display = 'none';
+                newConfirmBtn.innerText = 'Confirm';
+                newConfirmBtn.disabled = false;
+                if (previewImg.cropperInstance) previewImg.cropperInstance.destroy();
+            })
+            .catch(err => {
+                alert("Failed to save: " + err.message);
+                confirmModal.style.display = 'none';
+                newConfirmBtn.innerText = 'Confirm';
+                newConfirmBtn.disabled = false;
+                if (previewImg.cropperInstance) previewImg.cropperInstance.destroy();
+            });
+    });
+
+    document.getElementById('cancelProfilePicChange').addEventListener('click', () => {
+        if (previewImg.cropperInstance) previewImg.cropperInstance.destroy();
+    });
+}
+
+// Make profile picture clickable to change it
+profileImageDisplay.addEventListener('click', () => {
+    const isAlpha = (currentUser === ALPHA_ADMIN);
+    if (isAlpha && currentChatPartner) {
+        // Prevent changing partner's profile pic
+        return;
+    }
+    profileFileInput.click();
 });
 
 // Typing detection
@@ -5968,32 +6032,95 @@ function initAlphaUI() {
                 });
 
                 Promise.all(filePromises).then(base64Images => {
-                    if (isAddingMore) {
-                        const combinedImages = existingImages.concat(base64Images);
-                        statusAddMoreBtn.innerText = "Adding...";
-                        db.ref('beta_status_feed').update({
-                            images: combinedImages,
-                            timestamp: firebase.database.ServerValue.TIMESTAMP
-                        }).then(() => {
-                            showToast("Status added");
-                            statusFileInput.value = '';
-                            statusAddMoreBtn.innerText = "+ Add More";
-                        }).catch(err => {
-                            alert("Upload failed: " + err.message);
-                            statusAddMoreBtn.innerText = "+ Add More";
-                        });
-                    } else {
-                        createStatusSlider(statusDisplayContainer, base64Images, true);
-                        
-                        statusDisplayContainer.style.display = 'flex';
-                        statusEmptyText.style.display = 'none';
-                        statusSendBtn.style.display = 'block';
-                        statusRemoveBtn.style.display = 'none';
-                        statusFab.style.display = 'none';
-                        statusAddMoreBtn.style.display = 'none';
-
-                        pendingStatusImages = base64Images;
+                    let modal = document.getElementById('status-confirm-modal');
+                    if (!modal) {
+                        modal = document.createElement('div');
+                        modal.id = 'status-confirm-modal';
+                        modal.className = 'modal-overlay';
+                        modal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10005; align-items: center; justify-content: center; backdrop-filter: blur(5px);';
+                        document.body.appendChild(modal);
                     }
+
+                    modal.innerHTML = `
+                        <div class="modal-box" style="background: var(--alpha-header-bg, #1E293B); padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; color: var(--alpha-text, white); border: 1px solid var(--alpha-border, rgba(255,255,255,0.1)); box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column;">
+                            <h3 style="margin-bottom: 15px; flex-shrink: 0;">Crop & Confirm Status</h3>
+                            <div id="status-crop-container" style="flex: 1; overflow-y: auto; max-height: 50vh; display: flex; flex-direction: column; gap: 20px; margin-bottom: 15px; padding-right: 5px;"></div>
+                            <div class="modal-actions" style="display: flex; justify-content: space-between; gap: 10px; flex-shrink: 0;">
+                                <button id="cancelStatusConfirm" class="modal-btn cancel-btn" style="flex: 1; padding: 10px; border-radius: 10px;">Cancel</button>
+                                <button id="saveStatusConfirm" class="modal-btn confirm-btn" style="flex: 1; padding: 10px; border-radius: 10px; background: #0EA5E9; color: white; border: none;">Confirm</button>
+                            </div>
+                        </div>
+                    `;
+
+                    const container = document.getElementById('status-crop-container');
+                    let cropperInstances = [];
+
+                    base64Images.forEach((src) => {
+                        const wrapper = document.createElement('div');
+                        wrapper.style.cssText = 'width: 100%; background: #000; border-radius: 10px; overflow: hidden;';
+                        const img = document.createElement('img');
+                        img.src = src;
+                        img.style.cssText = 'max-width: 100%; display: block;';
+                        wrapper.appendChild(img);
+                        container.appendChild(wrapper);
+                    });
+
+                    modal.style.display = 'flex';
+
+                    setTimeout(() => {
+                        container.querySelectorAll('img').forEach((img) => {
+                            const cropper = new Cropper(img, {
+                                viewMode: 1,
+                                autoCropArea: 1,
+                                background: false,
+                                zoomable: false
+                            });
+                            cropperInstances.push(cropper);
+                        });
+                    }, 50);
+
+                    document.getElementById('cancelStatusConfirm').onclick = () => {
+                        cropperInstances.forEach(c => c.destroy());
+                        modal.style.display = 'none';
+                        statusFileInput.value = '';
+                    };
+
+                    document.getElementById('saveStatusConfirm').onclick = () => {
+                        const btn = document.getElementById('saveStatusConfirm');
+                        btn.innerText = "Processing...";
+                        btn.disabled = true;
+
+                        const finalImages = cropperInstances.map(c => c.getCroppedCanvas().toDataURL('image/jpeg', 0.8));
+                        cropperInstances.forEach(c => c.destroy());
+                        modal.style.display = 'none';
+
+                        if (isAddingMore) {
+                            const combinedImages = existingImages.concat(finalImages);
+                            statusAddMoreBtn.innerText = "Adding...";
+                            db.ref('beta_status_feed').update({
+                                images: combinedImages,
+                                timestamp: firebase.database.ServerValue.TIMESTAMP
+                            }).then(() => {
+                                showToast("Status added");
+                                statusFileInput.value = '';
+                                statusAddMoreBtn.innerText = "+ Add More";
+                            }).catch(err => {
+                                alert("Upload failed: " + err.message);
+                                statusAddMoreBtn.innerText = "+ Add More";
+                            });
+                        } else {
+                            createStatusSlider(statusDisplayContainer, finalImages, true);
+                            
+                            statusDisplayContainer.style.display = 'flex';
+                            statusEmptyText.style.display = 'none';
+                            statusSendBtn.style.display = 'block';
+                            statusRemoveBtn.style.display = 'none';
+                            statusFab.style.display = 'none';
+                            statusAddMoreBtn.style.display = 'none';
+
+                            pendingStatusImages = finalImages;
+                        }
+                    };
                 }).catch(err => {
                     alert("Error processing images: " + err.message);
                 });
