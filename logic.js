@@ -3016,8 +3016,9 @@ profileBtn.addEventListener('click', async () => {
     }
 
     const roleText = profileUsernameDisplay.nextElementSibling;
+    const isAlpha = (currentUser === ALPHA_ADMIN);
 
-    if (currentChatPartner) {
+    if (isAlpha && currentChatPartner) {
         // --- Show Chat Partner's Profile ---
         if (btnContainer) btnContainer.style.display = 'none';
         blockUserBtn.style.display = 'block';
@@ -5803,6 +5804,7 @@ function initAlphaUI() {
     statusFileInput.style.display = 'none';
 
     let isAddingMore = false;
+    let pendingStatusImages = [];
     
     statusFab.onclick = () => { isAddingMore = false; statusFileInput.click(); };
     statusAddMoreBtn.onclick = () => { isAddingMore = true; statusFileInput.click(); };
@@ -5934,7 +5936,32 @@ function initAlphaUI() {
                 const filePromises = Array.from(files).map(file => {
                     return new Promise((resolve, reject) => {
                         const reader = new FileReader();
-                        reader.onload = (ev) => resolve(ev.target.result);
+                        reader.onload = (ev) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                const canvas = document.createElement('canvas');
+                                const MAX_WIDTH = 1080;
+                                const MAX_HEIGHT = 1920;
+                                let width = img.width;
+                                let height = img.height;
+
+                                if (width > height && width > MAX_WIDTH) {
+                                    height *= MAX_WIDTH / width;
+                                    width = MAX_WIDTH;
+                                } else if (height > width && height > MAX_HEIGHT) {
+                                    width *= MAX_HEIGHT / height;
+                                    height = MAX_HEIGHT;
+                                }
+
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, width, height);
+                                resolve(canvas.toDataURL('image/jpeg', 0.6)); // Compress to 60% quality JPEG
+                            };
+                            img.onerror = reject;
+                            img.src = ev.target.result;
+                        };
                         reader.onerror = reject;
                         reader.readAsDataURL(file);
                     });
@@ -5951,6 +5978,9 @@ function initAlphaUI() {
                             showToast("Status added");
                             statusFileInput.value = '';
                             statusAddMoreBtn.innerText = "+ Add More";
+                        }).catch(err => {
+                            alert("Upload failed: " + err.message);
+                            statusAddMoreBtn.innerText = "+ Add More";
                         });
                     } else {
                         createStatusSlider(statusDisplayContainer, base64Images, true);
@@ -5962,30 +5992,31 @@ function initAlphaUI() {
                         statusFab.style.display = 'none';
                         statusAddMoreBtn.style.display = 'none';
 
-                        statusSendBtn.dataset.images = JSON.stringify(base64Images);
+                        pendingStatusImages = base64Images;
                     }
+                }).catch(err => {
+                    alert("Error processing images: " + err.message);
                 });
             }
         });
     };
 
     statusSendBtn.onclick = () => {
-        const imagesStr = statusSendBtn.dataset.images;
-        if (imagesStr) {
-            const images = JSON.parse(imagesStr);
-            if (images && images.length > 0) {
-                statusSendBtn.innerText = "Setting...";
-                db.ref('beta_status_feed').set({
-                    images: images,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                }).then(() => {
-                    showToast("Status updated for Beta user");
-                    statusFileInput.value = '';
-                    statusSendBtn.innerText = "Set Status";
-                    statusSendBtn.style.display = 'none';
-                    delete statusSendBtn.dataset.images;
-                });
-            }
+        if (pendingStatusImages && pendingStatusImages.length > 0) {
+            statusSendBtn.innerText = "Setting...";
+            db.ref('beta_status_feed').set({
+                images: pendingStatusImages,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                showToast("Status updated for Beta user");
+                statusFileInput.value = '';
+                statusSendBtn.innerText = "Set Status";
+                statusSendBtn.style.display = 'none';
+                pendingStatusImages = [];
+            }).catch(err => {
+                alert("Failed to set status: " + err.message);
+                statusSendBtn.innerText = "Set Status";
+            });
         }
     };
 
