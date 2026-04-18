@@ -848,6 +848,8 @@ let selectedMsgIds = new Set();
 let isSelectionMode = false;
 let blockedUsersSet = new Set();
 let lastStatusKey = null;
+let callReconnectingTimeout = null;
+let isCallReconnecting = false;
 
 // --- Set Custom Background ---
 body.style.background = "none";
@@ -1925,7 +1927,30 @@ function setupFirebaseListeners() {
             displayLastSeen = otherUserHeartbeat;
         }
         updateStatusUI(isOnline, displayLastSeen, isOtherUserTyping);
-    }, 1000);
+
+        // --- Call Reconnection Logic ---
+        if (isCallConnected) {
+            const reconnectOverlay = document.getElementById('callReconnectingOverlay');
+            if (!isOnline && !isCallReconnecting) {
+                isCallReconnecting = true;
+                if (reconnectOverlay) reconnectOverlay.style.display = 'flex';
+                
+                callReconnectingTimeout = setTimeout(() => {
+                    if (isCallReconnecting) {
+                        showToast("Connection lost. Call ended.");
+                        endCall(true);
+                    }
+                }, 15000); // 3 seconds tolerance
+            } else if (isOnline && isCallReconnecting) {
+                isCallReconnecting = false;
+                if (reconnectOverlay) reconnectOverlay.style.display = 'none';
+                if (callReconnectingTimeout) {
+                    clearTimeout(callReconnectingTimeout);
+                    callReconnectingTimeout = null;
+                }
+            }
+        }
+    }, 15000);
 
     // 5. Typing Listener
     db.ref('typing').on('value', snapshot => {
@@ -3877,6 +3902,15 @@ function endCall(remoteEnded = false) {
         clearTimeout(ringingTimeout);
         ringingTimeout = null;
     }
+
+    // Clear Reconnecting State
+    isCallReconnecting = false;
+    if (callReconnectingTimeout) {
+        clearTimeout(callReconnectingTimeout);
+        callReconnectingTimeout = null;
+    }
+    const reconnectOverlay = document.getElementById('callReconnectingOverlay');
+    if (reconnectOverlay) reconnectOverlay.style.display = 'none';
 
     // Send Missed Call Message if I am caller, call wasn't connected, and it wasn't rejected remotely
     if (amICaller && !isCallConnected && !remoteEnded) {

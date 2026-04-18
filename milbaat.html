@@ -1019,6 +1019,15 @@
             40% { transform: scale(1); }
         }
         
+        /* Call Reconnecting Dots */
+        .connecting-dots span {
+            animation: blinkDots 1.4s infinite both;
+            font-size: inherit;
+        }
+        .connecting-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .connecting-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blinkDots { 0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; } }
+
         @keyframes fadeText {
             0%, 100% { opacity: 0.4; }
             50% { opacity: 1; }
@@ -1287,6 +1296,14 @@
             <div class="profile-pic" style="width: 150px; height: 150px; border: 4px solid rgba(255,255,255,0.2); margin-bottom: 20px;">
                 <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
             </div>
+        </div>
+
+        <!-- Reconnecting Overlay -->
+        <div id="callReconnectingOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(26, 26, 46, 0.95); z-index: 15; display: none; flex-direction: column; align-items: center; justify-content: center; color: #00d2ff; backdrop-filter: blur(10px);">
+            <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px;">
+                Connecting<span class="connecting-dots"><span>.</span><span>.</span><span>.</span></span>
+            </div>
+            <div style="font-size: 1rem; color: rgba(255,255,255,0.7);">Waiting for user to reconnect</div>
         </div>
 
         <!-- Call Info (Timer & Status) -->
