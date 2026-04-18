@@ -5761,15 +5761,16 @@ function initAlphaUI() {
     alphaHomeHeader.style.cssText = `
         width: 100%; height: 65px;
         display: flex; align-items: center; justify-content: space-between; padding: 0 15px;
-        background: var(--alpha-header-bg, #1E293B);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05); z-index: 1000; box-sizing: border-box;
+        background: var(--alpha-header-bg,#0F172A);
+        border-bottom: 2px solid rgba(24, 132, 210, 0.934); z-index: 1000; box-sizing: border-box;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); color: var(--alpha-text, white); flex-shrink: 0;
+        
     `;
 
     const titleText = document.createElement('div');
     titleText.innerText = 'Mil Baat';
     titleText.style.cssText = `
-        font-size: 1.6rem; font-weight: bold; letter-spacing: 1px; color: var(--alpha-text, white); text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        font-size: 1.6rem; font-weight: bold; letter-spacing: 1px; color: var(--alpha-text, #176bf2); text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     `;
     alphaHomeHeader.appendChild(titleText);
 
@@ -5780,14 +5781,14 @@ function initAlphaUI() {
         themeToggleBtn.click();
         const isLight = document.body.classList.contains('light-mode');
         themeToggle.innerHTML = isLight ? '◐' : '◑';
-            dashboard.style.setProperty('--alpha-bg', isLight ? '#ffffff' : '#0F172A');
-        dashboard.style.setProperty('--alpha-header-bg', isLight ? '#ffffff' : '#1E293B');
-            dashboard.style.setProperty('--alpha-text', isLight ? '#000000' : '#ffffff');
+        dashboard.style.setProperty('--alpha-bg', isLight ? '#ffffff' : '#0F172A');
+        dashboard.style.setProperty('--alpha-header-bg', isLight ? '#ffffff' : '#0F172A');
+        dashboard.style.setProperty('--alpha-text', isLight ? '#176bf2' : '#176bf2');
         dashboard.style.setProperty('--alpha-card-bg', isLight ? '#ffffff' : '#1E293B');
         dashboard.style.setProperty('--alpha-card-hover', isLight ? '#f0f0f0' : '#283548');
         dashboard.style.setProperty('--alpha-border', isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)');
         const footerNav = document.getElementById('alpha-footer-nav');
-        if (footerNav) footerNav.style.background = isLight ? '#ffffff' : '#1E293B';
+        if (footerNav) footerNav.style.background = isLight ? '#ffffff' : '#0F172A';
     };
     alphaHomeHeader.appendChild(themeToggle);
 
@@ -5802,8 +5803,9 @@ function initAlphaUI() {
     searchInput.type = 'text';
     searchInput.placeholder = 'Search...';
     searchInput.style.cssText = `
-        width: 100%; padding: 10px 15px; border-radius: 20px; border: 1px solid rgba(0,0,0,0.1); outline: none;
-        font-size: 16px; color: #333; background: rgba(255,255,255,0.9); box-sizing: border-box;
+        width: 100%; padding: 10px 15px; border-radius: 18px;  outline: none;
+        font-size: 16px; color: #130707;  box-sizing: border-box;
+        background: #25272b !important; border: 1px solid #3e4248 !important;
     `;
     
     searchInput.addEventListener('input', (e) => {
@@ -6234,9 +6236,10 @@ function initAlphaUI() {
     const footerNav = document.createElement('div');
     footerNav.id = 'alpha-footer-nav';
     footerNav.style.cssText = `
-        position: absolute; bottom: 0; left: 0; width: 100%; height: 70px;
-        background: var(--alpha-header-bg, #1E293B); display: flex; justify-content: space-around; align-items: center;
-        border-top: 1px solid rgba(255,255,255,0.05); z-index: 1000;
+        position: absolute; bottom: 0; left: 0; width: 100%; height: 60px;
+        background: var(--alpha-header-bg, #0F172A); display: flex; justify-content: space-around; align-items: center;
+        border-top: 1px solid rgb(78, 78, 78); z-index: 1000;
+        
     `;
 
     const navItems = [
