@@ -1940,7 +1940,7 @@ function setupFirebaseListeners() {
                         showToast("Connection lost. Call ended.");
                         endCall(true);
                     }
-                }, 15000); // 3 seconds tolerance
+                }, 30000); // 3 seconds tolerance
             } else if (isOnline && isCallReconnecting) {
                 isCallReconnecting = false;
                 if (reconnectOverlay) reconnectOverlay.style.display = 'none';
@@ -1950,7 +1950,7 @@ function setupFirebaseListeners() {
                 }
             }
         }
-    }, 15000);
+    }, 30000);
 
     // 5. Typing Listener
     db.ref('typing').on('value', snapshot => {
