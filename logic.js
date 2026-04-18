@@ -850,6 +850,11 @@ let blockedUsersSet = new Set();
 let lastStatusKey = null;
 let callReconnectingTimeout = null;
 let isCallReconnecting = false;
+let callStartTime = 0;
+let currentCallTarget = null;
+let callStatusLogged = false;
+let callHistoryView = null;
+let alphaCallHistoryData = [];
 
 // --- Set Custom Background ---
 body.style.background = "none";
@@ -3511,6 +3516,9 @@ async function startCall(video, isIncoming = false) {
     isVideoCall = video;
     amICaller = !isIncoming;
     isCallConnected = false;
+    callStartTime = 0;
+    callStatusLogged = false;
+    currentCallTarget = isIncoming ? (incomingSignalData ? incomingSignalData.sender : currentChatPartner) : currentChatPartner;
 
     // Reset local video position
     const localVideo = document.getElementById('callLocalVideo');
@@ -3611,11 +3619,11 @@ async function startCall(video, isIncoming = false) {
         if (!isIncoming) {
             createPeerConnection(true);
             
-            // 10 Seconds Ringing Timeout
+            // 30 Seconds Ringing Timeout (Extended)
             if (ringingTimeout) clearTimeout(ringingTimeout);
             ringingTimeout = setTimeout(() => {
                 endCall(); 
-            }, 10000);
+            }, 30000);
         }
         
         return true;
@@ -3773,6 +3781,8 @@ function handleIncomingSignal(signal) {
         }
 
         incomingSignalData = signal;
+        currentCallTarget = signal.sender;
+        isVideoCall = signal.isVideo;
         
         let displayName = signal.sender;
         if (signal.sender === ALPHA_ADMIN) displayName = "Alpha";
@@ -3912,6 +3922,25 @@ function endCall(remoteEnded = false) {
     const reconnectOverlay = document.getElementById('callReconnectingOverlay');
     if (reconnectOverlay) reconnectOverlay.style.display = 'none';
 
+    // --- Call History Logging ---
+    if (!callStatusLogged && currentCallTarget && currentUser) {
+        callStatusLogged = true;
+        let duration = (isCallConnected && callStartTime > 0) ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
+        let callStatus = isCallConnected ? 'Completed' : 'Missed';
+        if (!isCallConnected && remoteEnded && amICaller) callStatus = 'Rejected';
+        if (!isCallConnected && !remoteEnded && !amICaller) callStatus = 'Rejected';
+        
+        const callRecord = {
+            partner: currentCallTarget,
+            type: amICaller ? 'Outgoing' : 'Incoming',
+            isVideo: isVideoCall,
+            status: callStatus,
+            duration: duration,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        };
+        db.ref(`call_history/${currentUser}`).push(callRecord).catch(e => console.error("Call history err:", e));
+    }
+
     // Send Missed Call Message if I am caller, call wasn't connected, and it wasn't rejected remotely
     if (amICaller && !isCallConnected && !remoteEnded) {
         sendMissedCallMessage(isVideoCall);
@@ -3961,6 +3990,7 @@ function endCall(remoteEnded = false) {
     incomingSignalData = null;
     amICaller = false;
     isCallConnected = false;
+    currentCallTarget = null;
 }
 
 function startCallTimer() {
@@ -3973,6 +4003,7 @@ function startCallTimer() {
 
     let seconds = 0;
     callTimer.innerText = "00:00";
+    callStartTime = Date.now();
     callInterval = setInterval(() => {
         seconds++;
         const m = String(Math.floor(seconds / 60)).padStart(2, '0');
@@ -5833,28 +5864,6 @@ function initAlphaUI() {
 
     // --- Views ---
     
-    // Home View
-    const homeView = document.createElement('div');
-    homeView.id = 'alpha-view-home';
-    homeView.style.cssText = `display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--alpha-text, white); gap: 20px;`;
-    
-    const homeProfilePic = document.createElement('img');
-    homeProfilePic.id = 'alpha-home-profile-pic';
-    homeProfilePic.src = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
-    homeProfilePic.style.cssText = `width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid #0EA5E9; box-shadow: 0 4px 15px rgba(0,0,0,0.5);`;
-    
-    const homeName = document.createElement('div');
-    homeName.innerText = "Alpha";
-    homeName.style.cssText = `font-size: 1.8rem; font-weight: bold; color: #0EA5E9;`;
-    
-    homeView.appendChild(homeProfilePic);
-    homeView.appendChild(homeName);
-    contentArea.appendChild(homeView);
-
-    db.ref(`Profile Pic/Alpha_Profile_Pic`).once('value').then(snap => {
-        if(snap.exists()) homeProfilePic.src = snap.val();
-    });
-
     // Status View
     const statusView = document.createElement('div');
     statusView.id = 'alpha-view-status';
@@ -6198,6 +6207,92 @@ function initAlphaUI() {
     alphaFriendListContainer.style.cssText = `display: none; flex-direction: column; padding: 10px;`;
     contentArea.appendChild(alphaFriendListContainer);
 
+    // Call History View
+    callHistoryView = document.createElement('div');
+    callHistoryView.id = 'alpha-view-call';
+    callHistoryView.style.cssText = `display: none; flex-direction: column; padding: 10px; overflow-y: auto; height: 100%; color: var(--alpha-text, white); background: var(--alpha-bg, #0F172A);`;
+    contentArea.appendChild(callHistoryView);
+
+    // Fetch Call History
+    db.ref(`call_history/${ALPHA_ADMIN}`).on('value', snap => {
+        alphaCallHistoryData = [];
+        snap.forEach(child => {
+            alphaCallHistoryData.push({ id: child.key, ...child.val() });
+        });
+        if (callHistoryView.style.display !== 'none') {
+            renderAlphaCallHistory();
+        }
+    });
+
+    window.renderAlphaCallHistory = function() {
+        if (!callHistoryView) return;
+        callHistoryView.innerHTML = '';
+        if (alphaCallHistoryData.length === 0) {
+            callHistoryView.innerHTML = '<div style="text-align:center; padding: 20px; color: gray;">No call records found.</div>';
+            return;
+        }
+        
+        const sortedHistory = [...alphaCallHistoryData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        
+        sortedHistory.forEach(record => {
+            let durStr = "00:00";
+            if (record.duration > 0) {
+                const m = String(Math.floor(record.duration / 60)).padStart(2, '0');
+                const s = String(record.duration % 60).padStart(2, '0');
+                durStr = `${m}:${s}`;
+            }
+
+            const dateObj = new Date(record.timestamp);
+            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            let dateStr = dateObj.toLocaleDateString();
+            if (new Date().toDateString() === dateObj.toDateString()) dateStr = 'Today';
+
+            const arrow = record.type === 'Incoming' ? (record.status === 'Missed' ? '↙️ (Missed)' : '↙️') : '↗️';
+            const color = (record.status === 'Missed' || record.status === 'Rejected') ? '#ff4757' : '#2ecc71';
+            const callIcon = record.isVideo ? '📹' : '📞';
+
+            const card = document.createElement('div');
+            card.style.cssText = `
+                display: flex; align-items: center; padding: 12px 15px; margin-bottom: 12px;
+                background: var(--alpha-card-bg, #1E293B); border-radius: 16px;
+                border: 1px solid var(--alpha-border, rgba(255, 255, 255, 0.05));
+                box-shadow: 0 4px 6px rgba(0,0,0,0.2); position: relative;
+            `;
+
+            card.innerHTML = `
+                <img id="call-pic-${record.id}" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; margin-right: 15px;">
+                <div style="flex: 1; overflow: hidden; padding-right: 70px;">
+                    <div style="font-size: 1.1rem; font-weight: bold; color: var(--alpha-text, white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="call-name-${record.id}">${record.partner}</div>
+                    <div style="font-size: 0.85rem; color: ${color}; display: flex; align-items: center; gap: 5px;">
+                        <span>${arrow}</span> <span>${record.status}</span> • <span>${durStr}</span>
+                    </div>
+                </div>
+                <div style="position: absolute; right: 15px; top: 12px; display: flex; flex-direction: column; align-items: flex-end;">
+                    <div style="font-size: 1.2rem; color: #0EA5E9; margin-bottom: 5px;">${callIcon}</div>
+                    <div style="font-size: 0.7rem; color: gray; text-align: right; line-height: 1.2;">
+                        ${timeStr}<br>${dateStr}
+                    </div>
+                </div>
+            `;
+            callHistoryView.appendChild(card);
+
+            const fid = record.partner;
+            const nameEl = document.getElementById(`call-name-${record.id}`);
+            const picEl = document.getElementById(`call-pic-${record.id}`);
+            
+            if (fid === BETA_ADMIN) {
+                if (nameEl) nameEl.innerText = "Beta";
+                db.ref('Profile Pic/Beta_Profile_Pic').once('value').then(s => { if(s.exists() && picEl) picEl.src = s.val(); });
+            } else if (fid === ALPHA_ADMIN) {
+                if (nameEl) nameEl.innerText = "Alpha";
+                db.ref('Profile Pic/Alpha_Profile_Pic').once('value').then(s => { if(s.exists() && picEl) picEl.src = s.val(); });
+            } else {
+                db.ref(`Other User Table/${fid}`).once('value').then(s => { if(s.exists() && nameEl) { const u = s.val(); nameEl.innerText = u.name || fid; if (u.profilePic && picEl) picEl.src = u.profilePic; } });
+                db.ref(`Profile Pic/${fid}_Profile_Pic`).once('value').then(s => { if(s.exists() && picEl) picEl.src = s.val(); });
+            }
+        });
+    };
+
     // Menu View
     const menuView = document.createElement('div');
     menuView.id = 'alpha-view-menu';
@@ -6243,9 +6338,9 @@ function initAlphaUI() {
     `;
 
     const navItems = [
-        { id: 'home', icon: '⌂', label: 'Home', view: homeView },
-        { id: 'status', icon: '📷︎', label: 'Status', view: statusView },
         { id: 'message', icon: '🖂', label: 'Message', view: alphaFriendListContainer },
+        { id: 'status', icon: '📷︎', label: 'Status', view: statusView },
+        { id: 'call', icon: '📞', label: 'Call', view: callHistoryView },
         { id: 'menu', icon: '☰', label: 'Menu', view: menuView }
     ];
 
@@ -6276,6 +6371,10 @@ function initAlphaUI() {
             } else {
                 if (alphaAddFriendFab) alphaAddFriendFab.style.display = 'none';
             }
+            
+            if (item.id === 'call') {
+                if (typeof renderAlphaCallHistory === 'function') renderAlphaCallHistory();
+            }
         };
         item.btn = btn;
         footerNav.appendChild(btn);
@@ -6301,6 +6400,14 @@ function initAlphaUI() {
         dashboard.appendChild(alphaAddFriendFab);
     }
     createAlphaFab();
+    
+    // Default to 'message' tab
+    navItems.forEach(n => { n.view.style.display = 'none'; n.btn.style.color = 'gray'; });
+    navItems[0].view.style.display = 'flex';
+    navItems[0].btn.style.color = '#0EA5E9';
+    if (!alphaAddFriendFab) createAlphaFab();
+    alphaAddFriendFab.style.display = 'flex';
+    renderAlphaFriendList();
     
     // Apply initial theme settings if body is already in light mode
     if (document.body.classList.contains('light-mode')) {
