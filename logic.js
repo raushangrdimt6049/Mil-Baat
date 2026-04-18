@@ -1940,7 +1940,7 @@ function setupFirebaseListeners() {
                         showToast("Connection lost. Call ended.");
                         endCall(true);
                     }
-                }, 10000); // 3 seconds tolerance
+                }, 11000); // 3 seconds tolerance
             } else if (isOnline && isCallReconnecting) {
                 isCallReconnecting = false;
                 if (reconnectOverlay) reconnectOverlay.style.display = 'none';
