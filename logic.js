@@ -5618,7 +5618,7 @@ function openBetaStatusModal() {
         const content = modal.querySelector('.modal-content');
         content.innerHTML = `
             <div style="display:flex; gap:10px;">
-                <input type="text" id="friendSearchInput" placeholder="Enter Unique ID" style="flex:1; padding:10px; border-radius:5px; border:none; background:rgba(0,0,0,0.2); color:white;">
+                <input type="text" id="friendSearchInput" placeholder="Enter Unique ID" style="flex:1; padding:10px; border-radius:5px; border:none; background:rgba(29, 23, 23, 0.2); color:white;">
                 <button id="friendSearchBtn" style="padding:10px; border-radius:5px; border:none; background:#0984e3; color:white; cursor:pointer;">Search</button>
             </div>
             <div id="friendSearchResult" style="margin-top:15px;"></div>
@@ -5804,7 +5804,7 @@ function initAlphaUI() {
     searchInput.placeholder = 'Search...';
     searchInput.style.cssText = `
         width: 100%; padding: 10px 15px; border-radius: 18px;  outline: none;
-        font-size: 16px; color: #130707;  box-sizing: border-box;
+        font-size: 16px; color: #a59a9a;  box-sizing: border-box;
         background: #25272b !important; border: 1px solid #3e4248 !important;
     `;
     
