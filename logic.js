@@ -5770,7 +5770,7 @@ function initAlphaUI() {
     const titleText = document.createElement('div');
     titleText.innerText = 'Mil Baat';
     titleText.style.cssText = `
-        font-size: 1.6rem; font-weight: bold; letter-spacing: 1px; color: var(--alpha-text, #176bf2); text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        font-size: 1.6rem; font-weight: bold; letter-spacing: 1px; color: #176bf2; text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     `;
     alphaHomeHeader.appendChild(titleText);
 
@@ -5783,7 +5783,7 @@ function initAlphaUI() {
         themeToggle.innerHTML = isLight ? '◐' : '◑';
         dashboard.style.setProperty('--alpha-bg', isLight ? '#ffffff' : '#0F172A');
         dashboard.style.setProperty('--alpha-header-bg', isLight ? '#ffffff' : '#0F172A');
-        dashboard.style.setProperty('--alpha-text', isLight ? '#176bf2' : '#176bf2');
+        dashboard.style.setProperty('--alpha-text', isLight ? '#080707' : '#e6e9ee');
         dashboard.style.setProperty('--alpha-card-bg', isLight ? '#ffffff' : '#1E293B');
         dashboard.style.setProperty('--alpha-card-hover', isLight ? '#f0f0f0' : '#283548');
         dashboard.style.setProperty('--alpha-border', isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)');
@@ -5805,7 +5805,7 @@ function initAlphaUI() {
     searchInput.style.cssText = `
         width: 100%; padding: 10px 15px; border-radius: 18px;  outline: none;
         font-size: 16px; color: #a59a9a;  box-sizing: border-box;
-        background: #25272b !important; border: 1px solid #3e4248 !important;
+        background: var(--alpha-card-bg, #25272b)  !important; border: 1px solid #3e4248 !important;
     `;
     
     searchInput.addEventListener('input', (e) => {
@@ -6236,7 +6236,7 @@ function initAlphaUI() {
     const footerNav = document.createElement('div');
     footerNav.id = 'alpha-footer-nav';
     footerNav.style.cssText = `
-        position: absolute; bottom: 0; left: 0; width: 100%; height: 70px;
+        position: absolute; bottom: 0; left: 0; width: 100%; height: 67px;
         background: var(--alpha-header-bg, #0F172A); display: flex; justify-content: space-around; align-items: center;
         border-top: 1px solid rgb(78, 78, 78); z-index: 1000;
         
