@@ -6236,7 +6236,7 @@ function initAlphaUI() {
     const footerNav = document.createElement('div');
     footerNav.id = 'alpha-footer-nav';
     footerNav.style.cssText = `
-        position: absolute; bottom: 0; left: 0; width: 100%; height: 60px;
+        position: absolute; bottom: 0; left: 0; width: 100%; height: 70px;
         background: var(--alpha-header-bg, #0F172A); display: flex; justify-content: space-around; align-items: center;
         border-top: 1px solid rgb(78, 78, 78); z-index: 1000;
         
