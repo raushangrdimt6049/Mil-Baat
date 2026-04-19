@@ -111,10 +111,10 @@ const rejectCallBtn = document.getElementById('rejectCallBtn');
 const callPipBtn = document.getElementById('callPipBtn');
 
 // Create Header Logout Button (for Alpha Chat)
-const headerLogoutBtn = document.createElement('img');
+const headerLogoutBtn = document.createElement('div');
 headerLogoutBtn.id = 'headerLogoutBtn';
-headerLogoutBtn.src = 'Logout Icon.png';
-headerLogoutBtn.style.cssText = 'width: 35px; height: 35px; cursor: pointer; display: none;';
+headerLogoutBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 24px; height: 24px; display: block; margin: auto;"><path d="M20 11H8.8l4.9-4.9L12.3 4.7 5 12l7.3 7.3 1.4-1.4-4.9-4.9H20z"/></svg>';
+headerLogoutBtn.style.cssText = 'width: 35px; height: 35px; cursor: pointer; display: none; align-items: center; justify-content: center; margin-right: 5px;';
 headerLogoutBtn.onclick = () => {
     if (typeof showAlphaHomeScreen === 'function') showAlphaHomeScreen();
 };
@@ -136,9 +136,17 @@ headerLogoutBtn.onclick = () => {
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); color: white;
     `;
 
+    // Left Side Wrapper
+    const headerLeftSide = document.createElement('div');
+    headerLeftSide.style.cssText = 'display: flex; align-items: center; flex: 1; overflow: hidden;';
+    
+    if (headerLogoutBtn) {
+        headerLeftSide.appendChild(headerLogoutBtn);
+    }
+
     // Left Container (Logo & Status)
     const leftContainer = document.createElement('div');
-    leftContainer.style.cssText = 'display: flex; flex-direction: column; justify-content: center; align-items: flex-start; margin-left: 5px; flex: 1; overflow: hidden;';
+    leftContainer.style.cssText = 'display: flex; flex-direction: column; justify-content: center; align-items: flex-start; overflow: hidden;';
     if (logoDisplay) {
         logoDisplay.style.margin = '0';
         logoDisplay.style.lineHeight = '1.2';
@@ -151,19 +159,26 @@ headerLogoutBtn.onclick = () => {
         leftContainer.appendChild(lastSeenDisplay);
     }
     if (userStatusIndicator) leftContainer.appendChild(userStatusIndicator);
-    header.appendChild(leftContainer);
+    
+    headerLeftSide.appendChild(leftContainer);
+    header.appendChild(headerLeftSide);
 
     // Right Container (Icons)
     const rightContainer = document.createElement('div');
     rightContainer.style.cssText = 'display: flex; align-items: center; gap: 5px; margin-left: 5px;';
     
-    [videoCallBtn, audioCallBtn, headerLogoutBtn, menuIconBtn].forEach(btn => {
+    if (menuIconBtn) {
+        menuIconBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 32px; height: 28px; display: block; margin: auto; transition: transform 0.3s ease;"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
+        
+    }
+
+    [videoCallBtn, audioCallBtn, menuIconBtn].forEach(btn => {
         if (btn) {
             btn.style.margin = '0';
             btn.style.border = 'none';
             btn.style.background = 'transparent';
             btn.style.width = '35px';
-            btn.style.height = '35px';
+            btn.style.height = '30px';
             btn.style.padding = '0';
             const img = btn.querySelector('img');
             if (img) img.style.cssText = 'width: 100%; height: 100%; object-fit: contain; pointer-events: none;';
@@ -207,8 +222,8 @@ headerLogoutBtn.onclick = () => {
                 // Emoji Button
                 const emojiBtn = document.createElement('button');
                 emojiBtn.id = 'emojiBtn';
-                emojiBtn.innerHTML = '😀';
-                emojiBtn.style.cssText = 'background: transparent; border: none; padding: 0 8px; cursor: pointer; font-size: 1.2rem; margin-right: 0px; line-height: 1; filter: grayscale(0.2); transition: transform 0.2s;';
+                emojiBtn.innerHTML = '<svg viewBox="0 0 24 24" style="width: 26px; height: 26px;"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="15" cy="10" r="1.2" fill="currentColor"/><path d="M8.5 14c1.2 1.5 5.8 1.5 7 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+                emojiBtn.style.cssText = 'background: transparent; border: none; padding: 0 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.7); transition: transform 0.2s;';
                 emojiBtn.onmouseover = () => emojiBtn.style.transform = 'scale(1.1)';
                 emojiBtn.onmouseout = () => emojiBtn.style.transform = 'scale(1)';
                 
@@ -266,13 +281,23 @@ headerLogoutBtn.onclick = () => {
             }
 
             // Style & Move Attach/Camera Icons inside wrapper
+            if (attachBtn) {
+                attachBtn.innerHTML = '<svg viewBox="0 0 24 24" style="width: 22px; height: 22px;"><path d="M7 2.8h7l4.2 4.2V20a1.6 1.6 0 0 1-1.6 1.6H7.8A1.6 1.6 0 0 1 6.2 20V4.4A1.6 1.6 0 0 1 7.8 2.8z" fill="transparent" stroke="currentColor" stroke-width="1.5"/><path d="M14 2.8V8h4.2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="9" y1="12" x2="15" y2="12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="9" y1="15" x2="15" y2="15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="9" y1="18" x2="13.5" y2="18" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+            }
+            if (cameraBtn) {
+                cameraBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 24px; height: 24px;"><path d="M20 5h-3.2l-1.8-2H9L7.2 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-8 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg>';
+            }
+
             [attachBtn, cameraBtn].forEach(btn => {
                 if (btn) {
                     btn.style.background = 'transparent';
                     btn.style.border = 'none';
                     btn.style.padding = '8px';
                     btn.style.cursor = 'pointer';
-                    btn.style.fontSize = '1.2rem';
+                    btn.style.color = 'rgba(255, 255, 255, 0.7)';
+                    btn.style.display = 'flex';
+                    btn.style.alignItems = 'center';
+                    btn.style.justifyContent = 'center';
                     inputWrapper.appendChild(btn);
                 }
             });
@@ -283,13 +308,13 @@ headerLogoutBtn.onclick = () => {
             const actionBtnStyle = `width: 45px; height: 45px; border-radius: 50%; background: transparent; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; padding: 0;`;
             
             if (micBtn) {
-                micBtn.style.cssText = actionBtnStyle;
-                micBtn.innerHTML = '<img src="Voice Icon.png" style="width: 100%; height: 100%; object-fit: contain;">';
+                micBtn.style.cssText = actionBtnStyle + ' color: white;';
+                micBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 24px; height: 30px;"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5V7.5A3.5 3.5 0 0 0 12 4a3.5 3.5 0 0 0-3.5 3.5v4A3.5 3.5 0 0 0 12 15z"/><path d="M18 11.5a6 6 0 0 1-12 0h-2a8 8 0 0 0 7 7.9V22h2v-2.6a8 8 0 0 0 7-7.9z"/></svg>';
                 chatInputBar.appendChild(micBtn);
             }
             if (sendMsgBtn) {
                 sendMsgBtn.style.cssText = actionBtnStyle + ' display: none;'; // Hidden initially
-                sendMsgBtn.innerHTML = '<img src="Send Icon.png" style="width: 100%; height: 100%; object-fit: contain;">';
+                sendMsgBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 24px; height: 30px; object-fit: contain;> <path d="M3 20L21 12L3 4L3.01 10L16 12L3.01 14L3 20Z"/></svg>';
                 chatInputBar.appendChild(sendMsgBtn);
             }
         }
@@ -6363,10 +6388,10 @@ function initAlphaUI() {
     `;
 
     const navItems = [
-        { id: 'message', icon: '🖂', label: 'Message', view: alphaFriendListContainer },
-        { id: 'status', icon: '📷︎', label: 'Status', view: statusView },
-        { id: 'call', icon: '📞', label: 'Call', view: callHistoryView },
-        { id: 'menu', icon: '☰', label: 'Menu', view: menuView }
+        { id: 'message', icon: '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 100%; height: 100%;"><path d="M20 3H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h3v3l4-3h9c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>', label: 'Message', view: alphaFriendListContainer },
+        { id: 'status', icon: '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 100%; height: 100%;"><path d="M20 5h-3.2l-1.8-2H9L7.2 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-8 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg>', label: 'Status', view: statusView },
+        { id: 'call', icon: '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 100%; height: 100%;"><path d="M6.6 10.8c1.6 3.1 3.5 5 6.6 6.6l2.2-2.2c.3-.3.8-.4 1.2-.3 1 .3 2 .4 3 .4.7 0 1.2.5 1.2 1.2V21c0 .7-.5 1.2-1.2 1.2C10.4 22.2 1.8 13.6 1.8 3.2 1.8 2.5 2.3 2 3 2h4.5c.7 0 1.2.5 1.2 1.2 0 1 .1 2 .4 3 .1.4 0 .9-.3 1.2l-2.2 2.4z"/></svg>', label: 'Call', view: callHistoryView },
+        { id: 'menu', icon: '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 100%; height: 100%;"><rect x="5" y="6" width="14" height="2" rx="1"></rect><rect x="5" y="11" width="14" height="2" rx="1"></rect><rect x="5" y="16" width="14" height="2" rx="1"></rect></svg>', label: 'Menu', view: menuView }
     ];
 
     navItems.forEach((item, index) => {
@@ -6377,7 +6402,7 @@ function initAlphaUI() {
             transition: color 0.2s;
         `;
         btn.innerHTML = `
-            <div style="font-size: 1.5rem; margin-bottom: 2px;">${item.icon}</div>
+            <div style="width: 26px; height: 26px; margin-bottom: 2px; display: flex; align-items: center; justify-content: center;">${item.icon}</div>
             <div style="font-size: 0.75rem; font-weight: bold;">${item.label}</div>
         `;
         
@@ -6730,7 +6755,7 @@ function openAlphaChat(friendId, friendName) {
         logoDisplay.innerHTML = friendName;
     }
     
-    if (headerLogoutBtn) headerLogoutBtn.style.display = 'block';
+    if (headerLogoutBtn) headerLogoutBtn.style.display = 'flex';
 
     if (currentUser === ALPHA_ADMIN) {
         db.ref(`status/Raushan_Home`).update({
