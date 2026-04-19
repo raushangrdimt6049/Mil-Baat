@@ -40,6 +40,7 @@ const headerTypingIndicator = document.getElementById('headerTypingIndicator');
 const lastSeenDisplay = document.getElementById('lastSeenDisplay');
 const typingIndicator = document.getElementById('typingIndicator');
 const clearChatBtn = document.getElementById('clearChatBtn');
+const exportChatBtn = document.getElementById('exportChatBtn');
 const deleteMsgModal = document.getElementById('delete-msg-modal');
 const confirmDeleteMsg = document.getElementById('confirmDeleteMsg');
 const cancelDeleteMsg = document.getElementById('cancelDeleteMsg');
@@ -2704,7 +2705,7 @@ menuIconBtn.addEventListener('click', (e) => {
         const order = [
             'profileBtn', 'themeToggleBtn', 'alphaStatusBtn', 'menuBackToBetaBtn', 
             'menuPendingBtn', 'menuAddFriendBtn', 'menuFriendsBtn', 
-            'clearChatBtn', 'changePassBtn', 'changeFontBtn', 'logoutBtn'
+            'clearChatBtn', 'exportChatBtn', 'changePassBtn', 'changeFontBtn', 'logoutBtn'
         ];
 
         order.forEach(id => {
@@ -2713,13 +2714,15 @@ menuIconBtn.addEventListener('click', (e) => {
                 // Determine Visibility
                 let isVisible = true;
                 if (isAlpha) {
-                    // Alpha: Only Profile & Clear Chat
-                    if (id !== 'profileBtn' && id !== 'clearChatBtn') isVisible = false;
+                    // Alpha: Only Profile, Clear Chat & Export Chat
+                    if (id !== 'profileBtn' && id !== 'clearChatBtn' && id !== 'exportChatBtn') isVisible = false;
+                    if (id === 'exportChatBtn' && !currentChatPartner) isVisible = false; // Only show in chat
                 } else {
                     if (id === 'menuBackToBetaBtn') isVisible = false;
                     else if (id === 'alphaStatusBtn') isVisible = isBeta;
                     else if (id === 'menuAddFriendBtn' || id === 'menuFriendsBtn') isVisible = false;
                     else if (id === 'menuPendingBtn') isVisible = (!isBeta);
+                    else if (id === 'exportChatBtn') isVisible = false; // Hidden for non-Alpha
                 }
 
                 el.style.display = isVisible ? (id === 'menuPendingBtn' ? 'flex' : 'block') : 'none';
@@ -2833,6 +2836,165 @@ cancelClearChat.addEventListener('click', () => {
     clearChatModal.style.display = 'none';
     mainContent.classList.remove('blur-content');
 });
+
+// --- Export Chat to PDF Logic ---
+async function getBase64ImageFromUrl(imageUrl) {
+    if (!imageUrl) return null;
+    if (imageUrl.startsWith('data:image')) return imageUrl;
+    try {
+        const res = await fetch(imageUrl, { mode: 'cors' });
+        const blob = await res.blob();
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+        });
+    } catch(e) {
+        console.warn("Failed to fetch image for PDF:", e);
+        return null; // Silent fail keeps the PDF generation running without image
+    }
+}
+
+if (exportChatBtn) {
+    exportChatBtn.addEventListener('click', async () => {
+        menuOptions.style.display = 'none';
+        menuIconBtn.classList.remove('rotate');
+
+        if (!currentChatPartner || currentChatHistory.length === 0) {
+            showToast("No chat history to export.");
+            return;
+        }
+
+        showToast("Generating PDF... Please wait.");
+        
+        try {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+
+            let partnerName = currentChatPartner;
+            if (currentChatPartner === BETA_ADMIN) partnerName = "Beta";
+            else {
+                const uSnap = await db.ref(`Other User Table/${currentChatPartner}`).once('value');
+                if (uSnap.exists() && uSnap.val().name) partnerName = uSnap.val().name;
+            }
+
+            let alphaPicUrl = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+            let partnerPicUrl = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+            
+            const aSnap = await db.ref(`Profile Pic/Alpha_Profile_Pic`).once('value');
+            if (aSnap.exists()) alphaPicUrl = aSnap.val();
+            
+            const pSnap = await db.ref(`Profile Pic/${getUserRole(currentChatPartner)}_Profile_Pic`).once('value');
+            if (pSnap.exists()) partnerPicUrl = pSnap.val();
+
+            const alphaPicBase64 = await getBase64ImageFromUrl(alphaPicUrl);
+            const partnerPicBase64 = await getBase64ImageFromUrl(partnerPicUrl);
+
+            function drawBackgroundAndHeader() {
+                // Background
+                doc.setFillColor(252, 252, 252);
+                doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+                // Border
+                doc.setDrawColor(44, 62, 80);
+                doc.setLineWidth(2);
+                doc.rect(20, 20, pageWidth - 40, pageHeight - 40);
+
+                // Watermark
+                doc.setTextColor(230, 230, 230);
+                doc.setFontSize(45);
+                doc.setFont("helvetica", "bold");
+                doc.text(`Alpha - ${partnerName} Chatting`, pageWidth / 2, pageHeight / 2, { angle: 45, align: "center" });
+
+                // Header Images
+                if (alphaPicBase64) {
+                    try { doc.addImage(alphaPicBase64, 30, 30, 40, 40); } catch(e){}
+                }
+                if (partnerPicBase64) {
+                    try { doc.addImage(partnerPicBase64, pageWidth - 70, 30, 40, 40); } catch(e){}
+                }
+
+                // Header Text
+                doc.setTextColor(44, 62, 80);
+                doc.setFontSize(16);
+                doc.text(`Alpha - ${partnerName} Chat History`, pageWidth / 2, 55, { align: "center" });
+                
+                // Divider line
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(1);
+                doc.line(30, 85, pageWidth - 30, 85);
+            }
+
+            let y = 110;
+            drawBackgroundAndHeader();
+
+            let lastDate = "";
+
+            for (let i = 0; i < currentChatHistory.length; i++) {
+                const msg = currentChatHistory[i];
+                
+                let msgDateObj = msg.rawDate ? new Date(msg.rawDate) : new Date();
+                const dateString = getFormattedDate(msgDateObj);
+                
+                if (dateString !== lastDate) {
+                    if (y > pageHeight - 60) { doc.addPage(); drawBackgroundAndHeader(); y = 110; }
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(10);
+                    doc.setTextColor(120, 120, 120);
+                    doc.text(`--- ${dateString} ---`, pageWidth / 2, y, { align: "center" });
+                    y += 20;
+                    lastDate = dateString;
+                }
+
+                if (y > pageHeight - 60) { doc.addPage(); drawBackgroundAndHeader(); y = 110; }
+
+                const isAlpha = msg.sender === currentUser;
+                const senderName = isAlpha ? "Alpha" : partnerName;
+                
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(10);
+                if (isAlpha) doc.setTextColor(41, 128, 185); // Blue for Alpha
+                else doc.setTextColor(39, 174, 96); // Green for Partner
+                
+                let timeStr = msg.timestamp || "";
+                if (timeStr.includes(' ')) timeStr = timeStr.split(' ').slice(1).join(' ');
+
+                doc.text(`${senderName} [${timeStr}]:`, 40, y);
+                y += 14;
+
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(60, 60, 60);
+                
+                let textContent = msg.text || "";
+                if (msg.image) textContent += " [Image Attached]";
+                if (msg.video) textContent += " [Video Attached]";
+                if (msg.audio) textContent += " [Audio Attached]";
+                if (msg.file) textContent += ` [File: ${msg.file.name}]`;
+                
+                const lines = doc.splitTextToSize(textContent, pageWidth - 80);
+                
+                for (let j = 0; j < lines.length; j++) {
+                    if (y > pageHeight - 50) {
+                        doc.addPage();
+                        drawBackgroundAndHeader();
+                        y = 110;
+                    }
+                    doc.text(lines[j], 40, y);
+                    y += 14;
+                }
+                y += 8; // Spacer between messages
+            }
+
+            doc.save(`ChatHistory_Alpha_${partnerName}.pdf`);
+            showToast("Chat exported successfully!");
+        } catch (err) {
+            console.error("PDF Generation Error:", err);
+            showToast("Failed to generate PDF. Check console.");
+        }
+    });
+}
 
 // --- Message Options & Pinning Logic ---
 
