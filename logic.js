@@ -313,8 +313,8 @@ headerLogoutBtn.onclick = () => {
                 chatInputBar.appendChild(micBtn);
             }
             if (sendMsgBtn) {
-                sendMsgBtn.style.cssText = actionBtnStyle + ' display: none;'; // Hidden initially
-                sendMsgBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 24px; height: 30px; object-fit: contain;> <path d="M3 20L21 12L3 4L3.01 10L16 12L3.01 14L3 20Z"/></svg>';
+                sendMsgBtn.style.cssText = actionBtnStyle + ' display: none; background: #168946 !important; color: white !important; '; // Hidden initially
+                sendMsgBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 20px; height: 20px; margin-left: 2px;"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
                 chatInputBar.appendChild(sendMsgBtn);
             }
         }
@@ -2203,7 +2203,14 @@ function renderChat(history) {
             const escapedText = msg.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             // Linkify URLs
             const linkedText = escapedText.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #00a8ff; text-decoration: underline;">$1</a>');
-            textSpan.innerHTML = linkedText;
+            
+            // Replace Missed Call emojis with SVGs
+            const videoSvgText = '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 5px; margin-bottom: 2px;"><path d="M17 10.5V7c0-1.1-.9-2-2-2H5C3.9 5 3 5.9 3 7v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-3.5l4 4v-11l-4 4z"/></svg>';
+            const audioSvgText = '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 5px; margin-bottom: 2px;"><path d="M6.6 10.8c1.6 3.1 3.5 5 6.6 6.6l2.2-2.2c.3-.3.8-.4 1.2-.3 1 .3 2 .4 3 .4.7 0 1.2.5 1.2 1.2V21c0 .7-.5 1.2-1.2 1.2C10.4 22.2 1.8 13.6 1.8 3.2 1.8 2.5 2.3 2 3 2h4.5c.7 0 1.2.5 1.2 1.2 0 1 .1 2 .4 3 .1.4 0 .9-.3 1.2l-2.2 2.4z"/></svg>';
+            
+            const finalText = linkedText.replace('📹', videoSvgText).replace('📞', audioSvgText);
+            
+            textSpan.innerHTML = finalText;
             msgDiv.appendChild(textSpan);
         }
 
@@ -6299,7 +6306,10 @@ function initAlphaUI() {
 
             const arrow = record.type === 'Incoming' ? (record.status === 'Missed' ? '↙️ (Missed)' : '↙️') : '↗️';
             const color = (record.status === 'Missed' || record.status === 'Rejected') ? '#ff4757' : '#2ecc71';
-            const callIcon = record.isVideo ? '📹' : '📞';
+            
+            const videoSvg = '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 20px; height: 20px;"><path d="M17 10.5V7c0-1.1-.9-2-2-2H5C3.9 5 3 5.9 3 7v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-3.5l4 4v-11l-4 4z"/></svg>';
+            const audioSvg = '<svg viewBox="0 0 24 24" fill="currentColor" style="width: 20px; height: 20px;"><path d="M6.6 10.8c1.6 3.1 3.5 5 6.6 6.6l2.2-2.2c.3-.3.8-.4 1.2-.3 1 .3 2 .4 3 .4.7 0 1.2.5 1.2 1.2V21c0 .7-.5 1.2-1.2 1.2C10.4 22.2 1.8 13.6 1.8 3.2 1.8 2.5 2.3 2 3 2h4.5c.7 0 1.2.5 1.2 1.2 0 1 .1 2 .4 3 .1.4 0 .9-.3 1.2l-2.2 2.4z"/></svg>';
+            const callIcon = record.isVideo ? videoSvg : audioSvg;
 
             const card = document.createElement('div');
             card.style.cssText = `
@@ -6318,7 +6328,7 @@ function initAlphaUI() {
                     </div>
                 </div>
                 <div style="position: absolute; right: 15px; top: 12px; display: flex; flex-direction: column; align-items: flex-end;">
-                    <div style="font-size: 1.2rem; color: #0EA5E9; margin-bottom: 5px;">${callIcon}</div>
+                    <div style="color: #0EA5E9; margin-bottom: 5px; display: flex; align-items: center; justify-content: center;">${callIcon}</div>
                     <div style="font-size: 0.7rem; color: gray; text-align: right; line-height: 1.2;">
                         ${timeStr}<br>${dateStr}
                     </div>
