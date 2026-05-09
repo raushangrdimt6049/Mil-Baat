@@ -1,0 +1,6 @@
+# Dependencies
+node_modules/
+
+# Sensitive and auto-generated files
+.env
+Userdetails.js
