@@ -1,12 +1,10 @@
 {
-  "name": "mil-baat-app",
+  "name": "milbaat-chat",
   "version": "1.0.0",
-  "description": "Mil Baat Chat Application",
+  "description": "Mil Baat Chat App",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node generate-config.js && node server.js"
   },
-  "engines": {
-    "node": ">=14.0.0"
-  }
+  "dependencies": {}
 }

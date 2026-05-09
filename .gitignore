@@ -1,3 +1,6 @@
-.env
-__pycache__/
 node_modules/
+.env
+Userdetails.js
+.DS_Store
+*.log
+.vscode/
